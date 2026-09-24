@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>AnswerChain</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+</head>
+
+<body>
+
+    <div class="container">
+
+        <header class="header">
+
+            <h1>AnswerChain</h1>
+
+            <p>
+                Blockchain-Based Answer Script Verification
+            </p>
+
+        </header>
+
+
+        <main>
+
+            <!-- Upload Section -->
+
+            <section class="card">
+
+                <h2>Upload Answer Script</h2>
+
+                <p class="description">
+                    Upload an answer script to generate its
+                    SHA-256 hash and register it on the blockchain.
+                </p>
+
+
+                <label for="fileInput">
+                    Select Answer Script
+                </label>
+
+
+                <input
+                    type="file"
+                    id="fileInput"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                >
+
+
+                <button id="uploadButton">
+
+                    Register Answer Script
+
+                </button>
+
+
+                <div
+                    id="status"
+                    class="status"
+                ></div>
+
+            </section>
+
+
+            <!-- Blockchain Result -->
+
+            <section
+                id="resultCard"
+                class="card result-card hidden"
+            >
+
+                <h2>Blockchain Record</h2>
+
+
+                <div class="result-item">
+
+                    <span class="label">
+                        File Name
+                    </span>
+
+                    <span
+                        id="fileName"
+                        class="value"
+                    >
+                        -
+                    </span>
+
+                </div>
+
+
+                <div class="result-item">
+
+                    <span class="label">
+                        SHA-256 File Hash
+                    </span>
+
+                    <div
+                        id="fileHash"
+                        class="hash"
+                    >
+                        -
+                    </div>
+
+                </div>
+
+
+                <div class="result-item">
+
+                    <span class="label">
+                        Block Number
+                    </span>
+
+                    <span
+                        id="blockNumber"
+                        class="value"
+                    >
+                        -
+                    </span>
+
+                </div>
+
+
+                <div class="result-item">
+
+                    <span class="label">
+                        Previous Block Hash
+                    </span>
+
+                    <div
+                        id="previousHash"
+                        class="hash"
+                    >
+                        -
+                    </div>
+
+                </div>
+
+
+                <div class="result-item">
+
+                    <span class="label">
+                        Block Hash
+                    </span>
+
+                    <div
+                        id="blockHash"
+                        class="hash"
+                    >
+                        -
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Blockchain Viewer -->
+
+            <section class="card">
+
+                <div class="section-header">
+
+                    <h2>Blockchain</h2>
+
+                    <button
+                        id="refreshButton"
+                        class="secondary-button"
+                    >
+                        Refresh
+                    </button>
+
+                </div>
+
+
+                <div id="blockchainContainer">
+
+                    <p class="empty">
+                        No blocks loaded yet.
+                    </p>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>
