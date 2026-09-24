@@ -108,3 +108,26 @@ class Blockchain:
             })
 
         return result
+
+    def verify_file(self, file_hash):
+
+        for block in self.chain:
+
+            if block.file_hash == file_hash:
+
+                return {
+                    "verified": True,
+                    "block": {
+                        "index": block.index,
+                        "timestamp": block.timestamp,
+                        "file_name": block.file_name,
+                        "file_hash": block.file_hash,
+                        "previous_hash": block.previous_hash,
+                        "hash": block.hash
+                    }
+                }
+
+        return {
+            "verified": False,
+            "block": None
+        }

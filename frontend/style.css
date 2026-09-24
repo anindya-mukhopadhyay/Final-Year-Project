@@ -259,6 +259,36 @@ button:hover {
     padding: 20px;
 }
 
+.verify-status {
+    margin-top: 18px;
+
+    font-weight: bold;
+
+    min-height: 22px;
+}
+
+.verification-result {
+    margin-top: 25px;
+
+    padding: 20px;
+
+    border-radius: 10px;
+
+    background: #f9fafb;
+
+    border: 1px solid #e5e7eb;
+}
+
+.verification-result h3 {
+    margin-top: 0;
+
+    margin-bottom: 20px;
+}
+
+.verification-result p {
+    margin-top: 15px;
+}
+
 
 .hidden {
     display: none;

@@ -136,6 +136,81 @@ def upload_file():
 
 
 # --------------------------------
+# Verify answer script
+# --------------------------------
+
+@app.route(
+    "/verify",
+    methods=["POST"]
+)
+def verify_answer_script():
+
+    if "file" not in request.files:
+
+        return jsonify({
+            "error": "No file uploaded."
+        }), 400
+
+
+    file = request.files["file"]
+
+
+    if file.filename == "":
+
+        return jsonify({
+            "error": "No file selected."
+        }), 400
+
+
+    file_content = file.read()
+
+    file_hash = hashlib.sha256(
+        file_content
+    ).hexdigest()
+
+    verification = blockchain.verify_file(
+        file_hash
+    )
+
+    if verification["verified"]:
+
+        return jsonify({
+
+            "verified": True,
+
+            "message":
+                "Answer script verified successfully.",
+
+            "file_name":
+                file.filename,
+
+            "file_hash":
+                file_hash,
+
+            "block":
+                verification["block"]
+
+        })
+
+    return jsonify({
+
+        "verified": False,
+
+        "message":
+            "Answer script was not found in the blockchain.",
+
+        "file_name":
+            file.filename,
+
+        "file_hash":
+            file_hash,
+
+        "block": None
+
+    })
+
+
+# --------------------------------
 # Get entire blockchain
 # --------------------------------
 
@@ -156,8 +231,9 @@ def get_blockchain():
 
 if __name__ == "__main__":
 
+    port = int(os.environ.get("PORT", "5000"))
     app.run(
         host="127.0.0.1",
-        port=5000,
+        port=port,
         debug=True
     )

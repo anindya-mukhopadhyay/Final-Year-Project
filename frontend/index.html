@@ -34,6 +34,71 @@
 
         <main>
 
+            <!-- Verify Answer Script -->
+
+            <section class="card">
+
+                <h2>Verify Answer Script</h2>
+
+                <p class="description">
+                    Upload an answer script to check whether
+                    its exact file hash exists on the blockchain.
+                </p>
+
+                <label for="verifyFileInput">
+                    Select Answer Script
+                </label>
+
+                <input
+                    type="file"
+                    id="verifyFileInput"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                >
+
+                <button id="verifyButton">
+                    Verify Answer Script
+                </button>
+
+                <div
+                    id="verifyStatus"
+                    class="verify-status"
+                ></div>
+
+                <div
+                    id="verificationResult"
+                    class="verification-result hidden"
+                >
+
+                    <h3 id="verificationTitle"></h3>
+
+                    <p>
+                        <strong>File:</strong>
+                        <span id="verifyFileName"></span>
+                    </p>
+
+                    <p>
+                        <strong>SHA-256:</strong>
+                    </p>
+
+                    <div
+                        id="verifyFileHash"
+                        class="hash"
+                    ></div>
+
+                    <p>
+                        <strong>Registered Block:</strong>
+                        <span id="verifyBlockNumber"></span>
+                    </p>
+
+                    <p>
+                        <strong>Registered File Name:</strong>
+                        <span id="registeredFileName"></span>
+                    </p>
+
+                </div>
+
+            </section>
+
             <!-- Upload Section -->
 
             <section class="card">
