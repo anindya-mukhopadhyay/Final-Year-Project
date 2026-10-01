@@ -1,1 +1,1 @@
-# AnswerChain backend package
+"""AnswerChain backend package."""

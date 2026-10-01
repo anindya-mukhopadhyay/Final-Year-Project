@@ -8,3 +8,5 @@ __pycache__/
 *.backup
 *.bak
 blockchain_data/*.json
+generated/marksheets/*.pdf
+*.pdf

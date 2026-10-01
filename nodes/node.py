@@ -1,12 +1,13 @@
+import hashlib
+import json
 import os
 import sys
-import json
 import time
-import hashlib
-import requests
 from copy import deepcopy
+from typing import Any, Dict, List, Optional
 
-from flask import Flask, jsonify, request
+import requests
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 
 
@@ -17,15 +18,14 @@ from flask_cors import CORS
 PROJECT_ROOT = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
-        ".."
+        "..",
     )
 )
 
 if PROJECT_ROOT not in sys.path:
-
     sys.path.insert(
         0,
-        PROJECT_ROOT
+        PROJECT_ROOT,
     )
 
 
@@ -33,10 +33,16 @@ if PROJECT_ROOT not in sys.path:
 # BACKEND IMPORTS
 # ============================================================
 
-from backend.marksheet import (
-    generate_marksheet,
+from backend.marksheet import (  # noqa: E402
     calculate_marksheet_hash,
-    verify_marksheet_hash
+    generate_marksheet,
+    verify_marksheet_hash,
+)
+
+from backend.marksheet_pdf import (  # noqa: E402
+    calculate_pdf_hash,
+    generate_marksheet_pdf,
+    verify_pdf_hash,
 )
 
 
@@ -46,29 +52,40 @@ from backend.marksheet import (
 
 NODE_ID = os.environ.get(
     "NODE_ID",
-    "node-1"
+    "node-1",
 )
 
 PORT = int(
     os.environ.get(
         "NODE_PORT",
-        "5001"
+        "5001",
     )
 )
 
 DATA_DIR = os.path.join(
     PROJECT_ROOT,
-    "blockchain_data"
+    "blockchain_data",
+)
+
+GENERATED_MARKSHEETS_DIR = os.path.join(
+    PROJECT_ROOT,
+    "generated",
+    "marksheets",
 )
 
 os.makedirs(
     DATA_DIR,
-    exist_ok=True
+    exist_ok=True,
+)
+
+os.makedirs(
+    GENERATED_MARKSHEETS_DIR,
+    exist_ok=True,
 )
 
 CHAIN_FILE = os.path.join(
     DATA_DIR,
-    f"{NODE_ID}_blockchain.json"
+    f"{NODE_ID}_blockchain.json",
 )
 
 
@@ -76,7 +93,9 @@ CHAIN_FILE = os.path.join(
 # FLASK
 # ============================================================
 
-app = Flask(__name__)
+app = Flask(
+    __name__
+)
 
 CORS(app)
 
@@ -87,94 +106,90 @@ CORS(app)
 
 class NodeBlockchain:
 
-    def __init__(self):
+    def __init__(self) -> None:
 
         self.node_id = NODE_ID
 
-        self.chain = []
+        self.chain: List[
+            Dict[str, Any]
+        ] = []
 
-        self.pending_transactions = []
+        self.pending_transactions: List[
+            Dict[str, Any]
+        ] = []
 
-        self.peers = set()
+        self.peers: set[str] = set()
 
         self.load_chain()
 
         if not self.chain:
-
             self.create_genesis_block()
 
-
     # ========================================================
-    # HASH
+    # HASHING
     # ========================================================
 
+    @staticmethod
     def calculate_hash(
-        self,
-        index,
-        timestamp,
-        data,
-        previous_hash
-    ):
+        index: int,
+        timestamp: float,
+        data: Any,
+        previous_hash: str,
+    ) -> str:
 
         block_string = (
             str(index)
-            + str(timestamp)
-            + json.dumps(
+            +
+            str(timestamp)
+            +
+            json.dumps(
                 data,
-                sort_keys=True
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
             )
-            + str(previous_hash)
+            +
+            str(previous_hash)
         )
 
         return hashlib.sha256(
-            block_string.encode()
+            block_string.encode(
+                "utf-8"
+            )
         ).hexdigest()
-
 
     # ========================================================
     # GENESIS BLOCK
     # ========================================================
 
-    def create_genesis_block(self):
+    def create_genesis_block(
+        self,
+    ) -> None:
 
-        timestamp = time.time()
+        # Every node uses the same deterministic genesis
+        # block so independently started nodes can join
+        # the same blockchain network.
+
+        timestamp = 0.0
 
         data = {
-
-            "type":
-                "GENESIS",
-
-            "node_id":
-                self.node_id
-
+            "type": "GENESIS",
+            "network": "AnswerChain",
+            "version": "1.0",
         }
 
         block = {
-
-            "index":
-                0,
-
-            "timestamp":
-                timestamp,
-
-            "data":
-                data,
-
-            "previous_hash":
-                "0"
-
+            "index": 0,
+            "timestamp": timestamp,
+            "data": data,
+            "previous_hash": "0",
         }
 
         block["hash"] = self.calculate_hash(
-
             block["index"],
-
             block["timestamp"],
-
             block["data"],
-
-            block["previous_hash"]
-
+            block["previous_hash"],
         )
 
         self.chain.append(
@@ -183,36 +198,43 @@ class NodeBlockchain:
 
         self.save_chain()
 
-
     # ========================================================
-    # SAVE BLOCKCHAIN
+    # PERSISTENCE
     # ========================================================
 
-    def save_chain(self):
+    def save_chain(
+        self,
+    ) -> None:
+
+        temporary_file = (
+            f"{CHAIN_FILE}.tmp"
+        )
 
         with open(
-            CHAIN_FILE,
+            temporary_file,
             "w",
-            encoding="utf-8"
+            encoding="utf-8",
         ) as file:
 
             json.dump(
                 self.chain,
                 file,
-                indent=4
+                indent=4,
+                ensure_ascii=False,
             )
 
+        os.replace(
+            temporary_file,
+            CHAIN_FILE,
+        )
 
-    # ========================================================
-    # LOAD BLOCKCHAIN
-    # ========================================================
-
-    def load_chain(self):
+    def load_chain(
+        self,
+    ) -> None:
 
         if not os.path.exists(
             CHAIN_FILE
         ):
-
             return
 
         try:
@@ -220,49 +242,63 @@ class NodeBlockchain:
             with open(
                 CHAIN_FILE,
                 "r",
-                encoding="utf-8"
+                encoding="utf-8",
             ) as file:
 
-                self.chain = json.load(
+                loaded = json.load(
                     file
                 )
 
+            if (
+                isinstance(
+                    loaded,
+                    list,
+                )
+                and loaded
+            ):
+
+                self.chain = loaded
+
+            else:
+
+                self.chain = []
+
         except (
             json.JSONDecodeError,
-            OSError
+            OSError,
         ):
 
             self.chain = []
 
-
     # ========================================================
-    # ADD TRANSACTION
+    # TRANSACTIONS
     # ========================================================
 
     def add_transaction(
         self,
-        data
-    ):
+        data: Dict[str, Any],
+    ) -> Dict[str, Any]:
 
         timestamp = time.time()
 
         transaction_string = (
-
             json.dumps(
                 data,
-                sort_keys=True
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
             )
-
-            + str(timestamp)
-
+            +
+            str(timestamp)
         )
 
         transaction_id = hashlib.sha256(
-            transaction_string.encode()
+            transaction_string.encode(
+                "utf-8"
+            )
         ).hexdigest()
 
         transaction = {
-
             "transaction_id":
                 transaction_id,
 
@@ -270,8 +306,7 @@ class NodeBlockchain:
                 timestamp,
 
             "data":
-                data
-
+                data,
         }
 
         self.pending_transactions.append(
@@ -280,95 +315,156 @@ class NodeBlockchain:
 
         return transaction
 
+    def transaction_exists(
+        self,
+        transaction_type: str,
+        field: str,
+        value: Any,
+    ) -> bool:
 
-    # ========================================================
-    # FIND TRANSACTION
-    # ========================================================
+        return (
+            self.find_transaction(
+                transaction_type,
+                field,
+                value,
+            )
+            is not None
+            or
+            self.find_pending_transaction(
+                transaction_type,
+                field,
+                value,
+            )
+            is not None
+        )
+
+    def find_pending_transaction(
+        self,
+        transaction_type: str,
+        field: str,
+        value: Any,
+    ) -> Optional[
+        Dict[str, Any]
+    ]:
+
+        for transaction in (
+            self.pending_transactions
+        ):
+
+            transaction_data = (
+                transaction.get(
+                    "data",
+                    {},
+                )
+            )
+
+            if (
+                transaction_data.get(
+                    "type"
+                )
+                ==
+                transaction_type
+                and
+                transaction_data.get(
+                    field
+                )
+                ==
+                value
+            ):
+
+                return transaction
+
+        return None
 
     def find_transaction(
         self,
-        transaction_type,
-        field,
-        value
-    ):
+        transaction_type: str,
+        field: str,
+        value: Any,
+    ) -> Optional[
+        Dict[str, Any]
+    ]:
 
         for block in self.chain:
 
             transactions = block.get(
                 "data",
-                []
+                [],
             )
 
             if not isinstance(
                 transactions,
-                list
+                list,
             ):
-
                 continue
 
             for transaction in transactions:
 
-                transaction_data = transaction.get(
-                    "data",
-                    {}
+                transaction_data = (
+                    transaction.get(
+                        "data",
+                        {},
+                    )
                 )
 
                 if (
-
                     transaction_data.get(
                         "type"
                     )
-                    == transaction_type
-
+                    ==
+                    transaction_type
                     and
-
                     transaction_data.get(
                         field
                     )
-                    == value
-
+                    ==
+                    value
                 ):
 
                     return transaction
 
         return None
 
-
-    # ========================================================
-    # FIND ALL TRANSACTIONS
-    # ========================================================
-
     def find_transactions(
         self,
-        transaction_type
-    ):
+        transaction_type: str,
+    ) -> List[
+        Dict[str, Any]
+    ]:
 
-        results = []
+        results: List[
+            Dict[str, Any]
+        ] = []
 
         for block in self.chain:
 
             transactions = block.get(
                 "data",
-                []
+                [],
             )
 
             if not isinstance(
                 transactions,
-                list
+                list,
             ):
-
                 continue
 
             for transaction in transactions:
 
-                transaction_data = transaction.get(
-                    "data",
-                    {}
+                transaction_data = (
+                    transaction.get(
+                        "data",
+                        {},
+                    )
                 )
 
-                if transaction_data.get(
-                    "type"
-                ) == transaction_type:
+                if (
+                    transaction_data.get(
+                        "type"
+                    )
+                    ==
+                    transaction_type
+                ):
 
                     results.append(
                         transaction
@@ -376,27 +472,37 @@ class NodeBlockchain:
 
         return results
 
-
     # ========================================================
-    # ADD BLOCK
+    # BLOCKS
     # ========================================================
 
     def add_block(
         self,
-        transactions
-    ):
+        transactions: List[
+            Dict[str, Any]
+        ],
+    ) -> Dict[str, Any]:
 
-        previous_block = self.chain[-1]
+        if not self.chain:
+            self.create_genesis_block()
+
+        previous_block = (
+            self.chain[-1]
+        )
 
         index = (
-            previous_block["index"]
-            + 1
+            int(
+                previous_block[
+                    "index"
+                ]
+            )
+            +
+            1
         )
 
         timestamp = time.time()
 
         block = {
-
             "index":
                 index,
 
@@ -407,20 +513,16 @@ class NodeBlockchain:
                 transactions,
 
             "previous_hash":
-                previous_block["hash"]
-
+                previous_block[
+                    "hash"
+                ],
         }
 
         block["hash"] = self.calculate_hash(
-
             block["index"],
-
             block["timestamp"],
-
             block["data"],
-
-            block["previous_hash"]
-
+            block["previous_hash"],
         )
 
         self.chain.append(
@@ -433,23 +535,84 @@ class NodeBlockchain:
 
         return block
 
-
-    # ========================================================
-    # VALIDATE BLOCKCHAIN
-    # ========================================================
-
     def is_valid_chain(
         self,
-        chain
-    ):
+        chain: List[
+            Dict[str, Any]
+        ],
+    ) -> bool:
 
         if not chain:
+            return False
+
+        genesis = chain[0]
+
+        if (
+            genesis.get(
+                "index"
+            )
+            !=
+            0
+        ):
+            return False
+
+        if (
+            genesis.get(
+                "previous_hash"
+            )
+            !=
+            "0"
+        ):
+            return False
+
+        required_genesis = (
+            "index",
+            "timestamp",
+            "data",
+            "previous_hash",
+            "hash",
+        )
+
+        if not all(
+            key in genesis
+            for key in required_genesis
+        ):
+            return False
+
+        calculated_genesis_hash = (
+            self.calculate_hash(
+                genesis["index"],
+                genesis["timestamp"],
+                genesis["data"],
+                genesis["previous_hash"],
+            )
+        )
+
+        if (
+            calculated_genesis_hash
+            !=
+            genesis["hash"]
+        ):
+            return False
+
+        if genesis.get(
+            "data"
+        ) != {
+            "type":
+                "GENESIS",
+
+            "network":
+                "AnswerChain",
+
+            "version":
+                "1.0",
+        }:
 
             return False
 
         for index in range(
             1,
-            len(chain)
+            len(chain),
         ):
 
             previous = chain[
@@ -461,72 +624,94 @@ class NodeBlockchain:
             ]
 
             if (
-                current["previous_hash"]
-                != previous["hash"]
+                current.get(
+                    "index"
+                )
+                !=
+                index
             ):
-
                 return False
 
-            calculated_hash = self.calculate_hash(
+            if (
+                current.get(
+                    "previous_hash"
+                )
+                !=
+                previous.get(
+                    "hash"
+                )
+            ):
+                return False
 
-                current["index"],
+            required = (
+                "index",
+                "timestamp",
+                "data",
+                "previous_hash",
+                "hash",
+            )
 
-                current["timestamp"],
+            if not all(
+                key in current
+                for key in required
+            ):
+                return False
 
-                current["data"],
-
-                current["previous_hash"]
-
+            calculated_hash = (
+                self.calculate_hash(
+                    current["index"],
+                    current["timestamp"],
+                    current["data"],
+                    current["previous_hash"],
+                )
             )
 
             if (
                 calculated_hash
-                != current["hash"]
+                !=
+                current["hash"]
             ):
-
                 return False
 
         return True
 
-
-    # ========================================================
-    # REPLACE CHAIN
-    # ========================================================
-
     def replace_chain(
         self,
-        new_chain
-    ):
+        new_chain: List[
+            Dict[str, Any]
+        ],
+    ) -> bool:
 
-        if len(new_chain) <= len(
-            self.chain
+        if (
+            len(new_chain)
+            <=
+            len(self.chain)
         ):
-
             return False
 
         if not self.is_valid_chain(
             new_chain
         ):
-
             return False
 
         self.chain = deepcopy(
             new_chain
         )
 
+        self.pending_transactions = []
+
         self.save_chain()
 
         return True
 
-
     # ========================================================
-    # BROADCAST TRANSACTION
+    # NETWORK BROADCAST
     # ========================================================
 
     def broadcast_transaction(
         self,
-        transaction
-    ):
+        transaction: Dict[str, Any],
+    ) -> None:
 
         for peer in list(
             self.peers
@@ -535,32 +720,21 @@ class NodeBlockchain:
             try:
 
                 requests.post(
-
-                    f"http://{peer}"
-                    "/receive-transaction",
-
+                    f"http://{peer}/receive-transaction",
                     json={
                         "transaction":
                             transaction
                     },
-
-                    timeout=2
-
+                    timeout=2,
                 )
 
             except requests.RequestException:
-
                 pass
-
-
-    # ========================================================
-    # BROADCAST BLOCK
-    # ========================================================
 
     def broadcast_block(
         self,
-        block
-    ):
+        block: Dict[str, Any],
+    ) -> None:
 
         for peer in list(
             self.peers
@@ -569,29 +743,24 @@ class NodeBlockchain:
             try:
 
                 requests.post(
-
-                    f"http://{peer}"
-                    "/receive-block",
-
+                    f"http://{peer}/receive-block",
                     json={
                         "block":
                             block
                     },
-
-                    timeout=2
-
+                    timeout=2,
                 )
 
             except requests.RequestException:
-
                 pass
-
 
     # ========================================================
     # CONSENSUS
     # ========================================================
 
-    def consensus(self):
+    def consensus(
+        self,
+    ) -> Dict[str, Any]:
 
         longest_chain = self.chain
 
@@ -604,43 +773,49 @@ class NodeBlockchain:
             try:
 
                 response = requests.get(
-
-                    f"http://{peer}"
-                    "/chain",
-
-                    timeout=2
-
-                )
-
-                if response.status_code != 200:
-
-                    continue
-
-                data = response.json()
-
-                peer_chain = data.get(
-                    "chain",
-                    []
+                    f"http://{peer}/chain",
+                    timeout=2,
                 )
 
                 if (
+                    response.status_code
+                    !=
+                    200
+                ):
+                    continue
 
-                    len(peer_chain)
-                    > len(longest_chain)
+                peer_chain = (
+                    response.json().get(
+                        "chain",
+                        [],
+                    )
+                )
 
+                if (
+                    isinstance(
+                        peer_chain,
+                        list,
+                    )
                     and
-
+                    len(peer_chain)
+                    >
+                    len(longest_chain)
+                    and
                     self.is_valid_chain(
                         peer_chain
                     )
-
                 ):
 
-                    longest_chain = peer_chain
+                    longest_chain = (
+                        peer_chain
+                    )
 
                     source_node = peer
 
-            except requests.RequestException:
+            except (
+                requests.RequestException,
+                ValueError,
+            ):
 
                 pass
 
@@ -648,21 +823,22 @@ class NodeBlockchain:
 
         if (
             len(longest_chain)
-            > len(self.chain)
+            >
+            len(self.chain)
         ):
 
-            replaced = self.replace_chain(
-                longest_chain
+            replaced = (
+                self.replace_chain(
+                    longest_chain
+                )
             )
 
         return {
-
             "replaced":
                 replaced,
 
             "source_node":
-                source_node
-
+                source_node,
         }
 
 
@@ -674,134 +850,185 @@ blockchain = NodeBlockchain()
 
 
 # ============================================================
-# HOME
+# HELPER FUNCTIONS
 # ============================================================
 
-@app.route("/")
+def add_and_broadcast_transaction(
+    data: Dict[str, Any],
+) -> Dict[str, Any]:
+
+    transaction = (
+        blockchain.add_transaction(
+            data
+        )
+    )
+
+    blockchain.broadcast_transaction(
+        transaction
+    )
+
+    return transaction
+
+
+def require_json() -> Dict[str, Any]:
+
+    return (
+        request.get_json(
+            silent=True
+        )
+        or
+        {}
+    )
+
+
+def find_marksheet_pdf_path(
+    marksheet_id: str,
+) -> str:
+
+    return os.path.join(
+        GENERATED_MARKSHEETS_DIR,
+        f"{marksheet_id}.pdf",
+    )
+
+
+# ============================================================
+# BASIC NODE ROUTES
+# ============================================================
+
+@app.route(
+    "/",
+    methods=["GET"],
+)
 def home():
 
-    return jsonify({
+    return jsonify(
+        {
+            "service":
+                "AnswerChain Blockchain Node",
 
-        "service":
-            "AnswerChain Blockchain Node",
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
+            "port":
+                PORT,
 
-        "port":
-            PORT,
+            "status":
+                "running",
+        }
+    )
 
-        "status":
-            "running"
-
-    })
-
-
-# ============================================================
-# NODE INFORMATION
-# ============================================================
 
 @app.route(
     "/node",
-    methods=["GET"]
+    methods=["GET"],
 )
 def node_info():
 
-    return jsonify({
+    return jsonify(
+        {
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
+            "port":
+                PORT,
 
-        "port":
-            PORT,
+            "blocks":
+                len(
+                    blockchain.chain
+                ),
 
-        "blocks":
-            len(
-                blockchain.chain
-            ),
+            "pending_transactions":
+                len(
+                    blockchain.pending_transactions
+                ),
 
-        "pending_transactions":
-            len(
-                blockchain.pending_transactions
-            ),
+            "peers":
+                sorted(
+                    blockchain.peers
+                ),
 
-        "peers":
-            sorted(
-                blockchain.peers
-            ),
+            "chain_valid":
+                blockchain.is_valid_chain(
+                    blockchain.chain
+                ),
+        }
+    )
 
-        "chain_valid":
-            blockchain.is_valid_chain(
-                blockchain.chain
-            )
-
-    })
-
-
-# ============================================================
-# PEERS
-# ============================================================
 
 @app.route(
     "/peers",
-    methods=["GET"]
+    methods=["GET"],
 )
 def get_peers():
 
-    return jsonify({
+    return jsonify(
+        {
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
-
-        "peers":
-            sorted(
-                blockchain.peers
-            )
-
-    })
+            "peers":
+                sorted(
+                    blockchain.peers
+                ),
+        }
+    )
 
 
 @app.route(
     "/peers",
-    methods=["POST"]
+    methods=["POST"],
 )
 def add_peer():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
-    peer = data.get(
-        "peer"
-    )
+    peer = str(
+        data.get(
+            "peer",
+            "",
+        )
+    ).strip()
 
     if not peer:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Peer address is required."
+            }
+        ), 400
 
-            "error":
-                "Peer address is required."
+    if (
+        peer
+        ==
+        f"127.0.0.1:{PORT}"
+    ):
 
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "A node cannot add itself as a peer."
+            }
+        ), 400
 
     blockchain.peers.add(
         peer
     )
 
-    return jsonify({
+    return jsonify(
+        {
+            "message":
+                "Peer added",
 
-        "message":
-            "Peer added",
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
-
-        "peers":
-            sorted(
-                blockchain.peers
-            )
-
-    })
+            "peers":
+                sorted(
+                    blockchain.peers
+                ),
+        }
+    )
 
 
 # ============================================================
@@ -810,43 +1037,39 @@ def add_peer():
 
 @app.route(
     "/transaction",
-    methods=["POST"]
+    methods=["POST"],
 )
 def create_transaction():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
     if not data:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Transaction data is required."
+            }
+        ), 400
 
-            "error":
-                "Transaction data is required."
-
-        }), 400
-
-    transaction = blockchain.add_transaction(
-        data
+    transaction = (
+        add_and_broadcast_transaction(
+            data
+        )
     )
 
-    blockchain.broadcast_transaction(
-        transaction
+    return jsonify(
+        {
+            "message":
+                "Transaction added",
+
+            "node_id":
+                NODE_ID,
+
+            "transaction":
+                transaction,
+        }
     )
-
-    return jsonify({
-
-        "message":
-            "Transaction added",
-
-        "node_id":
-            NODE_ID,
-
-        "transaction":
-            transaction
-
-    })
 
 
 # ============================================================
@@ -855,62 +1078,76 @@ def create_transaction():
 
 @app.route(
     "/receive-transaction",
-    methods=["POST"]
+    methods=["POST"],
 )
 def receive_transaction():
 
-    body = request.get_json(
-        silent=True
-    ) or {}
+    body = require_json()
 
-    transaction = body.get(
-        "transaction"
+    transaction = (
+        body.get(
+            "transaction"
+        )
     )
 
-    if not transaction:
-
-        return jsonify({
-
-            "error":
-                "Transaction missing."
-
-        }), 400
-
-    transaction_id = transaction.get(
-        "transaction_id"
-    )
-
-    for existing in (
-        blockchain.pending_transactions
+    if not isinstance(
+        transaction,
+        dict,
     ):
 
-        if (
-            existing.get(
-                "transaction_id"
-            )
-            == transaction_id
-        ):
+        return jsonify(
+            {
+                "error":
+                    "Transaction missing."
+            }
+        ), 400
 
-            return jsonify({
+    transaction_id = (
+        transaction.get(
+            "transaction_id"
+        )
+    )
 
+    if not transaction_id:
+
+        return jsonify(
+            {
+                "error":
+                    "Transaction ID missing."
+            }
+        ), 400
+
+    if any(
+        item.get(
+            "transaction_id"
+        )
+        ==
+        transaction_id
+        for item in (
+            blockchain.pending_transactions
+        )
+    ):
+
+        return jsonify(
+            {
                 "message":
                     "Transaction already exists."
-
-            })
+            }
+        )
 
     blockchain.pending_transactions.append(
         transaction
     )
 
-    return jsonify({
+    return jsonify(
+        {
+            "message":
+                "Transaction received",
 
-        "message":
-            "Transaction received",
-
-        "node_id":
-            NODE_ID
-
-    })
+            "node_id":
+                NODE_ID,
+        }
+    )
 
 
 # ============================================================
@@ -919,46 +1156,48 @@ def receive_transaction():
 
 @app.route(
     "/mine",
-    methods=["POST"]
+    methods=["POST"],
 )
 def mine():
 
     if not blockchain.pending_transactions:
 
-        return jsonify({
+        return jsonify(
+            {
+                "message":
+                    "No pending transactions.",
 
-            "message":
-                "No pending transactions.",
-
-            "node_id":
-                NODE_ID
-
-        })
+                "node_id":
+                    NODE_ID,
+            }
+        )
 
     transactions = deepcopy(
         blockchain.pending_transactions
     )
 
-    block = blockchain.add_block(
-        transactions
+    block = (
+        blockchain.add_block(
+            transactions
+        )
     )
 
     blockchain.broadcast_block(
         block
     )
 
-    return jsonify({
+    return jsonify(
+        {
+            "message":
+                "Block created",
 
-        "message":
-            "Block created",
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
-
-        "block":
-            block
-
-    })
+            "block":
+                block,
+        }
+    )
 
 
 # ============================================================
@@ -967,70 +1206,111 @@ def mine():
 
 @app.route(
     "/receive-block",
-    methods=["POST"]
+    methods=["POST"],
 )
 def receive_block():
 
-    body = request.get_json(
-        silent=True
-    ) or {}
+    body = require_json()
 
     block = body.get(
         "block"
     )
 
-    if not block:
+    if not isinstance(
+        block,
+        dict,
+    ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Block missing."
+            }
+        ), 400
 
-            "error":
-                "Block missing."
+    required = (
+        "index",
+        "timestamp",
+        "data",
+        "previous_hash",
+        "hash",
+    )
 
-        }), 400
+    if not all(
+        key in block
+        for key in required
+    ):
 
-    latest_block = blockchain.chain[-1]
+        return jsonify(
+            {
+                "message":
+                    "Block rejected",
+
+                "reason":
+                    "Block fields are incomplete.",
+            }
+        ), 400
+
+    latest_block = (
+        blockchain.chain[-1]
+    )
+
+    if (
+        block["index"]
+        !=
+        latest_block["index"] + 1
+    ):
+
+        return jsonify(
+            {
+                "message":
+                    "Block rejected",
+
+                "reason":
+                    "Block index is not the next index.",
+            }
+        ), 409
 
     if (
         block["previous_hash"]
-        != latest_block["hash"]
+        !=
+        latest_block["hash"]
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "message":
+                    "Block rejected",
 
-            "message":
-                "Block rejected",
+                "reason":
+                    "Previous hash mismatch.",
+            }
+        ), 409
 
-            "reason":
-                "Previous hash mismatch."
-
-        }), 409
-
-    calculated_hash = blockchain.calculate_hash(
-
-        block["index"],
-
-        block["timestamp"],
-
-        block["data"],
-
-        block["previous_hash"]
-
+    calculated_hash = (
+        blockchain.calculate_hash(
+            block["index"],
+            block["timestamp"],
+            block["data"],
+            block["previous_hash"],
+        )
     )
 
     if (
         calculated_hash
-        != block["hash"]
+        !=
+        block["hash"]
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "message":
+                    "Block rejected",
 
-            "message":
-                "Block rejected",
-
-            "reason":
-                "Invalid block hash."
-
-        }), 409
+                "reason":
+                    "Invalid block hash.",
+            }
+        ), 409
 
     blockchain.chain.append(
         block
@@ -1040,15 +1320,15 @@ def receive_block():
 
     blockchain.save_chain()
 
-    return jsonify({
+    return jsonify(
+        {
+            "message":
+                "Block accepted",
 
-        "message":
-            "Block accepted",
-
-        "node_id":
-            NODE_ID
-
-    })
+            "node_id":
+                NODE_ID,
+        }
+    )
 
 
 # ============================================================
@@ -1057,19 +1337,19 @@ def receive_block():
 
 @app.route(
     "/chain",
-    methods=["GET"]
+    methods=["GET"],
 )
 def get_chain():
 
-    return jsonify({
+    return jsonify(
+        {
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
-
-        "chain":
-            blockchain.chain
-
-    })
+            "chain":
+                blockchain.chain,
+        }
+    )
 
 
 # ============================================================
@@ -1078,37 +1358,43 @@ def get_chain():
 
 @app.route(
     "/consensus",
-    methods=["POST"]
+    methods=["POST"],
 )
 def run_consensus():
 
-    result = blockchain.consensus()
+    result = (
+        blockchain.consensus()
+    )
 
-    return jsonify({
+    return jsonify(
+        {
+            "message":
+                "Consensus completed",
 
-        "message":
-            "Consensus completed",
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
+            "blocks":
+                len(
+                    blockchain.chain
+                ),
 
-        "blocks":
-            len(
-                blockchain.chain
-            ),
+            "chain_valid":
+                blockchain.is_valid_chain(
+                    blockchain.chain
+                ),
 
-        "chain_valid":
-            blockchain.is_valid_chain(
-                blockchain.chain
-            ),
+            "replaced":
+                result[
+                    "replaced"
+                ],
 
-        "replaced":
-            result["replaced"],
-
-        "source_node":
-            result["source_node"]
-
-    })
+            "source_node":
+                result[
+                    "source_node"
+                ],
+        }
+    )
 
 
 # ============================================================
@@ -1117,56 +1403,54 @@ def run_consensus():
 
 @app.route(
     "/answer-scripts/register",
-    methods=["POST"]
+    methods=["POST"],
 )
 def register_answer_script():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
     required_fields = [
-
         "university",
         "exam_id",
         "answer_script_id",
         "file_name",
-        "file_hash"
-
+        "file_hash",
     ]
 
     for field in required_fields:
 
-        if not data.get(field):
+        if not data.get(
+            field
+        ):
 
-            return jsonify({
+            return jsonify(
+                {
+                    "error":
+                        f"{field} is required."
+                }
+            ), 400
 
-                "error":
-                    f"{field} is required."
-
-            }), 400
-
-    existing = blockchain.find_transaction(
-
-        "ANSWER_SCRIPT_REGISTERED",
-
-        "answer_script_id",
-
-        data["answer_script_id"]
-
+    answer_script_id = str(
+        data[
+            "answer_script_id"
+        ]
     )
 
-    if existing:
+    if blockchain.transaction_exists(
+        "ANSWER_SCRIPT_REGISTERED",
+        "answer_script_id",
+        answer_script_id,
+    ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "answer_script_id":
+                    answer_script_id,
 
-            "answer_script_id":
-                data["answer_script_id"],
-
-            "error":
-                "Answer script already registered."
-
-        }), 409
+                "error":
+                    "Answer script already registered.",
+            }
+        ), 409
 
     transaction_data = {
 
@@ -1174,39 +1458,44 @@ def register_answer_script():
             "ANSWER_SCRIPT_REGISTERED",
 
         "university":
-            data["university"],
+            data[
+                "university"
+            ],
 
         "exam_id":
-            data["exam_id"],
+            data[
+                "exam_id"
+            ],
 
         "answer_script_id":
-            data["answer_script_id"],
+            answer_script_id,
 
         "file_name":
-            data["file_name"],
+            data[
+                "file_name"
+            ],
 
         "answer_script_hash":
-            data["file_hash"]
-
+            data[
+                "file_hash"
+            ],
     }
 
-    transaction = blockchain.add_transaction(
-        transaction_data
+    transaction = (
+        add_and_broadcast_transaction(
+            transaction_data
+        )
     )
 
-    blockchain.broadcast_transaction(
-        transaction
+    return jsonify(
+        {
+            "message":
+                "Answer script registered.",
+
+            "transaction":
+                transaction,
+        }
     )
-
-    return jsonify({
-
-        "message":
-            "Answer script registered.",
-
-        "transaction":
-            transaction
-
-    })
 
 
 # ============================================================
@@ -1215,13 +1504,11 @@ def register_answer_script():
 
 @app.route(
     "/answer-scripts/assign",
-    methods=["POST"]
+    methods=["POST"],
 )
 def assign_answer_script():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
     answer_script_id = data.get(
         "answer_script_id"
@@ -1237,68 +1524,64 @@ def assign_answer_script():
 
     if not answer_script_id:
 
-        return jsonify({
-
-            "error":
-                "answer_script_id is required."
-
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "answer_script_id is required."
+            }
+        ), 400
 
     if not teacher_id:
 
-        return jsonify({
-
-            "error":
-                "teacher_id is required."
-
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "teacher_id is required."
+            }
+        ), 400
 
     if not assigned_by:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "assigned_by is required."
+            }
+        ), 400
 
-            "error":
-                "assigned_by is required."
-
-        }), 400
-
-    registered = blockchain.find_transaction(
-
-        "ANSWER_SCRIPT_REGISTERED",
-
-        "answer_script_id",
-
-        answer_script_id
-
+    registered = (
+        blockchain.find_transaction(
+            "ANSWER_SCRIPT_REGISTERED",
+            "answer_script_id",
+            answer_script_id,
+        )
     )
 
     if not registered:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Answer script does not exist."
+            }
+        ), 404
 
-            "error":
-                "Answer script does not exist."
-
-        }), 404
-
-    existing = blockchain.find_transaction(
-
-        "ANSWER_SCRIPT_ASSIGNED",
-
-        "answer_script_id",
-
-        answer_script_id
-
+    existing = (
+        blockchain.find_transaction(
+            "ANSWER_SCRIPT_ASSIGNED",
+            "answer_script_id",
+            answer_script_id,
+        )
     )
 
     if existing:
 
-        return jsonify({
-
-            "error":
-                "Answer script is already assigned."
-
-        }), 409
+        return jsonify(
+            {
+                "error":
+                    "Answer script is already assigned."
+            }
+        ), 409
 
     transaction_data = {
 
@@ -1315,27 +1598,24 @@ def assign_answer_script():
             assigned_by,
 
         "status":
-            "ASSIGNED"
-
+            "ASSIGNED",
     }
 
-    transaction = blockchain.add_transaction(
-        transaction_data
+    transaction = (
+        add_and_broadcast_transaction(
+            transaction_data
+        )
     )
 
-    blockchain.broadcast_transaction(
-        transaction
+    return jsonify(
+        {
+            "message":
+                "Answer script assigned to teacher.",
+
+            "transaction":
+                transaction,
+        }
     )
-
-    return jsonify({
-
-        "message":
-            "Answer script assigned to teacher.",
-
-        "transaction":
-            transaction
-
-    })
 
 
 # ============================================================
@@ -1344,13 +1624,11 @@ def assign_answer_script():
 
 @app.route(
     "/evaluations/submit",
-    methods=["POST"]
+    methods=["POST"],
 )
 def submit_evaluation():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
     answer_script_id = data.get(
         "answer_script_id"
@@ -1370,43 +1648,45 @@ def submit_evaluation():
 
     if not answer_script_id:
 
-        return jsonify({
-
-            "error":
-                "answer_script_id is required."
-
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "answer_script_id is required."
+            }
+        ), 400
 
     if not teacher_id:
 
-        return jsonify({
-
-            "error":
-                "teacher_id is required."
-
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "teacher_id is required."
+            }
+        ), 400
 
     if marks is None:
 
-        return jsonify({
-
-            "error":
-                "marks is required."
-
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "marks is required."
+            }
+        ), 400
 
     if max_marks is None:
 
-        return jsonify({
-
-            "error":
-                "max_marks is required."
-
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "max_marks is required."
+            }
+        ), 400
 
     try:
 
-        marks = float(marks)
+        marks = float(
+            marks
+        )
 
         max_marks = float(
             max_marks
@@ -1414,15 +1694,24 @@ def submit_evaluation():
 
     except (
         TypeError,
-        ValueError
+        ValueError,
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Marks must be numeric."
+            }
+        ), 400
 
-            "error":
-                "Marks must be numeric."
+    if max_marks <= 0:
 
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "max_marks must be greater than zero."
+            }
+        ), 400
 
     if (
         marks < 0
@@ -1430,87 +1719,83 @@ def submit_evaluation():
         marks > max_marks
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Invalid marks."
+            }
+        ), 400
 
-            "error":
-                "Invalid marks."
-
-        }), 400
-
-    assignment = blockchain.find_transaction(
-
-        "ANSWER_SCRIPT_ASSIGNED",
-
-        "answer_script_id",
-
-        answer_script_id
-
+    assignment = (
+        blockchain.find_transaction(
+            "ANSWER_SCRIPT_ASSIGNED",
+            "answer_script_id",
+            answer_script_id,
+        )
     )
 
     if not assignment:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Answer script is not assigned."
+            }
+        ), 404
 
-            "error":
-                "Answer script is not assigned."
-
-        }), 404
-
-    assignment_data = assignment.get(
-        "data",
-        {}
+    assignment_data = (
+        assignment.get(
+            "data",
+            {}
+        )
     )
 
     if (
         assignment_data.get(
             "teacher_id"
         )
-        != teacher_id
+        !=
+        teacher_id
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "This teacher is not assigned to this answer script."
+            }
+        ), 403
 
-            "error":
-                "This teacher is not assigned to this answer script."
-
-        }), 403
-
-    existing = blockchain.find_transaction(
-
+    if blockchain.transaction_exists(
         "EVALUATION_SUBMITTED",
-
         "answer_script_id",
+        answer_script_id,
+    ):
 
-        answer_script_id
-
-    )
-
-    if existing:
-
-        return jsonify({
-
-            "error":
-                "Evaluation already submitted."
-
-        }), 409
+        return jsonify(
+            {
+                "error":
+                    "Evaluation already submitted."
+            }
+        ), 409
 
     evaluation_id = (
-
         "EVAL-"
-
-        + hashlib.sha256(
-
+        +
+        hashlib.sha256(
             (
-
                 answer_script_id
-                + teacher_id
-                + str(marks)
-                + str(time.time())
-
-            ).encode()
-
-        ).hexdigest()[:12].upper()
-
+                +
+                str(teacher_id)
+                +
+                str(marks)
+                +
+                str(time.time())
+            ).encode(
+                "utf-8"
+            )
+        ).hexdigest()[
+            :12
+        ].upper()
     )
 
     transaction_data = {
@@ -1534,27 +1819,24 @@ def submit_evaluation():
             max_marks,
 
         "status":
-            "SUBMITTED"
-
+            "SUBMITTED",
     }
 
-    transaction = blockchain.add_transaction(
-        transaction_data
+    transaction = (
+        add_and_broadcast_transaction(
+            transaction_data
+        )
     )
 
-    blockchain.broadcast_transaction(
-        transaction
+    return jsonify(
+        {
+            "message":
+                "Evaluation submitted.",
+
+            "evaluation":
+                transaction,
+        }
     )
-
-    return jsonify({
-
-        "message":
-            "Evaluation submitted.",
-
-        "evaluation":
-            transaction
-
-    })
 
 
 # ============================================================
@@ -1563,13 +1845,11 @@ def submit_evaluation():
 
 @app.route(
     "/results/finalize",
-    methods=["POST"]
+    methods=["POST"],
 )
 def finalize_result():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
     answer_script_id = data.get(
         "answer_script_id"
@@ -1581,86 +1861,86 @@ def finalize_result():
 
     if not answer_script_id:
 
-        return jsonify({
-
-            "error":
-                "answer_script_id is required."
-
-        }), 400
+        return jsonify(
+            {
+                "error":
+                    "answer_script_id is required."
+            }
+        ), 400
 
     if not authority_id:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "authority_id is required."
+            }
+        ), 400
 
-            "error":
-                "authority_id is required."
-
-        }), 400
-
-    evaluation = blockchain.find_transaction(
-
-        "EVALUATION_SUBMITTED",
-
-        "answer_script_id",
-
-        answer_script_id
-
+    evaluation = (
+        blockchain.find_transaction(
+            "EVALUATION_SUBMITTED",
+            "answer_script_id",
+            answer_script_id,
+        )
     )
 
     if not evaluation:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "No evaluation found."
+            }
+        ), 404
 
-            "error":
-                "No evaluation found."
-
-        }), 404
-
-    existing_result = blockchain.find_transaction(
-
-        "RESULT_FINALIZED",
-
-        "answer_script_id",
-
-        answer_script_id
-
+    existing_result = (
+        blockchain.find_transaction(
+            "RESULT_FINALIZED",
+            "answer_script_id",
+            answer_script_id,
+        )
     )
 
     if existing_result:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Result is already finalized.",
 
-            "error":
-                "Result is already finalized.",
+                "result":
+                    existing_result,
+            }
+        ), 409
 
-            "result":
-                existing_result
-
-        }), 409
-
-    evaluation_data = evaluation.get(
-        "data",
-        {}
+    evaluation_data = (
+        evaluation.get(
+            "data",
+            {}
+        )
     )
 
     result_id = (
-
         "RESULT-"
-
-        + hashlib.sha256(
-
+        +
+        hashlib.sha256(
             (
-
                 answer_script_id
-                + evaluation_data[
+                +
+                evaluation_data[
                     "evaluation_id"
                 ]
-                + authority_id
-
-            ).encode()
-
-        ).hexdigest()[:12].upper()
-
+                +
+                str(
+                    authority_id
+                )
+            ).encode(
+                "utf-8"
+            )
+        ).hexdigest()[
+            :12
+        ].upper()
     )
 
     transaction_data = {
@@ -1693,42 +1973,37 @@ def finalize_result():
             ],
 
         "status":
-            "FINALIZED"
-
+            "FINALIZED",
     }
 
-    transaction = blockchain.add_transaction(
-        transaction_data
+    transaction = (
+        add_and_broadcast_transaction(
+            transaction_data
+        )
     )
 
-    blockchain.broadcast_transaction(
-        transaction
+    return jsonify(
+        {
+            "message":
+                "Result finalized successfully.",
+
+            "result":
+                transaction,
+        }
     )
-
-    return jsonify({
-
-        "message":
-            "Result finalized successfully.",
-
-        "result":
-            transaction
-
-    })
 
 
 # ============================================================
-# MARKSHEET GENERATION
+# MARKSHEET GENERATION + PDF
 # ============================================================
 
 @app.route(
     "/marksheets/generate",
-    methods=["POST"]
+    methods=["POST"],
 )
 def generate_marksheet_endpoint():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
     answer_script_id = data.get(
         "answer_script_id"
@@ -1736,170 +2011,178 @@ def generate_marksheet_endpoint():
 
     student_id = data.get(
         "student_id",
-        "STUDENT-001"
+        "STUDENT-001",
     )
 
     student_name = data.get(
         "student_name",
-        "Student"
+        "Student",
     )
 
     university = data.get(
         "university",
-        "TINT"
+        "TINT",
     )
 
     exam_name = data.get(
         "exam_name",
-        "University Examination"
+        "University Examination",
     )
 
     if not answer_script_id:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "answer_script_id is required."
+            }
+        ), 400
 
-            "error":
-                "answer_script_id is required."
-
-        }), 400
-
-    # --------------------------------------------------------
-    # FIND FINALIZED RESULT
-    # --------------------------------------------------------
-
-    finalized_result = blockchain.find_transaction(
-
-        "RESULT_FINALIZED",
-
-        "answer_script_id",
-
-        answer_script_id
-
+    finalized_result = (
+        blockchain.find_transaction(
+            "RESULT_FINALIZED",
+            "answer_script_id",
+            answer_script_id,
+        )
     )
 
     if not finalized_result:
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Marksheet cannot be generated. No finalized result exists."
+            }
+        ), 403
 
-            "error":
-                "Marksheet cannot be generated. No finalized result exists."
-
-        }), 403
-
-    result_data = finalized_result.get(
-        "data",
-        {}
+    result_data = (
+        finalized_result.get(
+            "data",
+            {}
+        )
     )
 
     if (
         result_data.get(
             "status"
         )
-        != "FINALIZED"
+        !=
+        "FINALIZED"
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Only finalized results can generate marksheets."
+            }
+        ), 403
 
-            "error":
-                "Only finalized results can generate marksheets."
-
-        }), 403
-
-    # --------------------------------------------------------
-    # PREVENT DUPLICATE MARKSHEET
-    # --------------------------------------------------------
-
-    existing_marksheet = blockchain.find_transaction(
-
-        "MARKSHEET_REGISTERED",
-
-        "answer_script_id",
-
-        answer_script_id
-
+    existing_marksheet = (
+        blockchain.find_transaction(
+            "MARKSHEET_REGISTERED",
+            "answer_script_id",
+            answer_script_id,
+        )
     )
 
-    if existing_marksheet:
+    existing_pending_marksheet = (
+        blockchain.find_pending_transaction(
+            "MARKSHEET_REGISTERED",
+            "answer_script_id",
+            answer_script_id,
+        )
+    )
 
-        return jsonify({
+    if (
+        existing_marksheet
+        or
+        existing_pending_marksheet
+    ):
 
-            "message":
-                "Marksheet already exists.",
+        existing = (
+            existing_marksheet
+            or
+            existing_pending_marksheet
+        )
 
-            "marksheet":
-                existing_marksheet
+        return jsonify(
+            {
+                "message":
+                    "Marksheet already exists or is pending.",
 
-        }), 409
-
-    # --------------------------------------------------------
-    # GENERATE MARKSHEET
-    # --------------------------------------------------------
+                "marksheet":
+                    existing,
+            }
+        ), 409
 
     marksheet = generate_marksheet(
-
         student_id=student_id,
-
         student_name=student_name,
-
         university=university,
-
         exam_name=exam_name,
-
         answer_script_id=answer_script_id,
-
         result_id=result_data[
             "result_id"
         ],
-
         evaluation_id=result_data[
             "evaluation_id"
         ],
-
         final_marks=result_data[
             "final_marks"
         ],
-
         max_marks=result_data[
             "max_marks"
-        ]
-
+        ],
     )
 
-    # --------------------------------------------------------
-    # CALCULATE HASH
-    # --------------------------------------------------------
-
-    marksheet_hash = calculate_marksheet_hash(
-        marksheet
+    # Hash the logical marksheet data.
+    marksheet_data_hash = (
+        calculate_marksheet_hash(
+            marksheet
+        )
     )
-
-    # --------------------------------------------------------
-    # CREATE MARKSHEET ID
-    # --------------------------------------------------------
 
     marksheet_id = (
-
         "MARKSHEET-"
-
-        + hashlib.sha256(
-
+        +
+        hashlib.sha256(
             (
-
                 answer_script_id
-                + result_data[
+                +
+                result_data[
                     "result_id"
                 ]
-                + marksheet_hash
-
-            ).encode()
-
-        ).hexdigest()[:12].upper()
-
+                +
+                marksheet_data_hash
+            ).encode(
+                "utf-8"
+            )
+        ).hexdigest()[
+            :12
+        ].upper()
     )
 
-    # --------------------------------------------------------
-    # BLOCKCHAIN TRANSACTION
-    # --------------------------------------------------------
+    # Generate the final PDF first.
+    #
+    # The resulting PDF bytes are hashed after creation.
+    # That PDF hash is then stored on the blockchain.
+
+    pdf_info = generate_marksheet_pdf(
+        marksheet=marksheet,
+        marksheet_id=marksheet_id,
+    )
+
+    pdf_path = pdf_info[
+        "pdf_path"
+    ]
+
+    pdf_filename = pdf_info[
+        "pdf_filename"
+    ]
+
+    marksheet_pdf_hash = pdf_info[
+        "pdf_hash"
+    ]
 
     transaction_data = {
 
@@ -1911,6 +2194,15 @@ def generate_marksheet_endpoint():
 
         "student_id":
             student_id,
+
+        "student_name":
+            student_name,
+
+        "university":
+            university,
+
+        "exam_name":
+            exam_name,
 
         "answer_script_id":
             answer_script_id,
@@ -1925,8 +2217,14 @@ def generate_marksheet_endpoint():
                 "evaluation_id"
             ],
 
-        "marksheet_hash":
-            marksheet_hash,
+        "marksheet_data_hash":
+            marksheet_data_hash,
+
+        "marksheet_pdf_hash":
+            marksheet_pdf_hash,
+
+        "pdf_filename":
+            pdf_filename,
 
         "final_marks":
             result_data[
@@ -1938,52 +2236,64 @@ def generate_marksheet_endpoint():
                 "max_marks"
             ],
 
-        "status":
-            "REGISTERED"
+        "percentage":
+            marksheet[
+                "percentage"
+            ],
 
+        "status":
+            "REGISTERED",
     }
 
-    transaction = blockchain.add_transaction(
-        transaction_data
+    transaction = (
+        add_and_broadcast_transaction(
+            transaction_data
+        )
     )
 
-    blockchain.broadcast_transaction(
-        transaction
+    return jsonify(
+        {
+            "message":
+                "Marksheet generated and registered.",
+
+            "marksheet_id":
+                marksheet_id,
+
+            "marksheet":
+                marksheet,
+
+            "marksheet_data_hash":
+                marksheet_data_hash,
+
+            "marksheet_pdf_hash":
+                marksheet_pdf_hash,
+
+            "pdf_filename":
+                pdf_filename,
+
+            "pdf_path":
+                pdf_path,
+
+            "transaction":
+                transaction,
+
+            "note":
+                "Mine this node's pending transaction to commit the marksheet registration block.",
+        }
     )
-
-    return jsonify({
-
-        "message":
-            "Marksheet generated and registered.",
-
-        "marksheet_id":
-            marksheet_id,
-
-        "marksheet_hash":
-            marksheet_hash,
-
-        "marksheet":
-            marksheet,
-
-        "transaction":
-            transaction
-
-    })
 
 
 # ============================================================
-# MARKSHEET VERIFICATION
+# LOGICAL MARKSHEET VERIFICATION
 # ============================================================
 
 @app.route(
     "/marksheets/verify",
-    methods=["POST"]
+    methods=["POST"],
 )
 def verify_marksheet():
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = require_json()
 
     marksheet_id = data.get(
         "marksheet_id"
@@ -1999,44 +2309,32 @@ def verify_marksheet():
         not marksheet_hash
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "error":
+                    "Provide marksheet_id or marksheet_hash."
+            }
+        ), 400
 
-            "error":
-                "Provide marksheet_id or marksheet_hash."
-
-        }), 400
-
-    transaction = None
-
-    # --------------------------------------------------------
-    # FIND BY ID
-    # --------------------------------------------------------
+    transaction = (
+        None
+    )
 
     if marksheet_id:
 
-        transaction = blockchain.find_transaction(
-
-            "MARKSHEET_REGISTERED",
-
-            "marksheet_id",
-
-            marksheet_id
-
+        transaction = (
+            blockchain.find_transaction(
+                "MARKSHEET_REGISTERED",
+                "marksheet_id",
+                marksheet_id,
+            )
         )
-
-    # --------------------------------------------------------
-    # FIND BY HASH
-    # --------------------------------------------------------
 
     else:
 
-        transactions = blockchain.find_transactions(
-
+        for item in blockchain.find_transactions(
             "MARKSHEET_REGISTERED"
-
-        )
-
-        for item in transactions:
+        ):
 
             item_data = item.get(
                 "data",
@@ -2045,267 +2343,462 @@ def verify_marksheet():
 
             if (
                 item_data.get(
-                    "marksheet_hash"
+                    "marksheet_data_hash"
                 )
-                == marksheet_hash
+                ==
+                marksheet_hash
             ):
 
                 transaction = item
+                break
 
+            # Backward compatibility with the old field.
+            if (
+                item_data.get(
+                    "marksheet_hash"
+                )
+                ==
+                marksheet_hash
+            ):
+
+                transaction = item
                 break
 
     if not transaction:
 
-        return jsonify({
+        return jsonify(
+            {
+                "verified":
+                    False,
 
-            "verified":
-                False,
+                "message":
+                    "Marksheet not found on blockchain.",
+            }
+        )
 
-            "message":
-                "Marksheet not found on blockchain."
-
-        })
-
-    transaction_data = transaction.get(
-        "data",
-        {}
+    transaction_data = (
+        transaction.get(
+            "data",
+            {}
+        )
     )
 
-    # --------------------------------------------------------
-    # VERIFY RESULT
-    # --------------------------------------------------------
-
-    result_id = transaction_data.get(
-        "result_id"
+    result_id = (
+        transaction_data.get(
+            "result_id"
+        )
     )
 
-    result = blockchain.find_transaction(
-
-        "RESULT_FINALIZED",
-
-        "result_id",
-
-        result_id
-
+    result = (
+        blockchain.find_transaction(
+            "RESULT_FINALIZED",
+            "result_id",
+            result_id,
+        )
     )
 
     if not result:
 
-        return jsonify({
+        return jsonify(
+            {
+                "verified":
+                    False,
 
-            "verified":
-                False,
+                "message":
+                    "Referenced finalized result does not exist.",
+            }
+        )
 
-            "message":
-                "Referenced finalized result does not exist."
-
-        })
-
-    result_data = result.get(
-        "data",
-        {}
+    result_data = (
+        result.get(
+            "data",
+            {}
+        )
     )
 
     if (
         result_data.get(
             "status"
         )
-        != "FINALIZED"
+        !=
+        "FINALIZED"
     ):
 
-        return jsonify({
+        return jsonify(
+            {
+                "verified":
+                    False,
 
-            "verified":
-                False,
+                "message":
+                    "Referenced result is not finalized.",
+            }
+        )
 
-            "message":
-                "Referenced result is not finalized."
+    reconstructed_marksheet = (
+        generate_marksheet(
+            student_id=transaction_data[
+                "student_id"
+            ],
 
-        })
-
-    # --------------------------------------------------------
-    # VERIFY MARKSHEET HASH
-    #
-    # We reconstruct the original marksheet data.
-    # --------------------------------------------------------
-
-    reconstructed_marksheet = generate_marksheet(
-
-        student_id=transaction_data[
-            "student_id"
-        ],
-
-        student_name=(
-            transaction_data.get(
+            student_name=transaction_data.get(
                 "student_name",
-                "Student"
-            )
-        ),
-
-        university=(
-            transaction_data.get(
-                "university",
-                "TINT"
-            )
-        ),
-
-        exam_name=(
-            transaction_data.get(
-                "exam_name",
-                "University Examination"
-            )
-        ),
-
-        answer_script_id=transaction_data[
-            "answer_script_id"
-        ],
-
-        result_id=transaction_data[
-            "result_id"
-        ],
-
-        evaluation_id=transaction_data[
-            "evaluation_id"
-        ],
-
-        final_marks=transaction_data[
-            "final_marks"
-        ],
-
-        max_marks=transaction_data[
-            "max_marks"
-        ]
-
-    )
-
-    calculated_hash = calculate_marksheet_hash(
-        reconstructed_marksheet
-    )
-
-    stored_hash = transaction_data.get(
-        "marksheet_hash"
-    )
-
-    # The current transaction format stores
-    # the blockchain hash. If the reconstructed
-    # data matches, verification succeeds.
-    hash_matches = (
-        calculated_hash
-        == stored_hash
-    )
-
-    return jsonify({
-
-        "verified":
-            bool(hash_matches),
-
-        "message":
-            (
-                "Marksheet verified successfully."
-                if hash_matches
-                else
-                "Marksheet hash verification failed."
+                "Student",
             ),
 
-        "marksheet":
-            transaction_data,
+            university=transaction_data.get(
+                "university",
+                "TINT",
+            ),
 
-        "stored_hash":
-            stored_hash,
+            exam_name=transaction_data.get(
+                "exam_name",
+                "University Examination",
+            ),
 
-        "calculated_hash":
-            calculated_hash,
+            answer_script_id=transaction_data[
+                "answer_script_id"
+            ],
 
-        "result":
-            result_data,
+            result_id=transaction_data[
+                "result_id"
+            ],
 
-        "blockchain_transaction":
-            transaction
+            evaluation_id=transaction_data[
+                "evaluation_id"
+            ],
 
-    })
+            final_marks=transaction_data[
+                "final_marks"
+            ],
+
+            max_marks=transaction_data[
+                "max_marks"
+            ],
+        )
+    )
+
+    calculated_data_hash = (
+        calculate_marksheet_hash(
+            reconstructed_marksheet
+        )
+    )
+
+    stored_data_hash = (
+        transaction_data.get(
+            "marksheet_data_hash",
+            transaction_data.get(
+                "marksheet_hash"
+            ),
+        )
+    )
+
+    data_hash_matches = (
+        verify_marksheet_hash(
+            reconstructed_marksheet,
+            stored_data_hash
+            or
+            "",
+        )
+    )
+
+    return jsonify(
+        {
+            "verified":
+                bool(
+                    data_hash_matches
+                ),
+
+            "message":
+                (
+                    "Marksheet verified successfully."
+                    if data_hash_matches
+                    else
+                    "Marksheet hash verification failed."
+                ),
+
+            "marksheet":
+                transaction_data,
+
+            "stored_hash":
+                stored_data_hash,
+
+            "calculated_hash":
+                calculated_data_hash,
+
+            "result":
+                result_data,
+
+            "blockchain_transaction":
+                transaction,
+        }
+    )
 
 
 # ============================================================
-# COMPLETE ANSWER-SCRIPT HISTORY
+# MARKSHEET PDF DOWNLOAD
+# ============================================================
+
+@app.route(
+    "/marksheets/<marksheet_id>/pdf",
+    methods=["GET"],
+)
+def download_marksheet_pdf(
+    marksheet_id: str,
+):
+
+    transaction = (
+        blockchain.find_transaction(
+            "MARKSHEET_REGISTERED",
+            "marksheet_id",
+            marksheet_id,
+        )
+    )
+
+    if not transaction:
+
+        return jsonify(
+            {
+                "error":
+                    "Marksheet not found on blockchain."
+            }
+        ), 404
+
+    pdf_path = (
+        find_marksheet_pdf_path(
+            marksheet_id
+        )
+    )
+
+    if not os.path.isfile(
+        pdf_path
+    ):
+
+        return jsonify(
+            {
+                "error":
+                    "Marksheet PDF is not available on this node.",
+
+                "node_id":
+                    NODE_ID,
+
+                "marksheet_id":
+                    marksheet_id,
+            }
+        ), 404
+
+    return send_file(
+        pdf_path,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=(
+            f"{marksheet_id}.pdf"
+        ),
+    )
+
+
+# ============================================================
+# MARKSHEET PDF VERIFICATION
+# ============================================================
+
+@app.route(
+    "/marksheets/<marksheet_id>/verify-pdf",
+    methods=["POST"],
+)
+def verify_marksheet_pdf(
+    marksheet_id: str,
+):
+
+    transaction = (
+        blockchain.find_transaction(
+            "MARKSHEET_REGISTERED",
+            "marksheet_id",
+            marksheet_id,
+        )
+    )
+
+    if not transaction:
+
+        return jsonify(
+            {
+                "verified":
+                    False,
+
+                "message":
+                    "Marksheet not found on blockchain.",
+            }
+        ), 404
+
+    transaction_data = (
+        transaction.get(
+            "data",
+            {}
+        )
+    )
+
+    stored_pdf_hash = (
+        transaction_data.get(
+            "marksheet_pdf_hash"
+        )
+    )
+
+    # Old marksheets created before PDF hash support
+    # do not have this field.
+
+    if not stored_pdf_hash:
+
+        return jsonify(
+            {
+                "verified":
+                    False,
+
+                "message":
+                    (
+                        "This marksheet was registered before "
+                        "PDF hash support and has no on-chain PDF hash."
+                    ),
+
+                "marksheet_id":
+                    marksheet_id,
+            }
+        )
+
+    pdf_path = (
+        find_marksheet_pdf_path(
+            marksheet_id
+        )
+    )
+
+    if not os.path.isfile(
+        pdf_path
+    ):
+
+        return jsonify(
+            {
+                "verified":
+                    False,
+
+                "message":
+                    "PDF file is not available on this node.",
+
+                "marksheet_id":
+                    marksheet_id,
+
+                "stored_pdf_hash":
+                    stored_pdf_hash,
+            }
+        ), 404
+
+    calculated_pdf_hash = (
+        calculate_pdf_hash(
+            pdf_path
+        )
+    )
+
+    verified = (
+        verify_pdf_hash(
+            pdf_path,
+            stored_pdf_hash,
+        )
+    )
+
+    return jsonify(
+        {
+            "verified":
+                bool(
+                    verified
+                ),
+
+            "message":
+                (
+                    "PDF integrity verified successfully."
+                    if verified
+                    else
+                    "PDF integrity verification failed."
+                ),
+
+            "marksheet_id":
+                marksheet_id,
+
+            "pdf_filename":
+                transaction_data.get(
+                    "pdf_filename"
+                ),
+
+            "stored_pdf_hash":
+                stored_pdf_hash,
+
+            "calculated_pdf_hash":
+                calculated_pdf_hash,
+
+            "pdf_path":
+                pdf_path,
+
+            "blockchain_transaction":
+                transaction,
+        }
+    )
+
+
+# ============================================================
+# COMPLETE ANSWER SCRIPT HISTORY
 # ============================================================
 
 @app.route(
     "/answer-scripts/<answer_script_id>",
-    methods=["GET"]
+    methods=["GET"],
 )
 def get_answer_script(
-    answer_script_id
+    answer_script_id: str,
 ):
 
     result = {
 
         "answer_script":
             blockchain.find_transaction(
-
                 "ANSWER_SCRIPT_REGISTERED",
-
                 "answer_script_id",
-
-                answer_script_id
-
+                answer_script_id,
             ),
 
         "assignment":
             blockchain.find_transaction(
-
                 "ANSWER_SCRIPT_ASSIGNED",
-
                 "answer_script_id",
-
-                answer_script_id
-
+                answer_script_id,
             ),
 
         "evaluation":
             blockchain.find_transaction(
-
                 "EVALUATION_SUBMITTED",
-
                 "answer_script_id",
-
-                answer_script_id
-
+                answer_script_id,
             ),
 
         "final_result":
             blockchain.find_transaction(
-
                 "RESULT_FINALIZED",
-
                 "answer_script_id",
-
-                answer_script_id
-
+                answer_script_id,
             ),
 
         "marksheet":
             blockchain.find_transaction(
-
                 "MARKSHEET_REGISTERED",
-
                 "answer_script_id",
-
-                answer_script_id
-
-            )
-
+                answer_script_id,
+            ),
     }
 
     if not any(
         result.values()
     ):
 
-        return jsonify({
-
-            "error":
-                "Answer script not found."
-
-        }), 404
+        return jsonify(
+            {
+                "error":
+                    "Answer script not found."
+            }
+        ), 404
 
     return jsonify(
         result
@@ -2318,19 +2811,19 @@ def get_answer_script(
 
 @app.route(
     "/blockchain",
-    methods=["GET"]
+    methods=["GET"],
 )
 def get_blockchain():
 
-    return jsonify({
+    return jsonify(
+        {
+            "node_id":
+                NODE_ID,
 
-        "node_id":
-            NODE_ID,
-
-        "blocks":
-            blockchain.chain
-
-    })
+            "blocks":
+                blockchain.chain,
+        }
+    )
 
 
 # ============================================================
@@ -2363,14 +2856,14 @@ if __name__ == "__main__":
         f"Port    : {PORT}"
     )
 
+    print(
+        f"Chain   : {CHAIN_FILE}"
+    )
+
     print()
 
     app.run(
-
         host="127.0.0.1",
-
         port=PORT,
-
-        debug=False
-
+        debug=False,
     )
