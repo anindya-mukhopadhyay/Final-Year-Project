@@ -13,4 +13,7 @@ for port in 5001 5002 5003 8000; do
     fi
 done
 
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+rm -f "$PROJECT_ROOT/logs/pids.txt"
+
 echo "AnswerChain services stopped."

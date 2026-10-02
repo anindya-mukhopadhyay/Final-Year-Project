@@ -13,7 +13,7 @@ import os
 import secrets
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Secret key for HMAC token signing (dev fallback or environment variable)
 AUTH_SECRET_KEY = os.environ.get(
@@ -21,7 +21,22 @@ AUTH_SECRET_KEY = os.environ.get(
     "answerchain-dev-secret-key-38f9210ac77b42",
 )
 
-TOKEN_EXPIRY_SECONDS = 86400 * 7  # 7 days
+# Configurable token expiration (default: 86400 seconds = 24 hours)
+TOKEN_EXPIRY_SECONDS = int(os.environ.get("TOKEN_EXPIRY_SECONDS", "86400"))
+
+# In-memory revocation blacklist for logged out or revoked session tokens
+_REVOKED_TOKENS: set = set()
+
+# Rate limiting data structures (sliding window of timestamps)
+_LOGIN_FAILURES: Dict[str, List[float]] = {}
+_UPLOAD_REQUESTS: Dict[str, List[float]] = {}
+
+RATE_LIMIT_LOGIN_MAX = int(os.environ.get("RATE_LIMIT_LOGIN_MAX_ATTEMPTS", "15"))
+RATE_LIMIT_LOGIN_WINDOW = int(os.environ.get("RATE_LIMIT_LOGIN_WINDOW_SECONDS", "60"))
+
+RATE_LIMIT_UPLOAD_MAX = int(os.environ.get("RATE_LIMIT_UPLOAD_MAX_REQUESTS", "30"))
+RATE_LIMIT_UPLOAD_WINDOW = int(os.environ.get("RATE_LIMIT_UPLOAD_WINDOW_SECONDS", "60"))
+
 
 @dataclass
 class User:
@@ -172,12 +187,15 @@ def create_token(user: User) -> str:
 
 def verify_token(token: str) -> Optional[User]:
     """
-    Validate a session token, check signature and expiry, and return User.
+    Validate a session token, check signature, expiry, and revocation state.
     """
     if not token or not isinstance(token, str):
         return None
 
     clean_token = token.strip()
+    if clean_token in _REVOKED_TOKENS:
+        return None
+
     session = _ACTIVE_SESSIONS.get(clean_token)
 
     if not session:
@@ -187,7 +205,6 @@ def verify_token(token: str) -> Optional[User]:
             if len(parts) != 2:
                 return None
             raw_token, signature = parts
-            # If not in active sessions, token is expired or revoked
             return None
         except Exception:
             return None
@@ -204,11 +221,42 @@ def get_user_by_id(user_id: str) -> Optional[User]:
     return _USERS.get(user_id.strip().upper())
 
 def revoke_token(token: str) -> bool:
-    """Log out a user by removing session token."""
-    if token in _ACTIVE_SESSIONS:
-        _ACTIVE_SESSIONS.pop(token, None)
-        return True
-    return False
+    """Log out a user by revoking session token."""
+    if not token or not isinstance(token, str):
+        return False
+    clean_token = token.strip()
+    _REVOKED_TOKENS.add(clean_token)
+    _ACTIVE_SESSIONS.pop(clean_token, None)
+    return True
+
+def check_login_rate_limit(client_ip: str) -> Tuple[bool, Optional[str]]:
+    """Check if client IP has exceeded login attempt threshold."""
+    now = time.time()
+    attempts = [t for t in _LOGIN_FAILURES.get(client_ip, []) if now - t < RATE_LIMIT_LOGIN_WINDOW]
+    _LOGIN_FAILURES[client_ip] = attempts
+    if len(attempts) >= RATE_LIMIT_LOGIN_MAX:
+        return False, f"Too many failed login attempts. Please wait {RATE_LIMIT_LOGIN_WINDOW} seconds."
+    return True, None
+
+def record_login_failure(client_ip: str) -> None:
+    now = time.time()
+    attempts = [t for t in _LOGIN_FAILURES.get(client_ip, []) if now - t < RATE_LIMIT_LOGIN_WINDOW]
+    attempts.append(now)
+    _LOGIN_FAILURES[client_ip] = attempts
+
+def record_login_success(client_ip: str) -> None:
+    _LOGIN_FAILURES.pop(client_ip, None)
+
+def check_upload_rate_limit(client_ip: str) -> Tuple[bool, Optional[str]]:
+    """Check if client IP has exceeded upload verification threshold."""
+    now = time.time()
+    reqs = [t for t in _UPLOAD_REQUESTS.get(client_ip, []) if now - t < RATE_LIMIT_UPLOAD_WINDOW]
+    if len(reqs) >= RATE_LIMIT_UPLOAD_MAX:
+        _UPLOAD_REQUESTS[client_ip] = reqs
+        return False, f"Upload verification rate limit exceeded. Please wait {RATE_LIMIT_UPLOAD_WINDOW} seconds."
+    reqs.append(now)
+    _UPLOAD_REQUESTS[client_ip] = reqs
+    return True, None
 
 def list_teachers() -> List[Dict[str, Any]]:
     """Return all teachers for assignment dropdowns."""

@@ -2,9 +2,7 @@
  * AnswerChain Enterprise Client SDK & Shared Helpers
  */
 
-const API_BASE = (window.location.port === "8000" || window.location.port === "5500")
-    ? "http://127.0.0.1:8000"
-    : `${window.location.protocol}//${window.location.hostname}:8000`;
+const API_BASE = `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:8000`;
 
 function getApiBase() {
     return API_BASE;

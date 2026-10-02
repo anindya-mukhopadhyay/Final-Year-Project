@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from backend.audit import log_audit_event
 from backend.auth import User, get_user_by_id
 from backend.blockchain_service import BlockchainService, blockchain_service
+from backend.crypto import sign_academic_transaction
 
 logger = logging.getLogger("application_service")
 
@@ -98,15 +99,19 @@ class AcademicApplicationService:
     # ========================================================
 
     def get_all_blockchain_transactions(self) -> List[Dict[str, Any]]:
-        """Fetch all confirmed transactions across blocks from primary node."""
-        resp = self.blockchain.get_blockchain("UNIVERSITY")
-        if not resp["success"]:
-            # Fallback to teacher or authority node
-            resp = self.blockchain.get_blockchain("AUTHORITY")
-        if not resp["success"]:
+        """Fetch all confirmed transactions across blocks from the most up-to-date node."""
+        candidates = []
+        for role in ("UNIVERSITY", "AUTHORITY", "TEACHER"):
+            resp = self.blockchain.get_blockchain(role)
+            if resp.get("success"):
+                blks = resp.get("data", {}).get("blocks", [])
+                if blks:
+                    candidates.append(blks)
+
+        if not candidates:
             return []
 
-        blocks = resp["data"].get("blocks", [])
+        blocks = max(candidates, key=len)
         transactions = []
         for b in blocks:
             data = b.get("data", [])
@@ -300,12 +305,29 @@ class AcademicApplicationService:
 
         # Register to University Node
         university_name = "TINT"
+        raw_tx_data = {
+            "type": "ANSWER_SCRIPT_REGISTERED",
+            "university": university_name,
+            "exam_id": exam_id.strip(),
+            "answer_script_id": answer_script_id,
+            "file_name": file_name or f"{answer_script_id}.pdf",
+            "answer_script_hash": file_hash,
+        }
+        signed_tx = sign_academic_transaction(current_user.user_id, current_user.role, raw_tx_data)
+        sig_meta = {
+            "actor_id": signed_tx["actor_id"],
+            "actor_role": signed_tx["actor_role"],
+            "signature": signed_tx["signature"],
+            "payload_hash": signed_tx["payload_hash"],
+            "public_key_id": signed_tx["public_key_id"],
+        }
         resp = self.blockchain.register_answer_script(
             university=university_name,
             exam_id=exam_id.strip(),
             answer_script_id=answer_script_id,
             file_name=file_name or f"{answer_script_id}.pdf",
             file_hash=file_hash,
+            sig_meta=sig_meta,
         )
 
         if not resp["success"]:
@@ -370,10 +392,25 @@ class AcademicApplicationService:
         if not teacher_user or teacher_user.role != "TEACHER":
             return False, {"error": f"Invalid teacher ID '{clean_tch_id}'. Must be an active teacher."}, 400
 
+        raw_tx_data = {
+            "type": "ANSWER_SCRIPT_ASSIGNED",
+            "answer_script_id": clean_as_id,
+            "teacher_id": clean_tch_id,
+            "assigned_by": current_user.user_id,
+        }
+        signed_tx = sign_academic_transaction(current_user.user_id, current_user.role, raw_tx_data)
+        sig_meta = {
+            "actor_id": signed_tx["actor_id"],
+            "actor_role": signed_tx["actor_role"],
+            "signature": signed_tx["signature"],
+            "payload_hash": signed_tx["payload_hash"],
+            "public_key_id": signed_tx["public_key_id"],
+        }
         resp = self.blockchain.assign_teacher(
             answer_script_id=clean_as_id,
             teacher_id=clean_tch_id,
             assigned_by=current_user.user_id,
+            sig_meta=sig_meta,
         )
 
         if not resp["success"]:
@@ -482,11 +519,27 @@ class AcademicApplicationService:
         if marks < 0 or marks > max_marks:
             return False, {"error": f"Marks ({marks}) cannot be negative or exceed maximum marks ({max_marks})."}, 400
 
+        raw_tx_data = {
+            "type": "EVALUATION_SUBMITTED",
+            "answer_script_id": answer_script_id,
+            "teacher_id": current_user.user_id,
+            "marks": marks,
+            "max_marks": max_marks,
+        }
+        signed_tx = sign_academic_transaction(current_user.user_id, current_user.role, raw_tx_data)
+        sig_meta = {
+            "actor_id": signed_tx["actor_id"],
+            "actor_role": signed_tx["actor_role"],
+            "signature": signed_tx["signature"],
+            "payload_hash": signed_tx["payload_hash"],
+            "public_key_id": signed_tx["public_key_id"],
+        }
         resp = self.blockchain.submit_evaluation(
             answer_script_id=answer_script_id,
             teacher_id=current_user.user_id,
             marks=marks,
             max_marks=max_marks,
+            sig_meta=sig_meta,
         )
 
         if not resp["success"]:
@@ -563,9 +616,23 @@ class AcademicApplicationService:
         if script["finalized"]:
             return False, {"error": "Result is already finalized.", "result_id": script["result_id"]}, 409
 
+        raw_tx_data = {
+            "type": "RESULT_FINALIZED",
+            "answer_script_id": answer_script_id,
+            "authority_id": current_user.user_id,
+        }
+        signed_tx = sign_academic_transaction(current_user.user_id, current_user.role, raw_tx_data)
+        sig_meta = {
+            "actor_id": signed_tx["actor_id"],
+            "actor_role": signed_tx["actor_role"],
+            "signature": signed_tx["signature"],
+            "payload_hash": signed_tx["payload_hash"],
+            "public_key_id": signed_tx["public_key_id"],
+        }
         resp = self.blockchain.finalize_result(
             answer_script_id=answer_script_id,
             authority_id=current_user.user_id,
+            sig_meta=sig_meta,
         )
 
         if not resp["success"]:
@@ -627,12 +694,29 @@ class AcademicApplicationService:
         exam_name = script.get("exam_name") or meta.get("exam_name", "University Examination")
         university = script.get("university") or meta.get("university", "TINT")
 
+        raw_tx_data = {
+            "type": "MARKSHEET_REGISTERED",
+            "answer_script_id": answer_script_id,
+            "student_id": student_id,
+            "student_name": student_name,
+            "university": university,
+            "exam_name": exam_name,
+        }
+        signed_tx = sign_academic_transaction(current_user.user_id, current_user.role, raw_tx_data)
+        sig_meta = {
+            "actor_id": signed_tx["actor_id"],
+            "actor_role": signed_tx["actor_role"],
+            "signature": signed_tx["signature"],
+            "payload_hash": signed_tx["payload_hash"],
+            "public_key_id": signed_tx["public_key_id"],
+        }
         resp = self.blockchain.generate_marksheet(
             answer_script_id=answer_script_id,
             student_id=student_id,
             student_name=student_name,
             university=university,
             exam_name=exam_name,
+            sig_meta=sig_meta,
         )
 
         if not resp["success"]:
@@ -844,6 +928,7 @@ class AcademicApplicationService:
             return False, {
                 "verified": False,
                 "status": "TAMPERED_OR_UNKNOWN",
+                "document_status": "DOCUMENT_MISMATCH",
                 "message": "The uploaded PDF does not match any registered AnswerChain marksheet.",
                 "uploaded_pdf_hash": uploaded_pdf_hash,
             }, 404
@@ -879,6 +964,7 @@ class AcademicApplicationService:
             status="SUCCESS",
             details={
                 "status": "VERIFIED",
+                "document_status": "DOCUMENT_MATCH",
                 "pdf_hash": uploaded_pdf_hash,
                 "marksheet_id": marksheet_id,
                 "block_number": block_idx,
@@ -888,6 +974,7 @@ class AcademicApplicationService:
         return True, {
             "verified": True,
             "status": "VERIFIED",
+            "document_status": "DOCUMENT_MATCH",
             "message": "Marksheet is authentic and matches the registered AnswerChain document.",
             "marksheet_id": marksheet_id,
             "student_name": tx_data.get("student_name", "—"),

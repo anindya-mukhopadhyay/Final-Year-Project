@@ -142,43 +142,55 @@
         let pendingList = [];
         let selectedScript = null;
 
-        async function loadPendingQueue() {
+        function renderQueueTable() {
+            const tbody = document.getElementById('queue-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (pendingList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 36px;">✓ No evaluations pending finalization. All submitted marks have been certified.</td></tr>';
+                return;
+            }
+
+            pendingList.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.id = `row-${p.answer_script_id}`;
+                tr.innerHTML = `
+                    <td><strong>${p.answer_script_id}</strong></td>
+                    <td>${p.student_name}<br><small style="color:var(--muted)">${p.student_id}</small></td>
+                    <td>${p.teacher_name || p.teacher_id}</td>
+                    <td><strong>${p.marks}</strong> / ${p.max_marks}</td>
+                    <td><span class="hash-display">${p.evaluation_id}</span></td>
+                    <td><span class="badge badge-evaluated">Evaluation Submitted</span></td>
+                    <td>
+                        <button onclick="openFinalizeModal('${p.answer_script_id}')" class="btn btn-sm btn-primary">
+                            Certify &amp; Finalize
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function loadPendingQueue(isInitial = false) {
             try {
                 const res = await authFetch('/api/authority/results/pending');
                 if (!res.ok) {
-                    showToast(res.data.message || 'Failed to load queue', 'error');
-                    return;
+                    if (isInitial) {
+                        showToast(res.data?.message || res.data?.error || 'Failed to load queue', 'error');
+                    }
+                    return false;
                 }
 
                 pendingList = res.data.pending_results || [];
-                const tbody = document.getElementById('queue-tbody');
-                tbody.innerHTML = '';
-
-                if (pendingList.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 36px;">✓ No evaluations pending finalization. All submitted marks have been certified.</td></tr>';
-                    return;
-                }
-
-                pendingList.forEach(p => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><strong>${p.answer_script_id}</strong></td>
-                        <td>${p.student_name}<br><small style="color:var(--muted)">${p.student_id}</small></td>
-                        <td>${p.teacher_name || p.teacher_id}</td>
-                        <td><strong>${p.marks}</strong> / ${p.max_marks}</td>
-                        <td><span class="hash-display">${p.evaluation_id}</span></td>
-                        <td><span class="badge badge-evaluated">Evaluation Submitted</span></td>
-                        <td>
-                            <button onclick="openFinalizeModal('${p.answer_script_id}')" class="btn btn-sm btn-primary">
-                                Certify &amp; Finalize
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                renderQueueTable();
+                return true;
             } catch (err) {
-                console.error(err);
-                showToast('Network error loading finalization queue', 'error');
+                console.error('Error loading pending queue:', err);
+                if (isInitial) {
+                    showToast('Network error loading finalization queue', 'error');
+                }
+                return false;
             }
         }
 
@@ -203,34 +215,71 @@
 
         async function executeFinalization() {
             if (!selectedScript) return;
+
+            // Preserve script identity before modal close or any state transitions
+            const targetScript = selectedScript;
+            const targetScriptId = targetScript.answer_script_id;
+
             const btn = document.getElementById('confirm-finalize-btn');
             btn.disabled = true;
             btn.textContent = 'Certifying on Node-3 (Authority)...';
 
+            let res;
             try {
-                const res = await authFetch(`/api/authority/results/${selectedScript.answer_script_id}/finalize`, {
+                res = await authFetch(`/api/authority/results/${targetScriptId}/finalize`, {
                     method: 'POST'
                 });
-
-                if (res.ok) {
-                    showToast(`Result ${res.data.result_id} finalized and broadcast to blockchain!`, 'success');
-                    closeModal();
-
-                    // Prompt to issue marksheet immediately
-                    const issueNow = confirm(`Result finalized successfully!\n\nResult ID: ${res.data.result_id}\nBlock: #${res.data.block_number}\n\nWould you like to generate the official Marksheet & PDF right now?`);
-                    if (issueNow) {
-                        await issueMarksheet(selectedScript.answer_script_id);
-                    }
-                    await loadPendingQueue();
-                } else {
-                    showToast(res.data.error || 'Result finalization failed.', 'error');
-                }
             } catch (err) {
-                console.error(err);
+                console.error('Finalize network error:', err);
                 showToast('Failed to connect to authority node service.', 'error');
-            } finally {
                 btn.disabled = false;
                 btn.textContent = 'Authorize & Finalize Result';
+                return;
+            }
+
+            if (!res.ok) {
+                btn.disabled = false;
+                btn.textContent = 'Authorize & Finalize Result';
+                const errMsg = res.data?.error || res.data?.message || 'Result finalization failed.';
+                showToast(errMsg, 'error');
+                return;
+            }
+
+            // === 1. SUCCESS: Finalization succeeded on Node-3 and broadcast to blockchain ===
+            const resultId = res.data?.result_id || 'RESULT';
+            const blockNum = res.data?.block_number || '—';
+
+            // Show green success toast
+            showToast(`Result ${resultId} finalized and broadcast to blockchain!`, 'success');
+
+            // === 2. Optimistic UI update: remove finalized script from queue table immediately ===
+            pendingList = pendingList.filter(s => s.answer_script_id !== targetScriptId);
+            renderQueueTable();
+
+            // === 3. Close the modal and reset button state ===
+            closeModal();
+            btn.disabled = false;
+            btn.textContent = 'Authorize & Finalize Result';
+
+            // === 4. Background refresh through application server on port 8000 ===
+            try {
+                const refreshed = await loadPendingQueue(false);
+                if (!refreshed) {
+                    showToast('Result finalized successfully, but the queue could not be refreshed.', 'warning');
+                }
+            } catch (refreshErr) {
+                console.error('Queue refresh error:', refreshErr);
+                showToast('Result finalized successfully, but the queue could not be refreshed.', 'warning');
+            }
+
+            // === 5. Prompt to issue marksheet immediately (using preserved targetScriptId) ===
+            try {
+                const issueNow = confirm(`Result finalized successfully!\n\nResult ID: ${resultId}\nBlock: #${blockNum}\n\nWould you like to generate the official Marksheet & PDF right now?`);
+                if (issueNow) {
+                    await issueMarksheet(targetScriptId);
+                }
+            } catch (promptErr) {
+                console.error('Marksheet prompt error:', promptErr);
             }
         }
 
@@ -243,14 +292,23 @@
                     alert(`Marksheet Generated & Registered!\n\nMarksheet ID: ${res.data.marksheet_id}\nData Hash: ${res.data.marksheet_data_hash}\nPDF Hash: ${res.data.marksheet_pdf_hash}\n\nYou can now view or verify it.`);
                     window.location.href = `/authority/marksheets.html`;
                 } else {
-                    showToast(res.data.error || 'Marksheet generation failed', 'error');
+                    showToast(res.data?.error || res.data?.message || 'Marksheet generation failed', 'error');
                 }
             } catch (e) {
                 showToast('Failed to generate marksheet', 'error');
             }
         }
 
-        loadPendingQueue();
+        async function initPage() {
+            await loadPendingQueue(true);
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetId = urlParams.get('id');
+            if (targetId) {
+                openFinalizeModal(targetId);
+            }
+        }
+
+        initPage();
     </script>
 </body>
 </html>

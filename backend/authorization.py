@@ -80,6 +80,15 @@ def require_role(allowed_roles: Union[str, List[str]]) -> Callable:
 
             # Allow ADMIN to access admin-allowed endpoints or audit
             if user.role not in roles_set and user.role != "ADMIN":
+                from backend.audit import log_audit_event
+                log_audit_event(
+                    action="AUTHORIZATION_DENIED",
+                    actor=user.user_id,
+                    actor_role=user.role,
+                    status="DENIED",
+                    reason=f"Role '{user.role}' not permitted. Required: {', '.join(sorted(roles_set))}",
+                    details={"path": request.path, "method": request.method},
+                )
                 return jsonify({
                     "error": "Forbidden",
                     "message": (

@@ -52,22 +52,39 @@ def log_audit_event(
     resource_id: Optional[str] = None,
     transaction_id: Optional[str] = None,
     status: str = "SUCCESS",
+    reason: Optional[str] = None,
     details: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Append an operational audit record.
+    Append an operational security audit record.
+    Sanitizes details to ensure no passwords or private keys are persisted.
     """
     _load_audit_log()
+
+    # Sanitize details (remove any accidental password, token, or private key fields)
+    sanitized_details: Dict[str, Any] = {}
+    if details and isinstance(details, dict):
+        for k, v in details.items():
+            k_lower = k.lower()
+            if any(s in k_lower for s in ("password", "private_key", "secret", "token")):
+                sanitized_details[k] = "[REDACTED]"
+            else:
+                sanitized_details[k] = v
+
+    normalized_status = status.upper()
     event = {
         "id": f"AUD-{int(time.time() * 1000)}-{len(_AUDIT_LOG) + 1}",
         "timestamp": time.time(),
-        "action": action,
+        "action": action.upper(),
         "actor": actor,
-        "actor_role": actor_role,
+        "actor_id": actor,
+        "actor_role": actor_role.upper(),
         "resource_id": resource_id or "—",
         "transaction_id": transaction_id or "—",
-        "status": status.upper(),
-        "details": details or {},
+        "status": normalized_status,
+        "result": normalized_status,
+        "reason": reason or ("—" if normalized_status == "SUCCESS" else "Operation failed"),
+        "details": sanitized_details,
     }
     _AUDIT_LOG.append(event)
     _save_audit_log()

@@ -4,7 +4,7 @@ import os
 import sys
 import time
 from copy import deepcopy
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from flask import Flask, jsonify, request, send_file
@@ -40,8 +40,12 @@ from backend.marksheet_pdf import (  # noqa: E402
     verify_pdf_hash,
 )
 
+from backend.crypto import (  # noqa: E402
+    verify_academic_transaction,
+)
+
 # ============================================================
-# CONFIGURATION
+# CONFIGURATION & NODE-TO-NODE SECURITY (Phase 8)
 # ============================================================
 
 NODE_ID = os.environ.get("NODE_ID", "node-1")
@@ -70,6 +74,17 @@ PORT = int(
     )
 )
 
+NODE_HOST = os.environ.get("NODE_HOST", "127.0.0.1")
+NODE_AUTH_TOKEN = os.environ.get("NODE_AUTH_TOKEN", "dev-node-peer-auth-token-389fbc8102")
+TLS_ENABLED = os.environ.get("TLS_ENABLED", "false").lower() in ("true", "1", "yes")
+TLS_VERIFY = os.environ.get("TLS_VERIFY", "false").lower() in ("true", "1", "yes")
+
+TRUSTED_PEERS: Dict[str, Dict[str, Any]] = {
+    "node-1": {"peer_id": "node-1", "peer_url": "127.0.0.1:5001", "role": "UNIVERSITY", "enabled": True},
+    "node-2": {"peer_id": "node-2", "peer_url": "127.0.0.1:5002", "role": "TEACHER", "enabled": True},
+    "node-3": {"peer_id": "node-3", "peer_url": "127.0.0.1:5003", "role": "AUTHORITY", "enabled": True},
+}
+
 DEFAULT_PEERS = {
     "node-1": ["127.0.0.1:5002", "127.0.0.1:5003"],
     "node-2": ["127.0.0.1:5001", "127.0.0.1:5003"],
@@ -94,6 +109,20 @@ CHAIN_FILE = os.path.join(
     DATA_DIR,
     f"{NODE_ID}_blockchain.json",
 )
+
+# ============================================================
+# PEER AUTHENTICATION HELPER
+# ============================================================
+
+def authenticate_peer_request() -> Tuple[bool, Optional[str]]:
+    """
+    Validate incoming peer communication.
+    Rejects unauthorized peers if an invalid token is provided.
+    """
+    token = request.headers.get("X-Node-Auth-Token", "")
+    if token and token != NODE_AUTH_TOKEN:
+        return False, "INVALID_PEER_CREDENTIAL"
+    return True, None
 
 # ============================================================
 # FLASK
@@ -432,6 +461,17 @@ class NodeBlockchain:
             if calculated_hash != current["hash"]:
                 return False
 
+            # Phase 8: Verify cryptographic signatures of signed transactions
+            txs = current.get("data")
+            if isinstance(txs, list):
+                for tx in txs:
+                    if isinstance(tx, dict):
+                        tx_data = tx.get("data", {})
+                        if isinstance(tx_data, dict) and tx_data.get("signature"):
+                            is_valid, _ = verify_academic_transaction(tx_data)
+                            if not is_valid:
+                                return False
+
         return True
 
     def replace_chain(
@@ -457,11 +497,13 @@ class NodeBlockchain:
         self,
         transaction: Dict[str, Any],
     ) -> None:
+        headers = {"X-Node-Auth-Token": NODE_AUTH_TOKEN}
         for peer in list(self.peers):
             try:
                 requests.post(
                     f"http://{peer}/receive-transaction",
                     json={"transaction": transaction},
+                    headers=headers,
                     timeout=2,
                 )
             except requests.RequestException:
@@ -471,11 +513,13 @@ class NodeBlockchain:
         self,
         block: Dict[str, Any],
     ) -> None:
+        headers = {"X-Node-Auth-Token": NODE_AUTH_TOKEN}
         for peer in list(self.peers):
             try:
                 requests.post(
                     f"http://{peer}/receive-block",
                     json={"block": block},
+                    headers=headers,
                     timeout=2,
                 )
             except requests.RequestException:
@@ -484,11 +528,13 @@ class NodeBlockchain:
     def consensus(self) -> Dict[str, Any]:
         longest_chain = self.chain
         source_node = self.node_id
+        headers = {"X-Node-Auth-Token": NODE_AUTH_TOKEN}
 
         for peer in list(self.peers):
             try:
                 response = requests.get(
                     f"http://{peer}/chain",
+                    headers=headers,
                     timeout=2,
                 )
                 if response.status_code != 200:
@@ -703,6 +749,15 @@ def create_transaction():
     if not data:
         return jsonify({"error": "Transaction data is required."}), 400
 
+    # Phase 8: Verify digital signature if present
+    if data.get("signature"):
+        is_valid, err_msg = verify_academic_transaction(data)
+        if not is_valid:
+            return jsonify({
+                "error": err_msg or "SIGNATURE_INVALID",
+                "message": "Transaction signature verification failed.",
+            }), 400
+
     result = blockchain.add_and_commit_transaction(data)
 
     return jsonify({
@@ -714,6 +769,10 @@ def create_transaction():
 
 @app.route("/receive-transaction", methods=["POST"])
 def receive_transaction():
+    is_valid_peer, peer_err = authenticate_peer_request()
+    if not is_valid_peer:
+        return jsonify({"error": peer_err or "PEER_NOT_AUTHORIZED"}), 403
+
     body = require_json()
     transaction = body.get("transaction")
 
@@ -723,6 +782,16 @@ def receive_transaction():
     transaction_id = transaction.get("transaction_id")
     if not transaction_id:
         return jsonify({"error": "Transaction ID missing."}), 400
+
+    # Phase 8: Verify signature if present on incoming transaction
+    tx_data = transaction.get("data", {})
+    if isinstance(tx_data, dict) and tx_data.get("signature"):
+        is_valid, err_msg = verify_academic_transaction(tx_data)
+        if not is_valid:
+            return jsonify({
+                "error": err_msg or "SIGNATURE_INVALID",
+                "message": "Transaction signature verification failed.",
+            }), 400
 
     # If already in chain, no need to add to pending
     for block in blockchain.chain:
@@ -763,9 +832,14 @@ def mine():
 @app.route("/receive-block", methods=["POST"])
 def receive_block():
     """
-    Requirement 8: Peers validate received blocks before appending them.
+    Requirement 8 & Phase 8: Peers validate received blocks before appending them.
+    Validates structure, previous_hash, block hash, peer identity, and transaction signatures.
     If peer is behind, consensus is triggered to synchronize.
     """
+    is_valid_peer, peer_err = authenticate_peer_request()
+    if not is_valid_peer:
+        return jsonify({"error": peer_err or "PEER_NOT_AUTHORIZED"}), 403
+
     body = require_json()
     block = body.get("block")
 
@@ -777,7 +851,22 @@ def receive_block():
         return jsonify({
             "message": "Block rejected",
             "reason": "Block fields are incomplete.",
+            "error": "INVALID_BLOCK_STRUCTURE",
         }), 400
+
+    # Phase 8: Validate digital signatures in block transactions
+    if isinstance(block.get("data"), list):
+        for tx in block["data"]:
+            if isinstance(tx, dict):
+                tx_data = tx.get("data", {})
+                if isinstance(tx_data, dict) and tx_data.get("signature"):
+                    is_valid, err_msg = verify_academic_transaction(tx_data)
+                    if not is_valid:
+                        return jsonify({
+                            "message": "Block rejected",
+                            "reason": f"Invalid transaction signature: {err_msg}",
+                            "error": "SIGNATURE_INVALID",
+                        }), 409
 
     # Check if block is already present in our chain
     for existing in blockchain.chain:
@@ -802,6 +891,7 @@ def receive_block():
             return jsonify({
                 "message": "Block rejected",
                 "reason": "Invalid block hash.",
+                "error": "INVALID_BLOCK_HASH",
             }), 409
 
         blockchain.chain.append(block)
@@ -904,6 +994,17 @@ def register_answer_script():
         "file_name": data["file_name"],
         "answer_script_hash": data["file_hash"],
     }
+    for k in ("actor_id", "actor_role", "public_key_id", "payload_hash", "signature"):
+        if k in data:
+            transaction_data[k] = data[k]
+
+    if "signature" in transaction_data:
+        is_valid, err_msg = verify_academic_transaction(transaction_data)
+        if not is_valid:
+            return jsonify({
+                "error": err_msg or "SIGNATURE_INVALID",
+                "message": "Academic transaction digital signature verification failed.",
+            }), 400
 
     result = blockchain.add_and_commit_transaction(transaction_data)
 
@@ -959,6 +1060,17 @@ def assign_answer_script():
         "assigned_by": assigned_by,
         "status": "ASSIGNED",
     }
+    for k in ("actor_id", "actor_role", "public_key_id", "payload_hash", "signature"):
+        if k in data:
+            transaction_data[k] = data[k]
+
+    if "signature" in transaction_data:
+        is_valid, err_msg = verify_academic_transaction(transaction_data)
+        if not is_valid:
+            return jsonify({
+                "error": err_msg or "SIGNATURE_INVALID",
+                "message": "Academic transaction digital signature verification failed.",
+            }), 400
 
     result = blockchain.add_and_commit_transaction(transaction_data)
 
@@ -1005,6 +1117,14 @@ def submit_evaluation():
     if marks < 0 or marks > max_marks:
         return jsonify({"error": "Invalid marks."}), 400
 
+    # Phase 8 Academic Invariant: finalized result cannot be modified
+    if blockchain.transaction_exists(
+        "RESULT_FINALIZED",
+        "answer_script_id",
+        answer_script_id,
+    ):
+        return jsonify({"error": "Result is already finalized and cannot be modified."}), 409
+
     assignment = blockchain.find_transaction(
         "ANSWER_SCRIPT_ASSIGNED",
         "answer_script_id",
@@ -1046,6 +1166,17 @@ def submit_evaluation():
         "max_marks": max_marks,
         "status": "SUBMITTED",
     }
+    for k in ("actor_id", "actor_role", "public_key_id", "payload_hash", "signature"):
+        if k in data:
+            transaction_data[k] = data[k]
+
+    if "signature" in transaction_data:
+        is_valid, err_msg = verify_academic_transaction(transaction_data)
+        if not is_valid:
+            return jsonify({
+                "error": err_msg or "SIGNATURE_INVALID",
+                "message": "Academic transaction digital signature verification failed.",
+            }), 400
 
     result = blockchain.add_and_commit_transaction(transaction_data)
 
@@ -1117,6 +1248,17 @@ def finalize_result():
         "max_marks": evaluation_data["max_marks"],
         "status": "FINALIZED",
     }
+    for k in ("actor_id", "actor_role", "public_key_id", "payload_hash", "signature"):
+        if k in data:
+            transaction_data[k] = data[k]
+
+    if "signature" in transaction_data:
+        is_valid, err_msg = verify_academic_transaction(transaction_data)
+        if not is_valid:
+            return jsonify({
+                "error": err_msg or "SIGNATURE_INVALID",
+                "message": "Academic transaction digital signature verification failed.",
+            }), 400
 
     result = blockchain.add_and_commit_transaction(transaction_data)
 
@@ -1233,6 +1375,17 @@ def generate_marksheet_endpoint():
         "percentage": marksheet["percentage"],
         "status": "REGISTERED",
     }
+    for k in ("actor_id", "actor_role", "public_key_id", "payload_hash", "signature"):
+        if k in data:
+            transaction_data[k] = data[k]
+
+    if "signature" in transaction_data:
+        is_valid, err_msg = verify_academic_transaction(transaction_data)
+        if not is_valid:
+            return jsonify({
+                "error": err_msg or "SIGNATURE_INVALID",
+                "message": "Academic transaction digital signature verification failed.",
+            }), 400
 
     result = blockchain.add_and_commit_transaction(transaction_data)
 

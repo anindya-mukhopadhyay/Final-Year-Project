@@ -14,3 +14,7 @@ data/*.tmp
 generated/marksheets/*.pdf
 *.pdf
 scratch/
+keys/
+*.pem
+*.key
+backups/

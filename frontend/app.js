@@ -1,12 +1,15 @@
-const API_BASE_URL = "http://127.0.0.1:5001";
+const API_BASE_URL = (typeof window !== "undefined" && window.location && window.location.origin)
+    ? window.location.origin
+    : "http://127.0.0.1:8000";
 
 
 async function getJSON(
     endpoint,
     options = {}
 ) {
+    const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
     const response = await fetch(
-        `${API_BASE_URL}${endpoint}`,
+        url,
         options
     );
 
@@ -27,31 +30,60 @@ async function getJSON(
 async function loadDashboard() {
 
     try {
+        let networkData = null;
+        try {
+            networkData = await getJSON("/api/admin/network");
+        } catch (netErr) {
+            // Check fallback endpoint if /api/admin/network had an issue
+            try {
+                networkData = await getJSON("/api/network");
+            } catch (fallbackErr) {
+                console.error("Application server network endpoint unreachable:", netErr);
+                showError("Application server unavailable", true);
+                return;
+            }
+        }
 
-        const [
-            networkData,
-            chainData
-        ] = await Promise.all([
-            getJSON("/network"),
-            getJSON("/chain")
-        ]);
+        if (!networkData) {
+            showError("Application server unavailable", true);
+            return;
+        }
 
+        // Check if blockchain nodes cluster is completely offline
+        const isClusterOffline =
+            String(networkData.network_status).toUpperCase() === "OFFLINE" ||
+            (Array.isArray(networkData.nodes) && networkData.nodes.length > 0 && networkData.nodes.every(n => String(n.status).toUpperCase() === "OFFLINE"));
+
+        if (isClusterOffline) {
+            showError("Blockchain network unavailable", false, networkData);
+            return;
+        }
+
+        // Fetch chain data from application proxy
+        let chain = [];
+        if (Array.isArray(networkData.chain) && networkData.chain.length > 0) {
+            chain = networkData.chain;
+        } else {
+            try {
+                const chainData = await getJSON("/api/chain");
+                chain = chainData.chain || [];
+            } catch (chainErr) {
+                console.warn("Chain endpoint fetch error:", chainErr);
+            }
+        }
 
         updateStatistics(
             networkData,
-            chainData
+            chain
         );
-
 
         renderNodes(
             networkData
         );
 
-
         renderBlocks(
-            chainData.chain || []
+            chain
         );
-
 
     } catch (error) {
 
@@ -61,7 +93,8 @@ async function loadDashboard() {
         );
 
         showError(
-            error.message
+            "Application server unavailable",
+            true
         );
     }
 }
@@ -76,13 +109,10 @@ function updateStatistics(
     chainData
 ) {
 
-    const blockCount =
-        Array.isArray(
-            chainData.chain
-        )
-            ? chainData.chain.length
-            : (Number(networkData.blocks) || 0);
-
+    const chainLength = Array.isArray(chainData) ? chainData.length : (Array.isArray(chainData?.chain) ? chainData.chain.length : 0);
+    const blockCount = chainLength > 0
+        ? chainLength
+        : (Number(networkData.blocks) || 0);
 
     // Actual network peers currently reachable
     const peerCount =
@@ -90,84 +120,74 @@ function updateStatistics(
             ? networkData.connected_peers_count
             : (Array.isArray(networkData.peers) ? networkData.peers.length : 0);
 
-
     const pendingCount =
         Number(
             networkData.pending_transactions
         ) || 0;
-
 
     document.getElementById(
         "blockCount"
     ).textContent =
         blockCount;
 
-
     document.getElementById(
         "peerCount"
     ).textContent =
         peerCount;
-
 
     document.getElementById(
         "pendingCount"
     ).textContent =
         pendingCount;
 
-
     const currentNodeId =
         networkData.current_node ||
         networkData.node_id ||
         "node-1";
-
 
     document.getElementById(
         "currentNode"
     ).textContent =
         currentNodeId;
 
-
     document.getElementById(
         "healthNode"
     ).textContent =
         currentNodeId;
-
 
     document.getElementById(
         "healthBlocks"
     ).textContent =
         blockCount;
 
-
     document.getElementById(
         "healthPeers"
     ).textContent =
         peerCount;
-
 
     document.getElementById(
         "tableBlockCount"
     ).textContent =
         blockCount;
 
-
     const valid =
         networkData.chain_valid === true;
-
 
     document.getElementById(
         "chainStatus"
     ).textContent =
         valid
             ? "Chain valid"
-            : "Chain validation failed";
+            : "Chain validation warning";
 
-
-    document.getElementById(
-        "networkStatus"
-    ).textContent =
-        networkData.network_status ||
-        (valid ? "Online" : "Warning");
+    const netStatus = String(networkData.network_status || "").toUpperCase();
+    if (netStatus === "ONLINE") {
+        document.getElementById("networkStatus").textContent = "Network Online";
+    } else if (netStatus === "PARTIAL" || netStatus === "DEGRADED") {
+        document.getElementById("networkStatus").textContent = "Degraded";
+    } else {
+        document.getElementById("networkStatus").textContent = "Offline";
+    }
 }
 
 
@@ -441,31 +461,52 @@ function renderBlocks(
 ========================================================= */
 
 function showError(
-    message
+    message,
+    isAppServerUnavailable = false,
+    networkData = null
 ) {
+    document.getElementById("networkStatus").textContent = "Offline";
+    document.getElementById("chainStatus").textContent = message;
 
-    document.getElementById(
-        "networkStatus"
-    ).textContent =
-        "Offline";
+    // Do NOT display 0 blocks unless backend actually confirmed zero
+    document.getElementById("blockCount").textContent = "—";
+    document.getElementById("peerCount").textContent = "—";
+    document.getElementById("pendingCount").textContent = "—";
+    document.getElementById("healthBlocks").textContent = "—";
+    document.getElementById("healthPeers").textContent = "—";
+    document.getElementById("tableBlockCount").textContent = "—";
 
-
-    document.getElementById(
-        "chainStatus"
-    ).textContent =
-        message;
-
-
-    document.getElementById(
-        "nodesContainer"
-    ).innerHTML =
-        `
-        <div class="empty-state">
-            Unable to connect to AnswerChain backend.
-            <br>
-            Start the blockchain node on port 5001.
-        </div>
+    const container = document.getElementById("nodesContainer");
+    if (isAppServerUnavailable) {
+        container.innerHTML = `
+            <div class="empty-state">
+                Application server unavailable.
+                <br>
+                Ensure the AnswerChain application server is running on port 8000.
+            </div>
         `;
+    } else if (networkData && Array.isArray(networkData.nodes) && networkData.nodes.length > 0) {
+        renderNodes(networkData);
+    } else {
+        container.innerHTML = `
+            <div class="empty-state">
+                Blockchain network unavailable.
+                <br>
+                Start cluster nodes on ports 5001, 5002, 5003.
+            </div>
+        `;
+    }
+
+    const tbody = document.getElementById("blocksTable");
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-cell">
+                    Unable to retrieve blockchain data
+                </td>
+            </tr>
+        `;
+    }
 }
 
 

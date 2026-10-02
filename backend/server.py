@@ -26,8 +26,12 @@ from backend.application_service import academic_service
 from backend.audit import get_audit_events, log_audit_event
 from backend.auth import (
     authenticate,
+    check_login_rate_limit,
+    check_upload_rate_limit,
     get_user_by_id,
     list_teachers,
+    record_login_failure,
+    record_login_success,
     revoke_token,
 )
 from backend.authorization import (
@@ -58,6 +62,28 @@ app = Flask(
     static_url_path="",
 )
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+
+# ============================================================
+# HTTP SECURITY HEADERS (Phase 8)
+# ============================================================
+
+@app.after_request
+def apply_security_headers(response):
+    """Enforce standard enterprise web application security headers."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' data: blob:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "font-src 'self'; "
+        "connect-src 'self';"
+    )
+    return response
 
 
 # ============================================================
@@ -135,26 +161,45 @@ def login():
             "message": "Both 'user_id' and 'password' are required.",
         }), 400
 
+    client_ip = request.remote_addr or "127.0.0.1"
+    allowed, rate_msg = check_login_rate_limit(client_ip)
+    if not allowed:
+        log_audit_event(
+            action="LOGIN_FAILURE",
+            actor=user_id or "ANONYMOUS",
+            actor_role="UNKNOWN",
+            status="BLOCKED",
+            reason=rate_msg,
+            details={"ip": client_ip},
+        )
+        return jsonify({
+            "error": "Too Many Requests",
+            "message": rate_msg,
+        }), 429
+
     auth_result = authenticate(user_id, password)
     if not auth_result:
+        record_login_failure(client_ip)
         log_audit_event(
-            action="LOGIN",
+            action="LOGIN_FAILURE",
             actor=user_id,
             actor_role="UNKNOWN",
             status="FAILED",
-            details={"reason": "Invalid credentials or inactive user"},
+            reason="Invalid credentials or inactive user",
+            details={"ip": client_ip},
         )
         return jsonify({
             "error": "Unauthorized",
             "message": "Invalid user ID or password.",
         }), 401
 
+    record_login_success(client_ip)
     log_audit_event(
-        action="LOGIN",
+        action="LOGIN_SUCCESS",
         actor=auth_result["user_id"],
         actor_role=auth_result["role"],
         status="SUCCESS",
-        details={"name": auth_result["name"]},
+        details={"name": auth_result["name"], "ip": client_ip},
     )
 
     return jsonify({
@@ -437,6 +482,26 @@ def authority_finalize_result(script_id: str):
     return jsonify(payload), status_code
 
 
+@app.route("/api/results/finalize", methods=["POST"])
+@require_auth
+@require_role(["AUTHORITY", "ADMIN"])
+def generic_finalize_result():
+    """
+    POST /api/results/finalize
+    Alternative endpoint accepting JSON payload with answer_script_id.
+    """
+    data = request.get_json(silent=True) or {}
+    script_id = data.get("answer_script_id") or data.get("script_id")
+    if not script_id:
+        return jsonify({"error": "Bad Request", "message": "answer_script_id is required."}), 400
+    user = get_current_user()
+    success, payload, status_code = academic_service.finalize_result(
+        current_user=user,
+        answer_script_id=script_id,
+    )
+    return jsonify(payload), status_code
+
+
 @app.route("/api/authority/results/<script_id>/marksheet", methods=["POST"])
 @require_auth
 @require_role(["AUTHORITY", "ADMIN"])
@@ -493,6 +558,14 @@ def public_verify_upload_api():
     Validates uploaded PDF, computes authoritative SHA-256 in memory,
     matches against on-chain MARKSHEET_REGISTERED marksheet_pdf_hash.
     """
+    client_ip = request.remote_addr or "127.0.0.1"
+    allowed, rate_msg = check_upload_rate_limit(client_ip)
+    if not allowed:
+        return jsonify({
+            "error": "Too Many Requests",
+            "message": rate_msg,
+        }), 429
+
     if "file" not in request.files:
         return jsonify({
             "error": "Bad Request",
@@ -586,8 +659,7 @@ def verify_marksheet_pdf_api(marksheet_id: str):
 @require_role("ADMIN")
 def admin_dashboard():
     """GET /api/admin/dashboard"""
-    network_resp = blockchain_service.get_network_status("UNIVERSITY")
-    network_data = network_resp.get("data", {}) if network_resp["success"] else {}
+    network_data = blockchain_service.get_cluster_status()
     audit_events = get_audit_events(limit=20)
     scripts = academic_service.get_unified_scripts_status()
 
@@ -600,15 +672,39 @@ def admin_dashboard():
 
 
 @app.route("/api/admin/network", methods=["GET"])
-@require_auth
-@require_role("ADMIN")
+@app.route("/api/network", methods=["GET"])
 def admin_network():
-    """GET /api/admin/network"""
-    network_resp = blockchain_service.get_network_status("UNIVERSITY")
-    return jsonify(network_resp.get("data", {})), network_resp.get("status_code", 200)
+    """
+    GET /api/admin/network (and /api/network)
+    Proxies live network and cluster status through the application server.
+    Safe for public dashboard and admin monitor (no internal secrets exposed).
+    """
+    cluster_data = blockchain_service.get_cluster_status()
+    return jsonify(cluster_data), 200
+
+
+@app.route("/api/chain", methods=["GET"])
+@app.route("/api/admin/chain", methods=["GET"])
+def api_chain():
+    """
+    GET /api/chain (and /api/admin/chain)
+    Proxies confirmed blockchain ledger from the live cluster through the application server.
+    """
+    for role in ("UNIVERSITY", "AUTHORITY", "TEACHER"):
+        resp = blockchain_service.get_blockchain(role)
+        if resp.get("success"):
+            data = resp.get("data", {})
+            blocks = data.get("blocks") or data.get("chain") or []
+            return jsonify({
+                "chain": blocks,
+                "node_id": data.get("node_id", "node-1"),
+                "role": data.get("role", "UNIVERSITY"),
+            }), 200
+    return jsonify({"error": "Blockchain ledger unavailable", "chain": []}), 503
 
 
 @app.route("/api/admin/audit", methods=["GET"])
+@app.route("/api/audit-logs", methods=["GET"])
 @require_auth
 @require_role("ADMIN")
 def admin_audit():
