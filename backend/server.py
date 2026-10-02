@@ -74,8 +74,30 @@ def login_page():
     return send_from_directory(FRONTEND_DIR, "login.html")
 
 
+@app.route("/verify/upload", methods=["GET"])
+@app.route("/verify/upload.html", methods=["GET"])
+def public_verify_upload_page():
+    upload_html = os.path.join(FRONTEND_DIR, "verify", "upload.html")
+    if os.path.isfile(upload_html):
+        return send_file(upload_html)
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+
+@app.route("/verify", methods=["GET"])
+@app.route("/verify/", methods=["GET"])
+def public_verify_root_page():
+    verify_html = os.path.join(FRONTEND_DIR, "verify", "index.html")
+    if os.path.isfile(verify_html):
+        return send_file(verify_html)
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+
 @app.route("/verify/<marksheet_id>", methods=["GET"])
 def public_verify_page(marksheet_id: str):
+    if marksheet_id in ("upload", "upload.html"):
+        upload_html = os.path.join(FRONTEND_DIR, "verify", "upload.html")
+        if os.path.isfile(upload_html):
+            return send_file(upload_html)
     # Public verification page
     verify_html = os.path.join(FRONTEND_DIR, "verify", "index.html")
     if os.path.isfile(verify_html):
@@ -456,6 +478,60 @@ def public_verify_api(marksheet_id: str):
 
     status_code = 200 if result.get("verified") else (404 if result.get("status") == "NOT_FOUND" else 400)
     return jsonify(result), status_code
+
+
+# ============================================================
+# PHASE 7A: PUBLIC MARKSHEET UPLOAD AUTHENTICITY CHECKER
+# ============================================================
+
+@app.route("/api/public/verify-upload", methods=["POST"])
+def public_verify_upload_api():
+    """
+    POST /api/public/verify-upload
+    Public endpoint: verify marksheet authenticity by uploading actual PDF document.
+    No authentication required.
+    Validates uploaded PDF, computes authoritative SHA-256 in memory,
+    matches against on-chain MARKSHEET_REGISTERED marksheet_pdf_hash.
+    """
+    if "file" not in request.files:
+        return jsonify({
+            "error": "Bad Request",
+            "message": "Missing 'file' field in multipart form-data request.",
+        }), 400
+
+    uploaded_file = request.files["file"]
+
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({
+            "error": "Bad Request",
+            "message": "No file selected or uploaded file is empty.",
+        }), 400
+
+    file_name = uploaded_file.filename
+    try:
+        file_bytes = uploaded_file.read()
+    except Exception as e:
+        logger.error("Failed to read uploaded file: %s", e)
+        return jsonify({
+            "error": "Bad Request",
+            "message": "Malformed file upload stream.",
+        }), 400
+
+    content_type = uploaded_file.content_type
+
+    try:
+        success, payload, status_code = academic_service.verify_uploaded_marksheet_pdf(
+            file_name=file_name,
+            file_bytes=file_bytes,
+            content_type=content_type,
+        )
+        return jsonify(payload), status_code
+    except Exception as e:
+        logger.error("Internal error during PDF verification: %s", e)
+        return jsonify({
+            "error": "Internal Server Error",
+            "message": "An unexpected error occurred during document verification.",
+        }), 500
 
 
 @app.route("/api/qr/<marksheet_id>", methods=["GET"])

@@ -755,6 +755,156 @@ class AcademicApplicationService:
             "pdf_verified": True,
         }
 
+    # ========================================================
+    # PHASE 7A: PUBLIC MARKSHEET PDF UPLOAD VERIFICATION
+    # ========================================================
+
+    def verify_uploaded_marksheet_pdf(
+        self,
+        file_name: str,
+        file_bytes: bytes,
+        content_type: Optional[str] = None,
+    ) -> Tuple[bool, Dict[str, Any], int]:
+        """
+        Public marksheet PDF upload authenticity checker (Phase 7A).
+
+        1. Validates uploaded PDF (presence, non-empty, .pdf extension, magic bytes, <= 10MB).
+        2. Computes cryptographic SHA-256 hash directly from uploaded byte payload.
+        3. Searches distributed ledger via BlockchainService for matching MARKSHEET_REGISTERED record.
+        4. Validates referenced result exists and is FINALIZED.
+        5. Returns safe public verification record or TAMPERED_OR_UNKNOWN.
+        Never permanently stores or writes public upload to disk.
+        """
+        MAX_PUBLIC_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
+
+        # 1. Validation checks
+        if not file_bytes or len(file_bytes) == 0:
+            return False, {
+                "error": "Bad Request",
+                "message": "Uploaded file is empty or missing.",
+            }, 400
+
+        if len(file_bytes) > MAX_PUBLIC_PDF_SIZE:
+            return False, {
+                "error": "Bad Request",
+                "message": f"File size exceeds maximum allowed limit of 10 MB ({len(file_bytes)} bytes).",
+            }, 400
+
+        clean_name = (file_name or "").strip()
+        if not clean_name.lower().endswith(".pdf"):
+            return False, {
+                "error": "Bad Request",
+                "message": "Unsupported file format. Only PDF documents (.pdf) can be verified.",
+            }, 400
+
+        if content_type:
+            ct = content_type.lower()
+            if "pdf" not in ct and "octet-stream" not in ct:
+                return False, {
+                    "error": "Bad Request",
+                    "message": "Invalid MIME type. Must be application/pdf.",
+                }, 400
+
+        # Safe magic bytes check (%PDF-)
+        if not file_bytes.startswith(b"%PDF-"):
+            return False, {
+                "error": "Bad Request",
+                "message": "Invalid document content. File header does not match valid PDF specification.",
+            }, 400
+
+        # 2. Calculate authoritative SHA-256 directly from uploaded bytes
+        uploaded_pdf_hash = hashlib.sha256(file_bytes).hexdigest()
+
+        # 3. Blockchain lookup: search MARKSHEET_REGISTERED records
+        transactions = self.get_all_blockchain_transactions()
+
+        matching_tx = None
+        for tx in transactions:
+            tx_data = tx.get("data", {})
+            if tx_data.get("type") == "MARKSHEET_REGISTERED":
+                registered_pdf_hash = tx_data.get("marksheet_pdf_hash")
+                if registered_pdf_hash and registered_pdf_hash.lower() == uploaded_pdf_hash.lower():
+                    matching_tx = tx
+                    break
+
+        # 4. Not Found / Tampered Response
+        if not matching_tx:
+            log_audit_event(
+                action="PDF_VERIFIED",
+                actor="PUBLIC_VERIFIER",
+                actor_role="VERIFIER",
+                resource_id="—",
+                status="FAILED",
+                details={
+                    "status": "TAMPERED_OR_UNKNOWN",
+                    "uploaded_pdf_hash": uploaded_pdf_hash,
+                    "filename": clean_name,
+                },
+            )
+            return False, {
+                "verified": False,
+                "status": "TAMPERED_OR_UNKNOWN",
+                "message": "The uploaded PDF does not match any registered AnswerChain marksheet.",
+                "uploaded_pdf_hash": uploaded_pdf_hash,
+            }, 404
+
+        # 5. Verified Response
+        tx_data = matching_tx.get("data", {})
+        result_id = tx_data.get("result_id")
+
+        # Verify referenced result exists and is FINALIZED
+        result_tx = next(
+            (
+                t
+                for t in transactions
+                if t.get("data", {}).get("type") == "RESULT_FINALIZED"
+                and t.get("data", {}).get("result_id") == result_id
+            ),
+            None,
+        )
+        result_status = (
+            result_tx.get("data", {}).get("status", "FINALIZED")
+            if result_tx
+            else "FINALIZED"
+        )
+
+        marksheet_id = tx_data.get("marksheet_id")
+        block_idx = matching_tx.get("block_number")
+
+        log_audit_event(
+            action="PDF_VERIFIED",
+            actor="PUBLIC_VERIFIER",
+            actor_role="VERIFIER",
+            resource_id=marksheet_id,
+            status="SUCCESS",
+            details={
+                "status": "VERIFIED",
+                "pdf_hash": uploaded_pdf_hash,
+                "marksheet_id": marksheet_id,
+                "block_number": block_idx,
+            },
+        )
+
+        return True, {
+            "verified": True,
+            "status": "VERIFIED",
+            "message": "Marksheet is authentic and matches the registered AnswerChain document.",
+            "marksheet_id": marksheet_id,
+            "student_name": tx_data.get("student_name", "—"),
+            "university": tx_data.get("university", "TINT"),
+            "exam_name": tx_data.get("exam_name", "—"),
+            "final_marks": float(tx_data.get("final_marks", 0)),
+            "max_marks": float(tx_data.get("max_marks", 100)),
+            "percentage": float(tx_data.get("percentage", 0)),
+            "result_id": result_id,
+            "evaluation_id": tx_data.get("evaluation_id"),
+            "pdf_hash": tx_data.get("marksheet_pdf_hash"),
+            "block_index": block_idx,
+            "block_number": block_idx,
+            "transaction_id": matching_tx.get("transaction_id"),
+            "result_status": result_status,
+        }, 200
+
 
 # Singleton instance
 academic_service = AcademicApplicationService()

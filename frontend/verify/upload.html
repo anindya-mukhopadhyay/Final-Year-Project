@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Marksheet PDF | AnswerChain Public Verification</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .verification-nav-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .v-tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--muted);
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+        .v-tab:hover {
+            background: var(--surface-soft);
+            color: var(--text);
+        }
+        .v-tab.active {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+        .verifying-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+        .verifying-step.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .verifying-step.done {
+            color: var(--success);
+            font-weight: 600;
+        }
+        .hash-match-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 18px;
+        }
+        .hash-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+        .hash-row:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body style="background: #f8fafc; min-height: 100vh;">
+
+    <!-- TOPBAR -->
+    <header style="background: white; border-bottom: 1px solid var(--border); padding: 16px 24px;">
+        <div style="max-width: 960px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="brand-icon" style="background: linear-gradient(135deg, var(--primary) 0%, #7c4dff 100%);">A</div>
+                <div>
+                    <h1 style="font-size: 18px; font-weight: 800; color: #1e293b;">AnswerChain</h1>
+                    <span style="font-size: 12px; color: var(--muted);">Public Academic Credential Verification Portal</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <a href="/login.html" class="btn btn-sm btn-outline">Staff / Portal Login →</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="verify-container">
+        <!-- NAVIGATION TABS -->
+        <div class="verification-nav-tabs">
+            <a href="/verify/upload.html" class="v-tab active">
+                <span>📄</span> Verify by Uploading PDF
+            </a>
+            <a href="/verify/index.html" class="v-tab">
+                <span>🔍</span> Verify by Marksheet ID
+            </a>
+        </div>
+
+        <div class="verify-header">
+            <h1>Public Marksheet Verification</h1>
+            <p style="color: var(--muted); font-size: 14px;">
+                Upload a marksheet PDF to check whether it matches a document registered on the AnswerChain blockchain.
+            </p>
+        </div>
+
+        <!-- MAIN UPLOAD CARD -->
+        <div class="verify-card" id="upload-card">
+            <!-- STATE: IDLE & FILE_SELECTED -->
+            <div id="dropzone-state">
+                <div
+                    class="file-dropzone"
+                    id="dropzone"
+                    onclick="document.getElementById('pdf-file-input').click()"
+                    ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)"
+                    ondrop="handleDrop(event)"
+                    style="padding: 44px 20px; border-width: 2px;"
+                >
+                    <div style="font-size: 42px; margin-bottom: 12px;">📄</div>
+                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px;" id="dropzone-title">
+                        Drag &amp; Drop Marksheet PDF
+                    </h3>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+                        or click to browse your computer
+                    </p>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); document.getElementById('pdf-file-input').click()">
+                        Choose PDF
+                    </button>
+                    <div style="font-size: 11px; color: var(--muted); margin-top: 14px;">
+                        Supported format: Official PDF only • Maximum file size: 10 MB
+                    </div>
+                </div>
+
+                <input
+                    type="file"
+                    id="pdf-file-input"
+                    accept=".pdf,application/pdf"
+                    style="display: none;"
+                    onchange="handleFilePicked(this.files)"
+                >
+
+                <!-- FILE SELECTED SUMMARY -->
+                <div id="file-info-bar" style="display: none; margin-top: 16px; padding: 14px 18px; background: var(--surface-soft); border-radius: 10px; border: 1px solid var(--border); justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 11px; text-transform: uppercase; color: var(--muted); display: block;">Selected File:</span>
+                        <strong style="font-size: 14px; color: var(--text);" id="selected-filename">—</strong>
+                        <span style="font-size: 12px; color: var(--muted); margin-left: 8px;" id="selected-filesize">—</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="resetUploadState()">Change File</button>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button
+                        type="button"
+                        id="verify-button"
+                        class="btn btn-primary"
+                        style="width: 100%; justify-content: center; padding: 14px; font-size: 15px;"
+                        disabled
+                        onclick="startVerification()"
+                    >
+                        Verify Marksheet
+                    </button>
+                </div>
+            </div>
+
+            <!-- STATE: VERIFYING PROGRESS -->
+            <div id="verifying-state" style="display: none; padding: 20px 0; text-align: center;">
+                <div style="font-size: 36px; margin-bottom: 16px; animation: pulse 1.5s infinite;">⏳</div>
+                <h3 style="font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px;">VERIFYING DOCUMENT</h3>
+                <p style="font-size: 13px; color: var(--muted); margin-bottom: 24px;">Comparing uploaded document bytes against distributed blockchain ledger...</p>
+
+                <div style="max-width: 360px; margin: 0 auto; text-align: left; background: var(--surface-soft); padding: 18px; border-radius: 10px; border: 1px solid var(--border);">
+                    <div class="verifying-step active" id="step-1">
+                        <span id="step-1-icon">⏳</span>
+                        <span>Calculating SHA-256</span>
+                    </div>
+                    <div class="verifying-step" id="step-2">
+                        <span id="step-2-icon">○</span>
+                        <span>Checking blockchain record</span>
+                    </div>
+                    <div class="verifying-step" id="step-3">
+                        <span id="step-3-icon">○</span>
+                        <span>Comparing document integrity</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATE: VERIFIED -->
+            <div id="verified-state" style="display: none;">
+                <div class="verification-status-banner status-banner-verified">
+                    <div style="font-size: 36px;">✓</div>
+                    <div>
+                        <h3 style="font-size: 20px; font-weight: 800; color: #166534;">MARKSHEET VERIFIED</h3>
+                        <p style="font-size: 13px; margin: 2px 0 0 0;">Document integrity verified against the AnswerChain blockchain.</p>
+                    </div>
+                </div>
+
+                <div style="background: var(--surface-soft); padding: 20px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 13px;">
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Student Name</span>
+                            <strong style="font-size: 16px; display: block; color: var(--text);" id="res-student-name">—</strong>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Marksheet ID</span>
+                            <strong style="font-size: 15px; display: block; color: var(--primary);" id="res-marksheet-id">—</strong>
+                        </div>
+                        <div style="grid-column: 1 / -1;">
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Examination</span>
+                            <div style="font-size: 14px; font-weight: 600; color: var(--text);" id="res-exam-name">—</div>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Institution</span>
+                            <div style="font-size: 14px; font-weight: 600;" id="res-university">—</div>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Certified Score</span>
+                            <div style="font-size: 16px; font-weight: 800; color: var(--success);" id="res-score">—</div>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Result Status</span>
+                            <div><span class="badge badge-finalized" id="res-status">FINALIZED</span></div>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Blockchain Block</span>
+                            <strong style="color: var(--primary);" id="res-block">Block #—</strong>
+                        </div>
+                        <div style="grid-column: 1 / -1;">
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Transaction ID</span>
+                            <div class="hash-display" id="res-tx-id">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HASH COMPARISON VISIBLE MATCH -->
+                <div class="hash-match-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted);">SHA-256 Cryptographic Verification</h4>
+                        <span class="badge badge-finalized">✓ Exact Hash Match</span>
+                    </div>
+
+                    <div class="hash-row">
+                        <span style="font-size: 11px; color: var(--muted);">Uploaded PDF SHA-256:</span>
+                        <span class="hash-display" id="res-uploaded-hash">—</span>
+                    </div>
+                    <div class="hash-row">
+                        <span style="font-size: 11px; color: var(--muted);">Registered Blockchain SHA-256:</span>
+                        <span class="hash-display" id="res-blockchain-hash">—</span>
+                    </div>
+                </div>
+
+                <!-- BUTTONS -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border);">
+                    <button type="button" class="btn btn-outline" onclick="copyVerifiedHash()">
+                        <span>📋</span> Copy SHA-256
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="resetUploadState()">
+                        Verify Another Document
+                    </button>
+                    <a href="/verify/index.html" class="btn btn-secondary">
+                        Verify by Marksheet ID
+                    </a>
+                </div>
+            </div>
+
+            <!-- STATE: TAMPERED_OR_UNKNOWN -->
+            <div id="tampered-state" style="display: none;">
+                <div class="verification-status-banner status-banner-tampered">
+                    <div style="font-size: 36px;">✕</div>
+                    <div>
+                        <h3 style="font-size: 20px; font-weight: 800; color: #991b1b;">DOCUMENT NOT VERIFIED</h3>
+                        <div style="margin-top: 4px;">
+                            <span class="badge badge-tampered" style="font-size: 12px; padding: 4px 10px;">TAMPERED_OR_UNKNOWN</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 16px 20px; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 10px; font-size: 13px; color: #742a2a; margin-bottom: 20px; line-height: 1.5;">
+                    <p style="margin: 0 0 8px 0; font-weight: 600;">The uploaded PDF does not match any registered AnswerChain marksheet.</p>
+                    <p style="margin: 0; font-size: 12px; color: #9b2c2c;">
+                        A mismatch means the uploaded PDF has either been altered after issuance, or this document was never registered on the distributed ledger.
+                    </p>
+                </div>
+
+                <div class="hash-match-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted);">Uploaded Document Fingerprint</h4>
+                        <span class="badge badge-tampered">No Ledger Match</span>
+                    </div>
+                    <div class="hash-row">
+                        <span style="font-size: 11px; color: var(--muted);">Calculated SHA-256:</span>
+                        <span class="hash-display" id="res-tampered-hash">—</span>
+                    </div>
+                </div>
+
+                <!-- BUTTONS -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border);">
+                    <button type="button" class="btn btn-outline" onclick="copyTamperedHash()">
+                        <span>📋</span> Copy SHA-256
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="resetUploadState()">
+                        Try Another Document
+                    </button>
+                    <a href="/verify/index.html" class="btn btn-secondary">
+                        Verify by Marksheet ID
+                    </a>
+                </div>
+            </div>
+
+            <!-- STATE: ERROR MESSAGE -->
+            <div id="error-box" style="display: none; padding: 14px 18px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px; color: #991b1b; font-size: 13px; margin-top: 16px;">
+                <span id="error-text">An error occurred during verification.</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let lastCalculatedHash = '';
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('dropzone').style.borderColor = 'var(--primary)';
+            document.getElementById('dropzone').style.background = '#edf2ff';
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('dropzone').style.borderColor = '#cbd5e1';
+            document.getElementById('dropzone').style.background = 'var(--surface-soft)';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            handleDragLeave(e);
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                handleFilePicked(e.dataTransfer.files);
+            }
+        }
+
+        function handleFilePicked(files) {
+            hideError();
+            if (!files || files.length === 0) return;
+
+            const file = files[0];
+            if (!file.name.toLowerCase().endswith && !file.name.toLowerCase().endsWith('.pdf')) {
+                showError('Invalid file format. Please select an official PDF marksheet (.pdf).');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showError('File exceeds maximum allowed size limit of 10 MB.');
+                return;
+            }
+
+            selectedFile = file;
+
+            document.getElementById('selected-filename').textContent = file.name;
+            const sizeStr = file.size > 1024 * 1024
+                ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+                : (file.size / 1024).toFixed(1) + ' KB';
+            document.getElementById('selected-filesize').textContent = `(${sizeStr})`;
+
+            document.getElementById('file-info-bar').style.display = 'flex';
+            document.getElementById('verify-button').disabled = false;
+        }
+
+        function resetUploadState() {
+            selectedFile = null;
+            lastCalculatedHash = '';
+            document.getElementById('pdf-file-input').value = '';
+            document.getElementById('file-info-bar').style.display = 'none';
+            document.getElementById('verify-button').disabled = true;
+
+            document.getElementById('dropzone-state').style.display = 'block';
+            document.getElementById('verifying-state').style.display = 'none';
+            document.getElementById('verified-state').style.display = 'none';
+            document.getElementById('tampered-state').style.display = 'none';
+            hideError();
+        }
+
+        async function startVerification() {
+            if (!selectedFile) return;
+
+            hideError();
+            document.getElementById('dropzone-state').style.display = 'none';
+            document.getElementById('verifying-state').style.display = 'block';
+            document.getElementById('verified-state').style.display = 'none';
+            document.getElementById('tampered-state').style.display = 'none';
+
+            // Animated step feedback
+            setStep(1, 'active');
+            await new Promise(r => setTimeout(r, 250));
+            setStep(1, 'done');
+            setStep(2, 'active');
+            await new Promise(r => setTimeout(r, 250));
+            setStep(2, 'done');
+            setStep(3, 'active');
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/api/public/verify-upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                setStep(3, 'done');
+                const data = await response.json();
+
+                if (response.ok && data.verified) {
+                    showVerifiedUI(data);
+                } else if (response.status === 404 || data.status === 'TAMPERED_OR_UNKNOWN') {
+                    showTamperedUI(data);
+                } else {
+                    showError(data.message || data.error || 'Verification request failed.');
+                    document.getElementById('dropzone-state').style.display = 'block';
+                    document.getElementById('verifying-state').style.display = 'none';
+                }
+            } catch (err) {
+                console.error(err);
+                showError('Could not reach AnswerChain verification node.');
+                document.getElementById('dropzone-state').style.display = 'block';
+                document.getElementById('verifying-state').style.display = 'none';
+            }
+        }
+
+        function setStep(stepNum, state) {
+            const step = document.getElementById(`step-${stepNum}`);
+            const icon = document.getElementById(`step-${stepNum}-icon`);
+            if (state === 'active') {
+                step.className = 'verifying-step active';
+                icon.textContent = '⏳';
+            } else if (state === 'done') {
+                step.className = 'verifying-step done';
+                icon.textContent = '✓';
+            }
+        }
+
+        function showVerifiedUI(data) {
+            document.getElementById('verifying-state').style.display = 'none';
+            document.getElementById('verified-state').style.display = 'block';
+
+            document.getElementById('res-student-name').textContent = data.student_name || '—';
+            document.getElementById('res-marksheet-id').textContent = data.marksheet_id || '—';
+            document.getElementById('res-exam-name').textContent = data.exam_name || '—';
+            document.getElementById('res-university').textContent = data.university || 'TINT';
+            document.getElementById('res-score').textContent = `${data.final_marks} / ${data.max_marks} (${data.percentage}%)`;
+            document.getElementById('res-block').textContent = `Block #${data.block_number !== undefined ? data.block_number : data.block_index}`;
+            document.getElementById('res-tx-id').textContent = data.transaction_id || '—';
+
+            lastCalculatedHash = data.pdf_hash || '';
+            document.getElementById('res-uploaded-hash').textContent = data.pdf_hash || '—';
+            document.getElementById('res-blockchain-hash').textContent = data.pdf_hash || '—';
+        }
+
+        function showTamperedUI(data) {
+            document.getElementById('verifying-state').style.display = 'none';
+            document.getElementById('tampered-state').style.display = 'block';
+
+            lastCalculatedHash = data.uploaded_pdf_hash || '';
+            document.getElementById('res-tampered-hash').textContent = data.uploaded_pdf_hash || '—';
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('error-box');
+            document.getElementById('error-text').textContent = msg;
+            box.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('error-box').style.display = 'none';
+        }
+
+        function copyVerifiedHash() {
+            if (lastCalculatedHash) {
+                navigator.clipboard.writeText(lastCalculatedHash);
+                showToast('SHA-256 hash copied to clipboard!', 'success');
+            }
+        }
+
+        function copyTamperedHash() {
+            if (lastCalculatedHash) {
+                navigator.clipboard.writeText(lastCalculatedHash);
+                showToast('Calculated SHA-256 hash copied to clipboard!', 'info');
+            }
+        }
+    </script>
+</body>
+</html>

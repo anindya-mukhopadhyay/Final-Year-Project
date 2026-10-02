@@ -6,6 +6,33 @@
     <title>Public Credential Verification | AnswerChain</title>
     <link rel="stylesheet" href="/style.css">
     <script src="/api.js"></script>
+    <style>
+        .verification-nav-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .v-tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--muted);
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+        .v-tab:hover {
+            background: var(--surface-soft);
+            color: var(--text);
+        }
+        .v-tab.active {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+    </style>
 </head>
 <body style="background: #f8fafc; min-height: 100vh;">
 
@@ -27,9 +54,33 @@
     </header>
 
     <div class="verify-container">
+        <!-- NAVIGATION TABS -->
+        <div class="verification-nav-tabs">
+            <a href="/verify/upload" class="v-tab">
+                <span>📄</span> Verify by Uploading PDF
+            </a>
+            <a href="/verify/index.html" class="v-tab active">
+                <span>🔍</span> Verify by Marksheet ID
+            </a>
+        </div>
+
         <div class="verify-header">
             <h1>Academic Credential Verification</h1>
             <p style="color: var(--muted); font-size: 14px;">Instant, tamper-evident cryptographic validation backed by distributed blockchain consensus</p>
+        </div>
+
+        <!-- PROMINENT VERIFY BY UPLOADING PDF OPTION -->
+        <div style="background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">📄</span>
+                <div>
+                    <strong style="font-size: 14px; color: var(--text); display: block;">Have a Marksheet PDF document?</strong>
+                    <span style="font-size: 12px; color: var(--muted);">Check authenticity directly against the blockchain without entering an ID.</span>
+                </div>
+            </div>
+            <a href="/verify/upload" class="btn btn-primary btn-sm" style="font-weight: 600; padding: 8px 16px;">
+                Verify by Uploading PDF →
+            </a>
         </div>
 
         <!-- SEARCH INPUT BOX -->

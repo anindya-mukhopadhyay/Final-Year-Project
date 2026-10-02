@@ -13,3 +13,4 @@ data/*.json
 data/*.tmp
 generated/marksheets/*.pdf
 *.pdf
+scratch/
