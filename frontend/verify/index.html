@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Credential Verification | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body style="background: #f8fafc; min-height: 100vh;">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header style="background: white; border-bottom: 1px solid var(--border); padding: 16px 24px;">
+        <div style="max-width: 960px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="brand-icon" style="background: linear-gradient(135deg, var(--primary) 0%, #7c4dff 100%);">A</div>
+                <div>
+                    <h1 style="font-size: 18px; font-weight: 800; color: #1e293b;">AnswerChain</h1>
+                    <span style="font-size: 12px; color: var(--muted);">Public Academic Credential Verification Portal</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <a href="/login.html" class="btn btn-sm btn-outline">Staff / Portal Login →</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="verify-container">
+        <div class="verify-header">
+            <h1>Academic Credential Verification</h1>
+            <p style="color: var(--muted); font-size: 14px;">Instant, tamper-evident cryptographic validation backed by distributed blockchain consensus</p>
+        </div>
+
+        <!-- SEARCH INPUT BOX -->
+        <div class="verify-card" style="margin-bottom: 24px; padding: 24px;">
+            <form id="verify-form" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <input
+                    type="text"
+                    id="verify-input"
+                    class="form-control"
+                    placeholder="Enter Marksheet ID (e.g. MARKSHEET-36BFA73434C0)"
+                    style="flex: 1; min-width: 280px; padding: 12px 16px; font-size: 15px;"
+                    required
+                >
+                <button type="submit" id="verify-btn" class="btn btn-primary" style="padding: 12px 24px; font-size: 15px;">
+                    Verify Credential
+                </button>
+            </form>
+        </div>
+
+        <!-- VERIFICATION RESULTS CONTAINER -->
+        <div id="result-box" style="display: none;" class="verify-card">
+            <!-- STATUS BANNER -->
+            <div id="status-banner" class="verification-status-banner">
+                <div id="status-icon" style="font-size: 32px;">✓</div>
+                <div>
+                    <h3 id="status-heading" style="font-size: 20px; font-weight: 800;">VERIFIED</h3>
+                    <p id="status-message" style="font-size: 13px;">All cryptographic hashes match distributed blockchain ledger.</p>
+                </div>
+            </div>
+
+            <!-- CREDENTIAL METADATA GRID -->
+            <div id="details-section" style="display: grid; grid-template-columns: 1fr 220px; gap: 28px; align-items: start;">
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--surface-soft); padding: 18px; border-radius: 12px; border: 1px solid var(--border);">
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Student Full Name</span>
+                            <strong style="font-size: 16px; display: block; color: var(--text);" id="res-student-name">—</strong>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Student ID / Roll No</span>
+                            <strong style="font-size: 15px; display: block; color: var(--text);" id="res-student-id">—</strong>
+                        </div>
+                        <div style="grid-column: 1 / -1;">
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Examination</span>
+                            <div style="font-size: 14px; font-weight: 600; color: var(--text);" id="res-exam-name">—</div>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Institution</span>
+                            <div style="font-size: 14px; font-weight: 600;" id="res-university">TINT</div>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Academic Score</span>
+                            <div style="font-size: 16px; font-weight: 800; color: var(--primary);" id="res-score">—</div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCKCHAIN CRYPTOGRAPHIC PROOFS -->
+                    <div style="border: 1px solid var(--border); border-radius: 12px; padding: 18px;">
+                        <h4 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 12px;">Cryptographic Proofs</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+                            <div>
+                                <span style="color: var(--muted); display: block;">Marksheet ID</span>
+                                <strong id="res-marksheet-id" style="font-size: 14px; color: var(--text);">—</strong>
+                            </div>
+                            <div>
+                                <span style="color: var(--muted); display: block;">Logical Marksheet Hash (SHA-256)</span>
+                                <span class="hash-display" id="res-data-hash">—</span>
+                            </div>
+                            <div>
+                                <span style="color: var(--muted); display: block;">Physical Document Hash (PDF SHA-256)</span>
+                                <span class="hash-display" id="res-pdf-hash">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ACTION BUTTONS -->
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                        <a href="#" id="download-pdf-btn" target="_blank" class="btn btn-primary">
+                            <span>↓</span> Download Official PDF
+                        </a>
+                        <button type="button" class="btn btn-secondary" onclick="reverifyPdf()">
+                            <span>✓</span> Re-verify PDF Integrity
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="copyVerifyUrl()">
+                            <span>📋</span> Copy Verification Link
+                        </button>
+                    </div>
+                </div>
+
+                <!-- QR CODE EMBED -->
+                <div class="qr-display-box" style="margin: 0;">
+                    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 12px;">Verification QR</span>
+                    <img id="res-qr-img" class="qr-img" src="" alt="Verification QR Code">
+                    <span style="font-size: 10px; color: var(--muted); text-align: center; margin-top: 10px; line-height: 1.3;">
+                        Points strictly to public verification URI without leaking private metadata.
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check URL path or query params: /verify/<id> or /verify/index.html?id=<id>
+        const urlParams = new URLSearchParams(window.location.search);
+        let marksheetIdFromUrl = urlParams.get('id');
+
+        if (!marksheetIdFromUrl) {
+            const pathParts = window.location.pathname.split('/');
+            const lastPart = pathParts[pathParts.length - 1];
+            if (lastPart && lastPart.startsWith('MARKSHEET-')) {
+                marksheetIdFromUrl = lastPart;
+            }
+        }
+
+        if (marksheetIdFromUrl) {
+            document.getElementById('verify-input').value = marksheetIdFromUrl;
+            runVerification(marksheetIdFromUrl);
+        }
+
+        document.getElementById('verify-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('verify-input').value.trim();
+            if (id) {
+                runVerification(id);
+            }
+        });
+
+        async function runVerification(marksheetId) {
+            const btn = document.getElementById('verify-btn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying on Ledger...';
+
+            const resultBox = document.getElementById('result-box');
+            resultBox.style.display = 'block';
+
+            const banner = document.getElementById('status-banner');
+            const icon = document.getElementById('status-icon');
+            const heading = document.getElementById('status-heading');
+            const message = document.getElementById('status-message');
+            const detailsSection = document.getElementById('details-section');
+
+            try {
+                const res = await authFetch(`/api/verify/${marksheetId}`);
+                const data = res.data;
+
+                if (data.status === 'VERIFIED') {
+                    banner.className = 'verification-status-banner status-banner-verified';
+                    icon.textContent = '✓';
+                    heading.textContent = 'CREDENTIAL VERIFIED';
+                    message.textContent = 'Cryptographic hashes match the distributed blockchain ledger. Certificate is authentic and untampered.';
+                    detailsSection.style.display = 'grid';
+
+                    document.getElementById('res-student-name').textContent = data.student_name || '—';
+                    document.getElementById('res-student-id').textContent = data.student_id || '—';
+                    document.getElementById('res-exam-name').textContent = data.exam_name || '—';
+                    document.getElementById('res-university').textContent = data.university || 'TINT';
+                    document.getElementById('res-score').textContent = `${data.final_marks} / ${data.max_marks} (${data.percentage}%)`;
+
+                    document.getElementById('res-marksheet-id').textContent = data.marksheet_id;
+                    document.getElementById('res-data-hash').textContent = data.marksheet_data_hash || '—';
+                    document.getElementById('res-pdf-hash').textContent = data.marksheet_pdf_hash || '—';
+
+                    document.getElementById('download-pdf-btn').href = `/api/marksheets/${data.marksheet_id}/pdf`;
+                    if (data.qr_data_uri) {
+                        document.getElementById('res-qr-img').src = data.qr_data_uri;
+                    } else {
+                        document.getElementById('res-qr-img').src = `/api/qr/${data.marksheet_id}`;
+                    }
+
+                } else if (data.status === 'TAMPERED') {
+                    banner.className = 'verification-status-banner status-banner-tampered';
+                    icon.textContent = '⚠️';
+                    heading.textContent = 'TAMPERED CREDENTIAL';
+                    message.textContent = 'Warning: Blockchain verification failed. The academic data or logical hash has been modified!';
+                    detailsSection.style.display = 'none';
+
+                } else if (data.status === 'PDF_INTEGRITY_FAILED') {
+                    banner.className = 'verification-status-banner status-banner-tampered';
+                    icon.textContent = '⚠️';
+                    heading.textContent = 'PDF INTEGRITY FAILED';
+                    message.textContent = 'Warning: The physical PDF hash does not match the on-chain SHA-256 fingerprint!';
+                    detailsSection.style.display = 'none';
+
+                } else if (data.status === 'INVALID_RESULT') {
+                    banner.className = 'verification-status-banner status-banner-tampered';
+                    icon.textContent = '⚠️';
+                    heading.textContent = 'INVALID ACADEMIC RECORD';
+                    message.textContent = 'The referenced examination result is invalid or has not been certified by the Authority.';
+                    detailsSection.style.display = 'none';
+
+                } else {
+                    banner.className = 'verification-status-banner status-banner-notfound';
+                    icon.textContent = '✕';
+                    heading.textContent = 'NOT FOUND ON BLOCKCHAIN';
+                    message.textContent = `No marksheet record with ID "${marksheetId}" exists on the distributed ledger.`;
+                    detailsSection.style.display = 'none';
+                }
+
+            } catch (err) {
+                console.error(err);
+                banner.className = 'verification-status-banner status-banner-tampered';
+                icon.textContent = '✕';
+                heading.textContent = 'VERIFICATION ERROR';
+                message.textContent = 'Could not contact the blockchain verification nodes.';
+                detailsSection.style.display = 'none';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Verify Credential';
+            }
+        }
+
+        async function reverifyPdf() {
+            const id = document.getElementById('res-marksheet-id').textContent;
+            if (!id || id === '—') return;
+
+            try {
+                const res = await authFetch(`/api/marksheets/${id}/verify-pdf`, { method: 'POST' });
+                if (res.ok && res.data.verified) {
+                    showToast('PDF SHA-256 verified! Matches ledger fingerprint.', 'success');
+                } else {
+                    showToast('PDF hash mismatch detected!', 'error');
+                }
+            } catch (e) {
+                showToast('PDF verification request failed.', 'error');
+            }
+        }
+
+        function copyVerifyUrl() {
+            const id = document.getElementById('res-marksheet-id').textContent;
+            const url = `${window.location.origin}/verify/index.html?id=${id}`;
+            navigator.clipboard.writeText(url);
+            showToast('Verification URL copied to clipboard!', 'success');
+        }
+    </script>
+</body>
+</html>

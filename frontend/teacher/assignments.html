@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Assignments | Faculty Examiner</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>Faculty Examiner</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/teacher/dashboard.html" class="nav-item">
+                    <span>▦</span> Overview
+                </a>
+                <a href="/teacher/assignments.html" class="nav-item active">
+                    <span>✓</span> My Assignments
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Node-2: 5002</strong><small>Teacher Node Active</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">My Evaluation Assignments</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Answer scripts strictly assigned to your institutional teacher profile</p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">T</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">Prof. Examiner</span>
+                            <span class="user-role-label" id="user-role">TEACHER</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3>Assigned Answer Scripts</h3>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Script ID</th>
+                                <th>Student Details</th>
+                                <th>Exam Name &amp; ID</th>
+                                <th>SHA-256 Hash</th>
+                                <th>Marks Awarded</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assignments-tbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading assignments...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const user = requireAuth(["TEACHER", "ADMIN"]);
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = `${user.role} (${user.user_id})`;
+            document.getElementById('user-avatar').textContent = user.name.charAt(0);
+        }
+
+        async function loadAssignments() {
+            try {
+                const res = await authFetch('/api/teacher/assignments');
+                if (!res.ok) {
+                    showToast(res.data.message || 'Failed to load assignments.', 'error');
+                    return;
+                }
+
+                const tbody = document.getElementById('assignments-tbody');
+                tbody.innerHTML = '';
+                const assignments = res.data.assignments || [];
+
+                if (assignments.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 30px;">No assignments found for your teacher account.</td></tr>';
+                    return;
+                }
+
+                assignments.forEach(a => {
+                    const tr = document.createElement('tr');
+                    let statusBadge = '<span class="badge badge-assigned">Assigned / Pending</span>';
+                    let action = `<a href="/teacher/evaluate.html?id=${a.answer_script_id}" class="btn btn-sm btn-primary">Evaluate Script</a>`;
+
+                    if (a.evaluated) {
+                        statusBadge = '<span class="badge badge-evaluated">Evaluation Submitted</span>';
+                        action = `<span style="font-size: 12px; color: var(--success); font-weight: 600;">✓ Submitted</span>`;
+                    }
+                    if (a.finalized) {
+                        statusBadge = '<span class="badge badge-finalized">Result Finalized</span>';
+                        action = `<span style="font-size: 12px; color: var(--muted);">Locked (Finalized)</span>`;
+                    }
+
+                    const hashSnippet = a.file_hash ? (a.file_hash.length > 20 ? a.file_hash.substring(0, 16) + '...' : a.file_hash) : '—';
+                    const marksDisplay = a.marks !== null ? `<strong>${a.marks}</strong> / ${a.max_marks}` : '—';
+
+                    tr.innerHTML = `
+                        <td><strong>${a.answer_script_id}</strong></td>
+                        <td>${a.student_name}<br><small style="color:var(--muted)">${a.student_id}</small></td>
+                        <td>${a.exam_name}<br><small style="color:var(--muted)">${a.exam_id}</small></td>
+                        <td><span class="hash-display">${hashSnippet}</span></td>
+                        <td>${marksDisplay}</td>
+                        <td>${statusBadge}</td>
+                        <td>${action}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error(e);
+                showToast('Network error loading assignments', 'error');
+            }
+        }
+
+        loadAssignments();
+    </script>
+</body>
+</html>

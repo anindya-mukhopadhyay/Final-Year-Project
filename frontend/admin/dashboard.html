@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin &amp; Operational Audit | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>System Administration</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/admin/dashboard.html" class="nav-item active">
+                    <span>🛡️</span> Admin Console
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+                <a href="/verify/index.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Admin Console</strong><small>Full Cluster Oversight</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Cluster &amp; Audit Administration</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Distributed Node Health, Consensus State, and Off-Chain Operational Audit Trail</p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">A</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">System Administrator</span>
+                            <span class="user-role-label" id="user-role">ADMIN</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- CLUSTER HEALTH CARDS -->
+            <div class="stats-grid" id="node-cards">
+                <div class="stat-card">
+                    <span class="stat-title">Node-1 (University)</span>
+                    <strong class="stat-value" id="node1-blocks">11 Blocks</strong>
+                    <span class="stat-subtitle" id="node1-status">Port 5001 • Online</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Node-2 (Teacher)</span>
+                    <strong class="stat-value" id="node2-blocks">11 Blocks</strong>
+                    <span class="stat-subtitle" id="node2-status">Port 5002 • Online</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Node-3 (Authority)</span>
+                    <strong class="stat-value" id="node3-blocks">11 Blocks</strong>
+                    <span class="stat-subtitle" id="node3-status">Port 5003 • Online</span>
+                </div>
+            </div>
+
+            <!-- NETWORK OVERVIEW CARD -->
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3>Network Overview (Phase 6 Distributed Engine)</h3>
+                    <span class="badge badge-finalized" id="net-sync-badge">Synchronized</span>
+                </div>
+                <div style="padding: 20px 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; font-size: 13px;">
+                    <div>
+                        <span style="color: var(--muted); display: block;">Total Cluster Nodes</span>
+                        <strong style="font-size: 16px;" id="net-nodes-count">3 Active</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--muted); display: block;">Chain Validity</span>
+                        <strong style="font-size: 16px; color: var(--success);" id="net-chain-valid">100% Valid</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--muted); display: block;">Pending Unmined Transactions</span>
+                        <strong style="font-size: 16px;" id="net-pending-txs">0</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OPERATIONAL AUDIT LOG TABLE -->
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3>Operational Audit Log (Off-Chain Governance Trail)</h3>
+                    <button class="btn btn-sm btn-outline" onclick="loadAuditLogs()">Refresh Events</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Event ID</th>
+                                <th>Timestamp</th>
+                                <th>Action</th>
+                                <th>Actor / Role</th>
+                                <th>Resource ID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-tbody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading audit records...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const user = requireAuth(["ADMIN"]);
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = `${user.role} (${user.user_id})`;
+            document.getElementById('user-avatar').textContent = user.name.charAt(0);
+        }
+
+        async function loadAdminData() {
+            await Promise.all([loadNetwork(), loadAuditLogs()]);
+        }
+
+        async function loadNetwork() {
+            try {
+                const res = await authFetch('/api/admin/network');
+                if (res.ok) {
+                    const data = res.data;
+                    document.getElementById('net-nodes-count').textContent = `${data.total_nodes || 3} Active`;
+                    document.getElementById('net-sync-badge').textContent = data.all_chains_synchronized ? 'Synchronized' : 'Desynchronized';
+
+                    if (data.nodes) {
+                        data.nodes.forEach(n => {
+                            if (n.node_id === 'node-1') {
+                                document.getElementById('node1-blocks').textContent = `${n.block_count} Blocks`;
+                                document.getElementById('node1-status').textContent = `Port ${n.port} • ${n.status.toUpperCase()}`;
+                            } else if (n.node_id === 'node-2') {
+                                document.getElementById('node2-blocks').textContent = `${n.block_count} Blocks`;
+                                document.getElementById('node2-status').textContent = `Port ${n.port} • ${n.status.toUpperCase()}`;
+                            } else if (n.node_id === 'node-3') {
+                                document.getElementById('node3-blocks').textContent = `${n.block_count} Blocks`;
+                                document.getElementById('node3-status').textContent = `Port ${n.port} • ${n.status.toUpperCase()}`;
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadAuditLogs() {
+            try {
+                const res = await authFetch('/api/admin/audit?limit=30');
+                if (res.ok) {
+                    const tbody = document.getElementById('audit-tbody');
+                    tbody.innerHTML = '';
+                    const events = res.data.audit_events || [];
+
+                    if (events.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">No audit events recorded yet.</td></tr>';
+                        return;
+                    }
+
+                    events.forEach(e => {
+                        const tr = document.createElement('tr');
+                        const timeStr = new Date(e.timestamp * 1000).toLocaleString();
+                        const statusBadge = e.status === 'SUCCESS'
+                            ? '<span class="badge badge-finalized">SUCCESS</span>'
+                            : '<span class="badge badge-tampered">FAILED</span>';
+
+                        tr.innerHTML = `
+                            <td><span class="hash-display">${e.id}</span></td>
+                            <td style="font-size: 12px; color: var(--muted);">${timeStr}</td>
+                            <td><strong>${e.action}</strong></td>
+                            <td>${e.actor} <br><small style="color:var(--muted)">${e.actor_role}</small></td>
+                            <td><strong>${e.resource_id}</strong></td>
+                            <td>${statusBadge}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Failed to load audit logs', 'error');
+            }
+        }
+
+        loadAdminData();
+    </script>
+</body>
+</html>

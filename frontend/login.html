@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnswerChain Enterprise Login | University Portal</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body class="login-body">
+
+    <div class="login-card">
+        <div class="login-brand">
+            <div class="login-brand-icon">A</div>
+            <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">AnswerChain</h2>
+            <p style="font-size: 13px; color: #64748b;">Academic Blockchain Verification Platform</p>
+        </div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="user_id">User ID / Institutional Identifier</label>
+                <input
+                    type="text"
+                    id="user_id"
+                    class="form-control"
+                    placeholder="e.g. UNIV-001, TCH-001, AUTH-001"
+                    required
+                    autocomplete="username"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    class="form-control"
+                    placeholder="Enter institutional credentials"
+                    required
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; margin-top: 10px;">
+                Authenticate & Enter Portal
+            </button>
+        </form>
+
+        <div style="margin-top: 18px; text-align: center;">
+            <a href="/verify/index.html" style="font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600;">
+                Public Verifier? Verify a Marksheet without Logging In →
+            </a>
+        </div>
+
+        <!-- Development Quick Role Switcher -->
+        <div class="demo-credentials-box">
+            <div class="demo-title">Development Roles &amp; Quick Access</div>
+            <div class="demo-buttons">
+                <button type="button" class="demo-btn" onclick="fillCreds('UNIV-001', 'university123')">
+                    🏛️ University (UNIV-001)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('TCH-001', 'teacher123')">
+                    👨‍🏫 Teacher 1 (TCH-001)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('TCH-004', 'teacher123')">
+                    👨‍🏫 Teacher 4 (TCH-004)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('AUTH-001', 'authority123')">
+                    ⚖️ Authority (AUTH-001)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('ADMIN-001', 'admin123')">
+                    🛡️ Admin (ADMIN-001)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('VERIFY-001', 'verify123')">
+                    🔍 Verifier (VERIFY-001)
+                </button>
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 8px;">
+                Click any demo profile above to auto-fill credentials.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillCreds(userId, pass) {
+            document.getElementById('user_id').value = userId;
+            document.getElementById('password').value = pass;
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById('user_id').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await authFetch('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId, password: password })
+                });
+
+                if (res.ok && res.data.token) {
+                    setSession(res.data.token, res.data.user);
+                    showToast(`Authenticated as ${res.data.user.name} (${res.data.user.role})`, 'success');
+                    setTimeout(() => {
+                        redirectToRoleHome(res.data.user.role);
+                    }, 400);
+                } else {
+                    showToast(res.data.message || 'Authentication failed. Please check credentials.', 'error');
+                }
+            } catch (err) {
+                showToast('Unable to connect to authentication server.', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

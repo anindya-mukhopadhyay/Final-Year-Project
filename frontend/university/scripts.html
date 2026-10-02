@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Answer Scripts | AnswerChain University</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>University Portal</span>
+                </div>
+            </div>
+            <nav class="navigation">
+                <a href="/university/dashboard.html" class="nav-item">
+                    <span>▦</span> Overview
+                </a>
+                <a href="/university/scripts.html" class="nav-item active">
+                    <span>◈</span> Answer Scripts
+                </a>
+                <a href="/university/upload.html" class="nav-item">
+                    <span>↑</span> Upload Script
+                </a>
+                <a href="/university/assignments.html" class="nav-item">
+                    <span>👥</span> Teacher Assign
+                </a>
+                <a href="/university/marksheets.html" class="nav-item">
+                    <span>▤</span> Marksheets
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Node-1: 5001</strong><small>University Node Active</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Answer Scripts Registry</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Immutable Registry of Student Submissions &amp; SHA-256 Hashes</p>
+                </div>
+                <div class="header-actions">
+                    <a href="/university/upload.html" class="btn btn-primary">+ Upload New Script</a>
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">U</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">University Registrar</span>
+                            <span class="user-role-label" id="user-role">UNIVERSITY</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3>All Registered Answer Scripts</h3>
+                    <input type="text" id="search-box" class="form-control" placeholder="Search by student, ID, or exam..." style="max-width: 280px; padding: 6px 12px; font-size: 13px;" oninput="filterTable()">
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="custom-table" id="scripts-table">
+                        <thead>
+                            <tr>
+                                <th>Script ID</th>
+                                <th>Student Details</th>
+                                <th>Exam Name &amp; ID</th>
+                                <th>SHA-256 Hash</th>
+                                <th>Assigned Teacher</th>
+                                <th>Lifecycle Status</th>
+                                <th>Block #</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scripts-list">
+                            <tr>
+                                <td colspan="8" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading scripts from ledger...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const user = requireAuth(["UNIVERSITY", "ADMIN"]);
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = user.role;
+            document.getElementById('user-avatar').textContent = user.name.charAt(0);
+        }
+
+        let allScripts = [];
+
+        async function loadScripts() {
+            try {
+                const res = await authFetch('/api/university/answer-scripts');
+                if (res.ok) {
+                    allScripts = res.data.answer_scripts || [];
+                    renderScriptsTable(allScripts);
+                } else {
+                    showToast(res.data.message || 'Failed to load scripts', 'error');
+                }
+            } catch (e) {
+                showToast('Network error loading scripts', 'error');
+            }
+        }
+
+        function renderScriptsTable(scripts) {
+            const tbody = document.getElementById('scripts-list');
+            tbody.innerHTML = '';
+
+            if (scripts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 24px; color: var(--muted);">No answer scripts found.</td></tr>';
+                return;
+            }
+
+            scripts.forEach(s => {
+                const tr = document.createElement('tr');
+
+                let badge = '<span class="badge badge-registered">Registered</span>';
+                if (s.marksheet_generated) badge = '<span class="badge badge-marksheet">Marksheet Ready</span>';
+                else if (s.finalized) badge = '<span class="badge badge-finalized">Finalized</span>';
+                else if (s.evaluated) badge = '<span class="badge badge-evaluated">Evaluated</span>';
+                else if (s.assigned) badge = '<span class="badge badge-assigned">Assigned</span>';
+
+                let action = '';
+                if (!s.assigned) {
+                    action = `<a href="/university/assignments.html?id=${s.answer_script_id}" class="btn btn-sm btn-secondary">Assign Teacher</a>`;
+                } else if (s.marksheet_generated) {
+                    action = `<a href="/verify/index.html?id=${s.marksheet_id}" class="btn btn-sm btn-outline">Verify Marksheet</a>`;
+                } else {
+                    action = `<span style="font-size: 12px; color: var(--muted);">${s.teacher_id || 'Assigned'}</span>`;
+                }
+
+                const hashSnippet = s.file_hash ? (s.file_hash.length > 20 ? s.file_hash.substring(0, 16) + '...' : s.file_hash) : '—';
+
+                tr.innerHTML = `
+                    <td><strong>${s.answer_script_id}</strong></td>
+                    <td><strong>${s.student_name}</strong><br><small style="color:var(--muted)">${s.student_id}</small></td>
+                    <td>${s.exam_name}<br><small style="color:var(--muted)">${s.exam_id}</small></td>
+                    <td><span class="hash-display" title="${s.file_hash}">${hashSnippet}</span></td>
+                    <td>${s.teacher_name || (s.teacher_id ? s.teacher_id : '<span style="color:var(--muted)">Not Assigned</span>')}</td>
+                    <td>${badge}</td>
+                    <td>${s.registration_block !== null ? `Block #${s.registration_block}` : '—'}</td>
+                    <td>${action}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const query = document.getElementById('search-box').value.toLowerCase();
+            const filtered = allScripts.filter(s =>
+                s.answer_script_id.toLowerCase().includes(query) ||
+                (s.student_name && s.student_name.toLowerCase().includes(query)) ||
+                (s.student_id && s.student_id.toLowerCase().includes(query)) ||
+                (s.exam_name && s.exam_name.toLowerCase().includes(query))
+            );
+            renderScriptsTable(filtered);
+        }
+
+        loadScripts();
+    </script>
+</body>
+</html>

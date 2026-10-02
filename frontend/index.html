@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
 
@@ -9,7 +8,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>AnswerChain</title>
+    <title>AnswerChain Network Dashboard</title>
 
     <link
         rel="stylesheet"
@@ -19,244 +18,533 @@
 
 <body>
 
-    <div class="container">
+    <div class="app">
 
-        <header class="header">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
 
-            <h1>AnswerChain</h1>
+            <div class="brand">
+                <div class="brand-icon">A</div>
 
-            <p>
-                Blockchain-Based Answer Script Verification
-            </p>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>Academic Blockchain</span>
+                </div>
+            </div>
 
-        </header>
+            <nav class="navigation">
 
-
-        <main>
-
-            <!-- Verify Answer Script -->
-
-            <section class="card">
-
-                <h2>Verify Answer Script</h2>
-
-                <p class="description">
-                    Upload an answer script to check whether
-                    its exact file hash exists on the blockchain.
-                </p>
-
-                <label for="verifyFileInput">
-                    Select Answer Script
-                </label>
-
-                <input
-                    type="file"
-                    id="verifyFileInput"
-                    accept=".pdf,.jpg,.jpeg,.png"
+                <a
+                    href="#"
+                    class="nav-item active"
                 >
+                    <span>▦</span>
+                    Dashboard
+                </a>
 
-                <button id="verifyButton">
-                    Verify Answer Script
-                </button>
-
-                <div
-                    id="verifyStatus"
-                    class="verify-status"
-                ></div>
-
-                <div
-                    id="verificationResult"
-                    class="verification-result hidden"
+                <a
+                    href="#"
+                    class="nav-item"
                 >
+                    <span>◈</span>
+                    Answer Scripts
+                </a>
 
-                    <h3 id="verificationTitle"></h3>
-
-                    <p>
-                        <strong>File:</strong>
-                        <span id="verifyFileName"></span>
-                    </p>
-
-                    <p>
-                        <strong>SHA-256:</strong>
-                    </p>
-
-                    <div
-                        id="verifyFileHash"
-                        class="hash"
-                    ></div>
-
-                    <p>
-                        <strong>Registered Block:</strong>
-                        <span id="verifyBlockNumber"></span>
-                    </p>
-
-                    <p>
-                        <strong>Registered File Name:</strong>
-                        <span id="registeredFileName"></span>
-                    </p>
-
-                </div>
-
-            </section>
-
-            <!-- Upload Section -->
-
-            <section class="card">
-
-                <h2>Upload Answer Script</h2>
-
-                <p class="description">
-                    Upload an answer script to generate its
-                    SHA-256 hash and register it on the blockchain.
-                </p>
-
-
-                <label for="fileInput">
-                    Select Answer Script
-                </label>
-
-
-                <input
-                    type="file"
-                    id="fileInput"
-                    accept=".pdf,.jpg,.jpeg,.png"
+                <a
+                    href="#"
+                    class="nav-item"
                 >
+                    <span>✓</span>
+                    Evaluations
+                </a>
 
+                <a
+                    href="#"
+                    class="nav-item"
+                >
+                    <span>▤</span>
+                    Results
+                </a>
 
-                <button id="uploadButton">
+                <a
+                    href="#"
+                    class="nav-item"
+                >
+                    <span>⬡</span>
+                    Blockchain
+                </a>
 
-                    Register Answer Script
+                <a
+                    href="#"
+                    class="nav-item"
+                >
+                    <span>⌁</span>
+                    Verification
+                </a>
 
-                </button>
+            </nav>
 
+            <div class="sidebar-footer">
 
-                <div
-                    id="status"
-                    class="status"
-                ></div>
+                <div class="network-status">
+                    <span class="status-dot"></span>
 
-            </section>
-
-
-            <!-- Blockchain Result -->
-
-            <section
-                id="resultCard"
-                class="card result-card hidden"
-            >
-
-                <h2>Blockchain Record</h2>
-
-
-                <div class="result-item">
-
-                    <span class="label">
-                        File Name
-                    </span>
-
-                    <span
-                        id="fileName"
-                        class="value"
-                    >
-                        -
-                    </span>
-
-                </div>
-
-
-                <div class="result-item">
-
-                    <span class="label">
-                        SHA-256 File Hash
-                    </span>
-
-                    <div
-                        id="fileHash"
-                        class="hash"
-                    >
-                        -
+                    <div>
+                        <strong>Network Online</strong>
+                        <small>Permissioned Network</small>
                     </div>
-
                 </div>
 
+            </div>
 
-                <div class="result-item">
+        </aside>
 
-                    <span class="label">
-                        Block Number
-                    </span>
 
-                    <span
-                        id="blockNumber"
-                        class="value"
-                    >
-                        -
-                    </span>
+        <!-- MAIN -->
+        <main class="main-content">
 
+            <!-- HEADER -->
+            <header class="topbar">
+
+                <div>
+                    <p class="eyebrow">
+                        ANSWERCHAIN NETWORK
+                    </p>
+
+                    <h2>
+                        Blockchain Network Dashboard
+                    </h2>
+
+                    <p class="subtitle">
+                        Monitor distributed academic verification infrastructure.
+                    </p>
                 </div>
 
+                <div class="header-actions">
 
-                <div class="result-item">
-
-                    <span class="label">
-                        Previous Block Hash
-                    </span>
-
-                    <div
-                        id="previousHash"
-                        class="hash"
-                    >
-                        -
-                    </div>
-
-                </div>
-
-
-                <div class="result-item">
-
-                    <span class="label">
-                        Block Hash
-                    </span>
-
-                    <div
-                        id="blockHash"
-                        class="hash"
-                    >
-                        -
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- Blockchain Viewer -->
-
-            <section class="card">
-
-                <div class="section-header">
-
-                    <h2>Blockchain</h2>
+                    <a href="/login.html" class="btn btn-primary" style="text-decoration: none;">
+                        Academic Portal →
+                    </a>
 
                     <button
-                        id="refreshButton"
-                        class="secondary-button"
+                        class="refresh-button"
+                        onclick="loadDashboard()"
                     >
-                        Refresh
+                        ↻ Refresh
                     </button>
+
+                    <div class="node-badge">
+                        <span class="status-dot"></span>
+
+                        <div>
+                            <small>Current Node</small>
+                            <strong id="currentNode">
+                                node-1
+                            </strong>
+                        </div>
+                    </div>
+
+                </div>
+
+            </header>
+
+
+            <!-- KPI CARDS -->
+            <section class="stats-grid">
+
+                <div class="stat-card">
+
+                    <div class="stat-icon blue">
+                        ⬡
+                    </div>
+
+                    <div>
+                        <p>Blockchain Blocks</p>
+                        <h3 id="blockCount">0</h3>
+                        <span>Validated blocks</span>
+                    </div>
 
                 </div>
 
 
-                <div id="blockchainContainer">
+                <div class="stat-card">
 
-                    <p class="empty">
-                        No blocks loaded yet.
-                    </p>
+                    <div class="stat-icon green">
+                        ●
+                    </div>
+
+                    <div>
+                        <p>Network Status</p>
+                        <h3 id="networkStatus">
+                            Online
+                        </h3>
+                        <span id="chainStatus">
+                            Chain valid
+                        </span>
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon purple">
+                        ⇄
+                    </div>
+
+                    <div>
+                        <p>Connected Peers</p>
+                        <h3 id="peerCount">0</h3>
+                        <span>Distributed nodes</span>
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon orange">
+                        ◌
+                    </div>
+
+                    <div>
+                        <p>Pending Transactions</p>
+                        <h3 id="pendingCount">0</h3>
+                        <span>Awaiting block confirmation</span>
+                    </div>
 
                 </div>
 
             </section>
+
+
+            <!-- NETWORK OVERVIEW -->
+            <section class="content-grid">
+
+                <div class="panel network-panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <p class="panel-label">
+                                DISTRIBUTED NETWORK
+                            </p>
+
+                            <h3>
+                                Node Infrastructure
+                            </h3>
+                        </div>
+
+                        <span class="live-label">
+                            <span class="status-dot"></span>
+                            LIVE
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        id="nodesContainer"
+                        class="nodes-container"
+                    >
+
+                        <div class="empty-state">
+                            Loading nodes...
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <p class="panel-label">
+                                CONSENSUS
+                            </p>
+
+                            <h3>
+                                Chain Health
+                            </h3>
+                        </div>
+
+                    </div>
+
+
+                    <div class="health-box">
+
+                        <div class="health-circle">
+                            ✓
+                        </div>
+
+                        <h4>
+                            Blockchain Valid
+                        </h4>
+
+                        <p>
+                            The current node has a valid chain
+                            and is synchronized with the network.
+                        </p>
+
+                    </div>
+
+                    <div class="health-details">
+
+                        <div>
+                            <span>Node</span>
+                            <strong id="healthNode">
+                                node-1
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Blocks</span>
+                            <strong id="healthBlocks">
+                                0
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Peers</span>
+                            <strong id="healthPeers">
+                                0
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- BLOCKCHAIN TABLE -->
+            <section class="panel blockchain-panel">
+
+                <div class="panel-header">
+
+                    <div>
+                        <p class="panel-label">
+                            LEDGER
+                        </p>
+
+                        <h3>
+                            Recent Blockchain Blocks
+                        </h3>
+                    </div>
+
+                    <span class="block-count-label">
+                        <span id="tableBlockCount">0</span> blocks
+                    </span>
+
+                </div>
+
+
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+                                <th>Block</th>
+                                <th>Transaction Type</th>
+                                <th>Transaction ID</th>
+                                <th>Previous Hash</th>
+                                <th>Block Hash</th>
+                                <th>Status</th>
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="blocksTable">
+
+                            <tr>
+                                <td
+                                    colspan="6"
+                                    class="empty-cell"
+                                >
+                                    Loading blockchain...
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+
+            <!-- WORKFLOW -->
+            <section class="panel workflow-panel">
+
+                <div class="panel-header">
+
+                    <div>
+                        <p class="panel-label">
+                            ACADEMIC WORKFLOW
+                        </p>
+
+                        <h3>
+                            AnswerChain Lifecycle
+                        </h3>
+                    </div>
+
+                </div>
+
+
+                <div class="workflow">
+
+                    <div class="workflow-step completed">
+
+                        <div class="workflow-number">
+                            01
+                        </div>
+
+                        <div>
+                            <strong>
+                                Answer Script
+                            </strong>
+
+                            <span>
+                                University registers script
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="workflow-line"></div>
+
+
+                    <div class="workflow-step completed">
+
+                        <div class="workflow-number">
+                            02
+                        </div>
+
+                        <div>
+                            <strong>
+                                Teacher Assignment
+                            </strong>
+
+                            <span>
+                                Script assigned securely
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="workflow-line"></div>
+
+
+                    <div class="workflow-step completed">
+
+                        <div class="workflow-number">
+                            03
+                        </div>
+
+                        <div>
+                            <strong>
+                                Evaluation
+                            </strong>
+
+                            <span>
+                                Teacher submits marks
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="workflow-line"></div>
+
+
+                    <div class="workflow-step completed">
+
+                        <div class="workflow-number">
+                            04
+                        </div>
+
+                        <div>
+                            <strong>
+                                Result Finalization
+                            </strong>
+
+                            <span>
+                                Authority approves result
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="workflow-line"></div>
+
+
+                    <div class="workflow-step completed">
+
+                        <div class="workflow-number">
+                            05
+                        </div>
+
+                        <div>
+                            <strong>
+                                Marksheet
+                            </strong>
+
+                            <span>
+                                PDF hash registered
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <div class="workflow-line"></div>
+
+
+                    <div class="workflow-step">
+
+                        <div class="workflow-number">
+                            06
+                        </div>
+
+                        <div>
+                            <strong>
+                                Verification
+                            </strong>
+
+                            <span>
+                                Public integrity verification
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- FOOTER -->
+            <footer>
+
+                <span>
+                    AnswerChain Academic Blockchain
+                </span>
+
+                <span>
+                    Permissioned Network • Local Development
+                </span>
+
+            </footer>
 
         </main>
 
@@ -266,5 +554,4 @@
     <script src="app.js"></script>
 
 </body>
-
 </html>

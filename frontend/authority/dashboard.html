@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controller of Examinations | AnswerChain Authority</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>Examination Authority</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/authority/dashboard.html" class="nav-item active">
+                    <span>▦</span> Overview
+                </a>
+                <a href="/authority/pending-results.html" class="nav-item">
+                    <span>⏳</span> Pending Finalization
+                </a>
+                <a href="/authority/marksheets.html" class="nav-item">
+                    <span>🎓</span> Marksheet Issuance
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Node-3: 5003</strong><small>Authority Node Active</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Examination Controller Dashboard</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Academic Result Certification, Marksheet Issuance, &amp; PDF Verification</p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">A</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">Controller of Exams</span>
+                            <span class="user-role-label" id="user-role">AUTHORITY</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- STATS -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-title">Pending Finalization</span>
+                    <strong class="stat-value" id="kpi-pending" style="color: var(--orange);">0</strong>
+                    <span class="stat-subtitle">Evaluated scripts awaiting sign-off</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Finalized Results</span>
+                    <strong class="stat-value" id="kpi-finalized" style="color: var(--success);">0</strong>
+                    <span class="stat-subtitle">Certified academic results</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Issued Marksheets</span>
+                    <strong class="stat-value" id="kpi-marksheets" style="color: var(--primary);">0</strong>
+                    <span class="stat-subtitle">PDFs generated &amp; hashed</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Total Answer Scripts</span>
+                    <strong class="stat-value" id="kpi-total">0</strong>
+                    <span class="stat-subtitle">Across all examinations</span>
+                </div>
+            </div>
+
+            <!-- PENDING REVIEW QUEUE -->
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3>Evaluations Awaiting Finalization</h3>
+                    <a href="/authority/pending-results.html" class="btn btn-sm btn-primary">Process All Queue →</a>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Script ID</th>
+                                <th>Student</th>
+                                <th>Examiner</th>
+                                <th>Awarded Marks</th>
+                                <th>Evaluation ID</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pending-tbody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading review queue...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- FINALIZED RESULTS & MARKSHEETS PREVIEW -->
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3>Recently Certified Results &amp; Marksheets</h3>
+                    <a href="/authority/marksheets.html" class="btn btn-sm btn-outline">Marksheet Center →</a>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Script ID</th>
+                                <th>Student</th>
+                                <th>Final Marks</th>
+                                <th>Result ID</th>
+                                <th>Marksheet ID</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="finalized-tbody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading certified results...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const user = requireAuth(["AUTHORITY", "ADMIN"]);
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = `${user.role} (${user.user_id})`;
+            document.getElementById('user-avatar').textContent = user.name.charAt(0);
+        }
+
+        async function loadAuthorityDashboard() {
+            try {
+                const res = await authFetch('/api/authority/dashboard');
+                if (!res.ok) {
+                    showToast(res.data.message || 'Failed to load authority metrics', 'error');
+                    return;
+                }
+
+                const k = res.data.kpis;
+                document.getElementById('kpi-pending').textContent = k.pending_reviews;
+                document.getElementById('kpi-finalized').textContent = k.finalized_results;
+                document.getElementById('kpi-marksheets').textContent = k.generated_marksheets;
+                document.getElementById('kpi-total').textContent = k.total_scripts;
+
+                // Pending Queue
+                const pTbody = document.getElementById('pending-tbody');
+                pTbody.innerHTML = '';
+                const pending = res.data.pending_evaluations || [];
+
+                if (pending.length === 0) {
+                    pTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">✓ Review queue is clear. No pending evaluations.</td></tr>';
+                } else {
+                    pending.forEach(p => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${p.answer_script_id}</strong></td>
+                            <td>${p.student_name}<br><small style="color:var(--muted)">${p.student_id}</small></td>
+                            <td>${p.teacher_name || p.teacher_id}</td>
+                            <td><strong>${p.marks}</strong> / ${p.max_marks}</td>
+                            <td><span class="hash-display">${p.evaluation_id}</span></td>
+                            <td>
+                                <a href="/authority/pending-results.html?id=${p.answer_script_id}" class="btn btn-sm btn-primary">
+                                    Review &amp; Finalize
+                                </a>
+                            </td>
+                        `;
+                        pTbody.appendChild(tr);
+                    });
+                }
+
+                // Finalized Table
+                const fTbody = document.getElementById('finalized-tbody');
+                fTbody.innerHTML = '';
+                const finalized = res.data.finalized_results || [];
+
+                if (finalized.length === 0) {
+                    fTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">No finalized results yet.</td></tr>';
+                } else {
+                    finalized.slice(0, 8).forEach(f => {
+                        const tr = document.createElement('tr');
+                        let msDisplay = '<span class="badge badge-assigned">Not Generated</span>';
+                        let action = `<button onclick="generateMarksheet('${f.answer_script_id}')" class="btn btn-sm btn-success">Issue Marksheet</button>`;
+
+                        if (f.marksheet_generated) {
+                            msDisplay = `<strong>${f.marksheet_id}</strong>`;
+                            action = `
+                                <a href="/api/marksheets/${f.marksheet_id}/pdf" target="_blank" class="btn btn-sm btn-outline">PDF</a>
+                                <a href="/verify/index.html?id=${f.marksheet_id}" class="btn btn-sm btn-primary">Verify</a>
+                            `;
+                        }
+
+                        tr.innerHTML = `
+                            <td><strong>${f.answer_script_id}</strong></td>
+                            <td>${f.student_name}</td>
+                            <td><strong>${f.final_marks}</strong> / ${f.max_marks}</td>
+                            <td><span class="hash-display">${f.result_id}</span></td>
+                            <td>${msDisplay}</td>
+                            <td><div style="display:flex; gap:6px;">${action}</div></td>
+                        `;
+                        fTbody.appendChild(tr);
+                    });
+                }
+
+            } catch (err) {
+                console.error(err);
+                showToast('Network error loading authority dashboard', 'error');
+            }
+        }
+
+        async function generateMarksheet(scriptId) {
+            try {
+                const res = await authFetch(`/api/authority/results/${scriptId}/marksheet`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    showToast(`Marksheet ${res.data.marksheet_id} generated and committed to blockchain!`, 'success');
+                    loadAuthorityDashboard();
+                } else {
+                    showToast(res.data.error || 'Failed to generate marksheet', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to connect to authority node', 'error');
+            }
+        }
+
+        loadAuthorityDashboard();
+    </script>
+</body>
+</html>

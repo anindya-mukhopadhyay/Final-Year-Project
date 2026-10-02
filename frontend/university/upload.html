@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Answer Script | AnswerChain University</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>University Portal</span>
+                </div>
+            </div>
+            <nav class="navigation">
+                <a href="/university/dashboard.html" class="nav-item">
+                    <span>▦</span> Overview
+                </a>
+                <a href="/university/scripts.html" class="nav-item">
+                    <span>◈</span> Answer Scripts
+                </a>
+                <a href="/university/upload.html" class="nav-item active">
+                    <span>↑</span> Upload Script
+                </a>
+                <a href="/university/assignments.html" class="nav-item">
+                    <span>👥</span> Teacher Assign
+                </a>
+                <a href="/university/marksheets.html" class="nav-item">
+                    <span>▤</span> Marksheets
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Node-1: 5001</strong><small>University Node Active</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Upload &amp; Register Answer Script</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Computes SHA-256 cryptographic fingerprint and immutably commits to academic ledger</p>
+                </div>
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">U</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">University Registrar</span>
+                            <span class="user-role-label" id="user-role">UNIVERSITY</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+                <!-- UPLOAD FORM -->
+                <div class="form-card">
+                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">Student Submission Details</h3>
+
+                    <form id="upload-form">
+                        <div class="form-group">
+                            <label for="student_id">Student ID / Roll Number *</label>
+                            <input type="text" id="student_id" class="form-control" placeholder="e.g. STUDENT-004" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="student_name">Student Full Name *</label>
+                            <input type="text" id="student_name" class="form-control" placeholder="e.g. Rahul Sen" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="exam_id">Exam ID *</label>
+                                <input type="text" id="exam_id" class="form-control" placeholder="e.g. EXAM-2026-CS401" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="answer_script_id">Answer Script ID (Optional)</label>
+                                <input type="text" id="answer_script_id" class="form-control" placeholder="Auto-generates AS-004 if blank">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exam_name">Examination Course / Module *</label>
+                            <input type="text" id="exam_name" class="form-control" placeholder="e.g. Cloud Computing & Distributed Networks" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Answer Script Document (.pdf, .png, .jpg) *</label>
+                            <div class="file-dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+                                <div style="font-size: 28px; margin-bottom: 8px;">📄</div>
+                                <strong id="file-label">Click to select answer script file</strong>
+                                <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Max size 15MB. Or use the demo seed button below.</p>
+                            </div>
+                            <input type="file" id="file-input" style="display: none;" accept=".pdf,.png,.jpg,.jpeg,.txt" onchange="handleFileSelected(this)">
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-top: 24px;">
+                            <button type="submit" id="submit-btn" class="btn btn-primary" style="flex: 2; justify-content: center;">
+                                Upload &amp; Commit to Blockchain
+                            </button>
+                            <button type="button" class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="populateDemoAS004()">
+                                ⚡ Fill Demo AS-004
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- CONFIRMATION & RECEIPT CARD -->
+                <div class="table-card" id="receipt-card" style="display: none; padding: 24px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #dcfce7; color: #166534; display: grid; place-items: center; font-size: 20px;">✓</div>
+                        <div>
+                            <h3 style="font-size: 18px; font-weight: 700; color: #166534;">Answer Script Confirmed</h3>
+                            <p style="font-size: 12px; color: var(--muted);">Registered permanently on distributed academic ledger</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 14px; font-size: 13px;">
+                        <div>
+                            <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Answer Script ID</span>
+                            <strong style="font-size: 16px; color: var(--text);" id="rec-script-id">AS-004</strong>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">SHA-256 File Hash</span>
+                            <div class="hash-display" id="rec-hash">—</div>
+                        </div>
+                        <div>
+                            <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Transaction ID</span>
+                            <div class="hash-display" id="rec-tx-id">—</div>
+                        </div>
+                        <div style="display: flex; gap: 24px;">
+                            <div>
+                                <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Block Number</span>
+                                <strong style="font-size: 14px; color: var(--primary);" id="rec-block">Block #—</strong>
+                            </div>
+                            <div>
+                                <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Confirmation Status</span>
+                                <span class="badge badge-finalized" id="rec-status">CONFIRMED</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; gap: 10px;">
+                        <a href="#" id="assign-next-btn" class="btn btn-primary" style="flex: 1; justify-content: center;">
+                            Proceed to Teacher Assignment →
+                        </a>
+                        <button type="button" class="btn btn-outline" onclick="resetForm()">Upload Another</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const user = requireAuth(["UNIVERSITY", "ADMIN"]);
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = user.role;
+            document.getElementById('user-avatar').textContent = user.name.charAt(0);
+        }
+
+        let selectedFile = null;
+
+        function handleFileSelected(input) {
+            if (input.files && input.files[0]) {
+                selectedFile = input.files[0];
+                document.getElementById('file-label').textContent = `Selected: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(1)} KB)`;
+            }
+        }
+
+        function populateDemoAS004() {
+            document.getElementById('student_id').value = 'STUDENT-004';
+            document.getElementById('student_name').value = 'Sourav Ganguly';
+            document.getElementById('exam_id').value = 'EXAM-2026-04';
+            document.getElementById('exam_name').value = 'Distributed Systems & Advanced Consensus';
+            document.getElementById('answer_script_id').value = 'AS-004';
+            document.getElementById('file-label').textContent = 'Synthetic Demo Document: AS-004_submission.pdf (Automated)';
+            selectedFile = null;
+        }
+
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Computing SHA-256 & Broadcasting...';
+
+            const studentId = document.getElementById('student_id').value.trim();
+            const studentName = document.getElementById('student_name').value.trim();
+            const examId = document.getElementById('exam_id').value.trim();
+            const examName = document.getElementById('exam_name').value.trim();
+            const asId = document.getElementById('answer_script_id').value.trim();
+
+            try {
+                let res;
+                if (selectedFile) {
+                    const formData = new FormData();
+                    formData.append('student_id', studentId);
+                    formData.append('student_name', studentName);
+                    formData.append('exam_id', examId);
+                    formData.append('exam_name', examName);
+                    if (asId) formData.append('answer_script_id', asId);
+                    formData.append('file', selectedFile);
+
+                    res = await authFetch('/api/university/answer-scripts', {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    res = await authFetch('/api/university/answer-scripts', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            student_id: studentId,
+                            student_name: studentName,
+                            exam_id: examId,
+                            exam_name: examName,
+                            answer_script_id: asId || undefined,
+                            file_name: asId ? `${asId}.pdf` : 'script.pdf'
+                        })
+                    });
+                }
+
+                if (res.ok) {
+                    showToast('Answer script registered and confirmed on blockchain!', 'success');
+
+                    // Display confirmation receipt
+                    document.getElementById('receipt-card').style.display = 'block';
+                    document.getElementById('rec-script-id').textContent = res.data.answer_script_id;
+                    document.getElementById('rec-hash').textContent = res.data.file_hash;
+                    document.getElementById('rec-tx-id').textContent = res.data.transaction_id || 'Confirmed';
+                    document.getElementById('rec-block').textContent = `Block #${res.data.block_number !== undefined ? res.data.block_number : 'Synced'}`;
+                    document.getElementById('assign-next-btn').href = `/university/assignments.html?id=${res.data.answer_script_id}`;
+
+                    window.scrollTo({ top: 300, behavior: 'smooth' });
+                } else {
+                    showToast(res.data.error || res.data.message || 'Registration failed', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to connect to university node service', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload & Commit to Blockchain';
+            }
+        });
+
+        function resetForm() {
+            document.getElementById('upload-form').reset();
+            selectedFile = null;
+            document.getElementById('file-label').textContent = 'Click to select answer script file';
+            document.getElementById('receipt-card').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Assignments | AnswerChain University</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>University Portal</span>
+                </div>
+            </div>
+            <nav class="navigation">
+                <a href="/university/dashboard.html" class="nav-item">
+                    <span>▦</span> Overview
+                </a>
+                <a href="/university/scripts.html" class="nav-item">
+                    <span>◈</span> Answer Scripts
+                </a>
+                <a href="/university/upload.html" class="nav-item">
+                    <span>↑</span> Upload Script
+                </a>
+                <a href="/university/assignments.html" class="nav-item active">
+                    <span>👥</span> Teacher Assign
+                </a>
+                <a href="/university/marksheets.html" class="nav-item">
+                    <span>▤</span> Marksheets
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Node-1: 5001</strong><small>University Node Active</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Teacher Assignment Panel</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Allocate verified scripts to faculty examiners via blockchain consensus</p>
+                </div>
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">U</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">University Registrar</span>
+                            <span class="user-role-label" id="user-role">UNIVERSITY</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <div style="display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start;">
+                <!-- ASSIGNMENT FORM -->
+                <div class="form-card">
+                    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 18px;">Assign Evaluator</h3>
+                    <form id="assign-form">
+                        <div class="form-group">
+                            <label for="script-select">Answer Script *</label>
+                            <select id="script-select" class="form-control" required>
+                                <option value="">Select unassigned script...</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="teacher-select">Faculty Examiner (Teacher) *</label>
+                            <select id="teacher-select" class="form-control" required>
+                                <option value="">Select teacher...</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" id="assign-btn" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                            Confirm Assignment On-Chain
+                        </button>
+                    </form>
+                </div>
+
+                <!-- ASSIGNMENT LEDGER TABLE -->
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3>Teacher Assignment Ledger</h3>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>Script ID</th>
+                                    <th>Student</th>
+                                    <th>Assigned Teacher</th>
+                                    <th>Status</th>
+                                    <th>Evaluation</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignments-tbody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--muted); padding: 30px;">
+                                        Loading assignments...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const user = requireAuth(["UNIVERSITY", "ADMIN"]);
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = user.role;
+            document.getElementById('user-avatar').textContent = user.name.charAt(0);
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const preselectedScriptId = urlParams.get('id');
+
+        async function init() {
+            await Promise.all([loadTeachers(), loadScriptsAndAssignments()]);
+        }
+
+        async function loadTeachers() {
+            try {
+                const res = await authFetch('/api/teachers');
+                if (res.ok) {
+                    const select = document.getElementById('teacher-select');
+                    res.data.teachers.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.user_id;
+                        opt.textContent = `${t.name} (${t.user_id} - ${t.department})`;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadScriptsAndAssignments() {
+            try {
+                const res = await authFetch('/api/university/answer-scripts');
+                if (!res.ok) return;
+
+                const scripts = res.data.answer_scripts || [];
+                const scriptSelect = document.getElementById('script-select');
+                scriptSelect.innerHTML = '<option value="">Select script...</option>';
+
+                const tbody = document.getElementById('assignments-tbody');
+                tbody.innerHTML = '';
+
+                scripts.forEach(s => {
+                    // Populate dropdown with unassigned scripts or preselected
+                    if (!s.assigned || s.answer_script_id === preselectedScriptId) {
+                        const opt = document.createElement('option');
+                        opt.value = s.answer_script_id;
+                        opt.textContent = `${s.answer_script_id} - ${s.student_name} (${s.exam_name})`;
+                        if (s.answer_script_id === preselectedScriptId) {
+                            opt.selected = true;
+                        }
+                        scriptSelect.appendChild(opt);
+                    }
+
+                    // Populate table
+                    if (s.assigned) {
+                        const tr = document.createElement('tr');
+                        const statusBadge = s.evaluated
+                            ? '<span class="badge badge-evaluated">Evaluated</span>'
+                            : '<span class="badge badge-assigned">Assigned / In Review</span>';
+
+                        const evalDisplay = s.marks !== null ? `${s.marks} / ${s.max_marks}` : '<span style="color:var(--muted)">Pending</span>';
+
+                        tr.innerHTML = `
+                            <td><strong>${s.answer_script_id}</strong></td>
+                            <td>${s.student_name}<br><small style="color:var(--muted)">${s.student_id}</small></td>
+                            <td><strong>${s.teacher_name || s.teacher_id}</strong><br><small style="color:var(--muted)">${s.teacher_id}</small></td>
+                            <td>${statusBadge}</td>
+                            <td>${evalDisplay}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+                });
+
+                if (tbody.children.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 24px;">No scripts currently assigned.</td></tr>';
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Error loading assignments', 'error');
+            }
+        }
+
+        document.getElementById('assign-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const scriptId = document.getElementById('script-select').value;
+            const teacherId = document.getElementById('teacher-select').value;
+            const btn = document.getElementById('assign-btn');
+
+            if (!scriptId || !teacherId) {
+                showToast('Please select both an answer script and a teacher.', 'warning');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Committing to Blockchain...';
+
+            try {
+                const res = await authFetch(`/api/university/answer-scripts/${scriptId}/assign`, {
+                    method: 'POST',
+                    body: JSON.stringify({ teacher_id: teacherId })
+                });
+
+                if (res.ok) {
+                    showToast(`Answer script ${scriptId} successfully assigned to ${teacherId}!`, 'success');
+                    await loadScriptsAndAssignments();
+                } else {
+                    showToast(res.data.error || res.data.message || 'Assignment failed.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error during assignment.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Confirm Assignment On-Chain';
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Results &amp; Finalization | Examination Authority</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>Examination Authority</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/authority/dashboard.html" class="nav-item">
+                    <span>▦</span> Overview
+                </a>
+                <a href="/authority/pending-results.html" class="nav-item active">
+                    <span>⏳</span> Pending Finalization
+                </a>
+                <a href="/authority/marksheets.html" class="nav-item">
+                    <span>🎓</span> Marksheet Issuance
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Node-3: 5003</strong><small>Authority Node Active</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Result Finalization Queue</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Review teacher evaluations and certify academic results to blockchain</p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">A</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">Controller of Exams</span>
+                            <span class="user-role-label" id="user-role">AUTHORITY</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="table-card">
+                <div class="table-card-header">
+                    <h3>Evaluated Answer Scripts Awaiting Sign-off</h3>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Script ID</th>
+                                <th>Student Details</th>
+                                <th>Examiner (Teacher)</th>
+                                <th>Awarded Marks</th>
+                                <th>Evaluation ID</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-tbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading review queue...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- FINALIZATION MODAL -->
+    <div id="finalize-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; place-items: center;">
+        <div style="background: white; border-radius: 16px; padding: 30px; max-width: 520px; width: 90%; position: relative;">
+            <button onclick="closeModal()" style="position: absolute; right: 16px; top: 16px; border: none; background: none; font-size: 20px; cursor: pointer;">&times;</button>
+            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Certify &amp; Finalize Academic Result</h3>
+            <p style="font-size: 12px; color: var(--muted); margin-bottom: 20px;">Review details before committing permanent RESULT_FINALIZED transaction</p>
+
+            <div style="background: var(--surface-soft); padding: 16px; border-radius: 10px; border: 1px solid var(--border); font-size: 13px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color:var(--muted)">Script ID:</span>
+                    <strong id="modal-script-id">—</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color:var(--muted)">Student:</span>
+                    <span id="modal-student">—</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color:var(--muted)">Teacher:</span>
+                    <span id="modal-teacher">—</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color:var(--muted)">Marks Awarded:</span>
+                    <strong style="color:var(--primary); font-size: 15px;" id="modal-marks">—</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color:var(--muted)">Evaluation ID:</span>
+                    <span class="hash-display" id="modal-eval-id">—</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="button" id="confirm-finalize-btn" class="btn btn-primary" style="flex: 2; justify-content: center;" onclick="executeFinalization()">
+                    Authorize &amp; Finalize Result
+                </button>
+                <button type="button" class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="closeModal()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const user = requireAuth(["AUTHORITY", "ADMIN"]);
+        if (user) {
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('user-role').textContent = `${user.role} (${user.user_id})`;
+            document.getElementById('user-avatar').textContent = user.name.charAt(0);
+        }
+
+        let pendingList = [];
+        let selectedScript = null;
+
+        async function loadPendingQueue() {
+            try {
+                const res = await authFetch('/api/authority/results/pending');
+                if (!res.ok) {
+                    showToast(res.data.message || 'Failed to load queue', 'error');
+                    return;
+                }
+
+                pendingList = res.data.pending_results || [];
+                const tbody = document.getElementById('queue-tbody');
+                tbody.innerHTML = '';
+
+                if (pendingList.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 36px;">✓ No evaluations pending finalization. All submitted marks have been certified.</td></tr>';
+                    return;
+                }
+
+                pendingList.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${p.answer_script_id}</strong></td>
+                        <td>${p.student_name}<br><small style="color:var(--muted)">${p.student_id}</small></td>
+                        <td>${p.teacher_name || p.teacher_id}</td>
+                        <td><strong>${p.marks}</strong> / ${p.max_marks}</td>
+                        <td><span class="hash-display">${p.evaluation_id}</span></td>
+                        <td><span class="badge badge-evaluated">Evaluation Submitted</span></td>
+                        <td>
+                            <button onclick="openFinalizeModal('${p.answer_script_id}')" class="btn btn-sm btn-primary">
+                                Certify &amp; Finalize
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error(err);
+                showToast('Network error loading finalization queue', 'error');
+            }
+        }
+
+        function openFinalizeModal(scriptId) {
+            selectedScript = pendingList.find(s => s.answer_script_id === scriptId);
+            if (!selectedScript) return;
+
+            document.getElementById('modal-script-id').textContent = selectedScript.answer_script_id;
+            document.getElementById('modal-student').textContent = `${selectedScript.student_name} (${selectedScript.student_id})`;
+            document.getElementById('modal-teacher').textContent = `${selectedScript.teacher_name || selectedScript.teacher_id}`;
+            document.getElementById('modal-marks').textContent = `${selectedScript.marks} / ${selectedScript.max_marks}`;
+            document.getElementById('modal-eval-id').textContent = selectedScript.evaluation_id;
+
+            const modal = document.getElementById('finalize-modal');
+            modal.style.display = 'grid';
+        }
+
+        function closeModal() {
+            document.getElementById('finalize-modal').style.display = 'none';
+            selectedScript = null;
+        }
+
+        async function executeFinalization() {
+            if (!selectedScript) return;
+            const btn = document.getElementById('confirm-finalize-btn');
+            btn.disabled = true;
+            btn.textContent = 'Certifying on Node-3 (Authority)...';
+
+            try {
+                const res = await authFetch(`/api/authority/results/${selectedScript.answer_script_id}/finalize`, {
+                    method: 'POST'
+                });
+
+                if (res.ok) {
+                    showToast(`Result ${res.data.result_id} finalized and broadcast to blockchain!`, 'success');
+                    closeModal();
+
+                    // Prompt to issue marksheet immediately
+                    const issueNow = confirm(`Result finalized successfully!\n\nResult ID: ${res.data.result_id}\nBlock: #${res.data.block_number}\n\nWould you like to generate the official Marksheet & PDF right now?`);
+                    if (issueNow) {
+                        await issueMarksheet(selectedScript.answer_script_id);
+                    }
+                    await loadPendingQueue();
+                } else {
+                    showToast(res.data.error || 'Result finalization failed.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to connect to authority node service.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Authorize & Finalize Result';
+            }
+        }
+
+        async function issueMarksheet(scriptId) {
+            try {
+                const res = await authFetch(`/api/authority/results/${scriptId}/marksheet`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    alert(`Marksheet Generated & Registered!\n\nMarksheet ID: ${res.data.marksheet_id}\nData Hash: ${res.data.marksheet_data_hash}\nPDF Hash: ${res.data.marksheet_pdf_hash}\n\nYou can now view or verify it.`);
+                    window.location.href = `/authority/marksheets.html`;
+                } else {
+                    showToast(res.data.error || 'Marksheet generation failed', 'error');
+                }
+            } catch (e) {
+                showToast('Failed to generate marksheet', 'error');
+            }
+        }
+
+        loadPendingQueue();
+    </script>
+</body>
+</html>
