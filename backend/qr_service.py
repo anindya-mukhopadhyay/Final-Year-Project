@@ -39,7 +39,7 @@ def generate_qr_png_bytes(marksheet_id: str) -> bytes:
     img = qr.make_image(fill_color="black", back_color="white")
 
     buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
+    img.save(buffer,format="PNG")
     return buffer.getvalue()
 
 
