@@ -47,19 +47,23 @@ _load_audit_log()
 
 def log_audit_event(
     action: str,
-    actor: str,
-    actor_role: str,
+    actor: Optional[str] = None,
+    actor_role: str = "UNKNOWN",
     resource_id: Optional[str] = None,
     transaction_id: Optional[str] = None,
     status: str = "SUCCESS",
     reason: Optional[str] = None,
     details: Optional[Dict[str, Any]] = None,
+    actor_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Append an operational security audit record.
     Sanitizes details to ensure no passwords or private keys are persisted.
+    Supports either actor or actor_id for flexibility.
     """
     _load_audit_log()
+
+    effective_actor = str(actor or actor_id or "UNKNOWN")
 
     # Sanitize details (remove any accidental password, token, or private key fields)
     sanitized_details: Dict[str, Any] = {}
@@ -76,8 +80,8 @@ def log_audit_event(
         "id": f"AUD-{int(time.time() * 1000)}-{len(_AUDIT_LOG) + 1}",
         "timestamp": time.time(),
         "action": action.upper(),
-        "actor": actor,
-        "actor_id": actor,
+        "actor": effective_actor,
+        "actor_id": effective_actor,
         "actor_role": actor_role.upper(),
         "resource_id": resource_id or "—",
         "transaction_id": transaction_id or "—",

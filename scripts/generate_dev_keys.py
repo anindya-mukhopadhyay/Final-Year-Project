@@ -33,6 +33,12 @@ ACTORS = [
     ("TCH-002", "TEACHER", "Prof. Sarah Jenkins (IT)"),
     ("TCH-003", "TEACHER", "Prof. Ramesh Guha (ECE)"),
     ("TCH-004", "TEACHER", "Prof. David K. (CSE)"),
+    ("TCH-005", "TEACHER", "Prof. Elena Rostova (CSE)"),
+    ("NODE-001", "NODE", "Examiner Node 1 Process"),
+    ("NODE-002", "NODE", "Examiner Node 2 Process"),
+    ("NODE-003", "NODE", "Examiner Node 3 Process"),
+    ("NODE-004", "NODE", "Examiner Node 4 Process"),
+    ("NODE-005", "NODE", "Examiner Node 5 Process"),
     ("AUTH-001", "AUTHORITY", "Dr. S. K. Mukherjee (Controller of Examinations)"),
     ("ADMIN-001", "ADMIN", "AnswerChain Security Operations"),
 ]

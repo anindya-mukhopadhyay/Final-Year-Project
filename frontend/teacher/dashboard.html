@@ -109,6 +109,151 @@
                     </table>
                 </div>
             </div>
+
+            <!-- HEAD EXAMINER FINALIZATION QUEUE (Visible to Elected Head Examiners) -->
+            <div class="table-card" id="he-queue-section" style="margin-top: 24px; display: none;">
+                <div class="table-card-header" style="background: linear-gradient(135deg, rgba(49, 94, 251, 0.05), rgba(21, 149, 103, 0.05)); border-bottom: 1px solid var(--border);">
+                    <div>
+                        <h3 style="display: flex; align-items: center; gap: 8px; color: var(--primary);">
+                            <span>🏛️</span> Head Examiner Result Finalization Queue (<span id="he-subjects-badge">DBMS</span>)
+                        </h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Elected Subject Head Examiner Authority • Review Faculty Evaluations &amp; Certify Permanent Results to Blockchain
+                        </p>
+                    </div>
+                    <button class="btn btn-sm btn-outline" onclick="loadHeadExaminerQueue()">Refresh Queue</button>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Script ID</th>
+                                <th>Student</th>
+                                <th>Subject</th>
+                                <th>Evaluating Teacher</th>
+                                <th>Awarded Marks</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="he-queue-tbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading finalization queue...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- HE APPROVE & FINALIZE MODAL -->
+            <div id="he-finalize-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+                <div style="background: var(--surface, #ffffff); padding: 26px; border-radius: 14px; max-width: 480px; width: 90%; border: 1px solid var(--border); box-shadow: 0 14px 35px rgba(0,0,0,0.2);">
+                    <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px; color: var(--primary);">
+                        <span>🏛️</span> Head Examiner Result Finalization
+                    </h3>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+                        Approve evaluation and commit permanent RESULT_FINALIZED transaction to blockchain
+                    </p>
+                    <input type="hidden" id="he-modal-script-id">
+
+                    <div style="background: var(--surface-soft, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; display: flex; flex-direction: column; gap: 6px;">
+                        <div><strong>Answer Script:</strong> <span id="he-modal-script-text" style="font-family: monospace;">—</span></div>
+                        <div><strong>Subject:</strong> <span id="he-modal-subject-text">—</span></div>
+                        <div><strong>Evaluator Teacher:</strong> <span id="he-modal-evaluator-text">—</span></div>
+                        <div><strong>Awarded Marks:</strong> <strong id="he-modal-marks-text" style="color: var(--primary); font-size: 15px;">—</strong></div>
+                    </div>
+
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Head Examiner Verification Remarks</label>
+                    <textarea id="he-modal-remarks" class="form-control" rows="2" style="margin-bottom: 20px; font-size: 13px;">Verified and approved by elected Subject Head Examiner.</textarea>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button class="btn btn-outline" onclick="closeHeFinalizeModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="submitHeFinalize()">Sign &amp; Finalize Result</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 9C: DEMOCRATIC HEAD EXAMINER ELECTIONS (TEACHER VOTING) -->
+            <div class="table-card" style="margin-top: 24px;">
+                <div class="table-card-header">
+                    <div>
+                        <h3 style="display: flex; align-items: center; gap: 8px;">
+                            <span>🗳️</span> Subject Head Examiner Elections (Faculty Governance)
+                        </h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Cast Your Authenticated Faculty Ballot • One Vote Per Subject Election • Recorded on Blockchain
+                        </p>
+                    </div>
+                    <button class="btn btn-sm btn-outline" onclick="loadTeacherElections()">Refresh</button>
+                </div>
+
+                <!-- ACTIVE HEAD EXAMINERS LIST -->
+                <div style="padding: 14px 24px; background: rgba(49, 94, 251, 0.04); border-bottom: 1px solid var(--border);" id="teacher-he-banner">
+                    <strong style="font-size: 13px; color: var(--primary);">Active Head Examiners:</strong>
+                    <div id="teacher-he-list" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 13px;">
+                        Loading active appointments...
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Election ID</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                                <th>Elected / Current Head</th>
+                                <th>Votes Cast</th>
+                                <th>Term Validity</th>
+                                <th>My Faculty Ballot</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacher-elections-tbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading active elections...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CAST VOTE MODAL FOR TEACHER -->
+            <div id="teacher-vote-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+                <div style="background: var(--surface, #ffffff); padding: 24px; border-radius: 14px; max-width: 480px; width: 90%; border: 1px solid var(--border); box-shadow: 0 12px 30px rgba(0,0,0,0.18);">
+                    <h3 style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        <span>🗳️</span> Cast Cryptographic Ballot
+                    </h3>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;" id="teacher-vote-modal-desc">
+                        Election ID • Subject
+                    </p>
+                    <input type="hidden" id="teacher-vote-election-id">
+
+                    <!-- VOTER IS AUTOMATICALLY DISPLAYED AS LOGGED-IN TEACHER (NO SPOOFING/DROPDOWN) -->
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Voter (Your Faculty Identity)</label>
+                    <div style="background: var(--surface-soft, #f8fafc); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong id="teacher-voter-name" style="font-size: 13px; color: var(--text);">Prof. Examiner</strong>
+                            <small id="teacher-voter-id" style="color: var(--muted); display: block; font-family: ui-monospace, SFMono-Regular, monospace;">TCH-001</small>
+                        </div>
+                        <span class="badge badge-finalized" style="font-size: 10px;">Authenticated Session</span>
+                    </div>
+
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Vote For Candidate (Head Examiner)</label>
+                    <select id="teacher-candidate-select" class="form-control" style="margin-bottom: 20px; font-size: 13px;">
+                        <option value="TCH-001">Prof. Alex Mercer (TCH-001 • NODE-001)</option>
+                        <option value="TCH-002">Prof. Sarah Jenkins (TCH-002 • NODE-002)</option>
+                        <option value="TCH-003">Prof. Ramesh Guha (TCH-003 • NODE-003)</option>
+                        <option value="TCH-004">Prof. David K. (TCH-004 • NODE-004)</option>
+                        <option value="TCH-005">Prof. Elena Rostova (TCH-005 • NODE-005)</option>
+                    </select>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button class="btn btn-outline" onclick="closeTeacherVoteModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="submitTeacherVote()">Sign &amp; Cast Ballot</button>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -174,7 +319,206 @@
             }
         }
 
+        async function loadTeacherElections() {
+            try {
+                const res = await authFetch('/api/teacher/elections');
+                if (res.ok) {
+                    const data = res.data;
+                    const tbody = document.getElementById('teacher-elections-tbody');
+                    const heList = document.getElementById('teacher-he-list');
+                    tbody.innerHTML = '';
+                    heList.innerHTML = '';
+
+                    // Active Head Examiners
+                    const activeHE = data.active_head_examiners || {};
+                    const subjects = Object.keys(activeHE);
+                    if (subjects.length === 0) {
+                        heList.innerHTML = '<span style="color: var(--muted);">No active appointments.</span>';
+                    } else {
+                        subjects.forEach(sub => {
+                            const info = activeHE[sub];
+                            const pill = document.createElement('div');
+                            pill.style.background = 'var(--surface, #ffffff)';
+                            pill.style.padding = '4px 10px';
+                            pill.style.borderRadius = '14px';
+                            pill.style.border = '1px solid var(--border)';
+                            pill.innerHTML = `<strong>${sub}:</strong> ${info.head_examiner_id} (${info.node_id}) <span class="badge badge-finalized" style="font-size: 10px; margin-left: 4px;">ACTIVE</span>`;
+                            heList.appendChild(pill);
+                        });
+                    }
+
+                    // Elections table
+                    const elections = data.elections || [];
+                    if (elections.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">No active elections currently open.</td></tr>';
+                        return;
+                    }
+
+                    elections.forEach(elec => {
+                        const tr = document.createElement('tr');
+                        const statusClass = elec.status === 'CONCLUDED' ? 'badge-finalized' : 'badge-assigned';
+                        const validityText = elec.term_end
+                            ? new Date(elec.term_end * 1000).toLocaleDateString()
+                            : 'Pending conclusion';
+
+                        const myVote = elec.votes && elec.votes[user.user_id];
+                        let actionHtml = '';
+
+                        if (elec.status === 'CONCLUDED') {
+                            actionHtml = `<span style="color: var(--success); font-weight: 600; font-size: 12px;">Elected: ${elec.winner_id} ✓</span>`;
+                        } else if (myVote) {
+                            actionHtml = `<span class="badge badge-finalized" style="font-size: 11px;">You Voted for ${myVote.candidate} ✓</span>`;
+                        } else {
+                            actionHtml = `<button class="btn btn-sm btn-primary" onclick="showTeacherVoteModal('${elec.election_id}', '${elec.subject}')">Vote Now</button>`;
+                        }
+
+                        tr.innerHTML = `
+                            <td><span class="hash-display">${elec.election_id}</span></td>
+                            <td><strong>${elec.subject}</strong></td>
+                            <td><span class="badge ${statusClass}">${elec.status}</span></td>
+                            <td>${elec.winner_id ? '<strong>' + elec.winner_id + '</strong> (' + elec.winner_node_id + ')' : '<span style="color:var(--muted)">In Voting</span>'}</td>
+                            <td><strong>${elec.votes_cast}</strong> / ${elec.eligible_voters ? elec.eligible_voters.length : 5}</td>
+                            <td style="font-size: 12px; color: var(--muted);">${validityText}</td>
+                            <td>${actionHtml}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load elections:', e);
+            }
+        }
+
+        function showTeacherVoteModal(electionId, subject) {
+            document.getElementById('teacher-vote-election-id').value = electionId;
+            document.getElementById('teacher-vote-modal-desc').textContent = `Election: ${electionId} • Subject: ${subject}`;
+            document.getElementById('teacher-voter-name').textContent = user.name;
+            document.getElementById('teacher-voter-id').textContent = `${user.user_id} (${user.department || 'Faculty'})`;
+            document.getElementById('teacher-vote-modal').style.display = 'flex';
+        }
+
+        function closeTeacherVoteModal() {
+            document.getElementById('teacher-vote-modal').style.display = 'none';
+        }
+
+        async function submitTeacherVote() {
+            const electionId = document.getElementById('teacher-vote-election-id').value;
+            const candidateId = document.getElementById('teacher-candidate-select').value;
+
+            try {
+                const res = await authFetch('/api/teacher/elections/vote', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        election_id: electionId,
+                        candidate_id: candidateId,
+                    }),
+                });
+                if (res.ok) {
+                    showToast(`Ballot successfully cast for ${candidateId}!`, 'success');
+                    closeTeacherVoteModal();
+                    loadTeacherElections();
+                } else {
+                    showToast(res.data.error || res.data.message || 'Vote submission failed', 'error');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function loadHeadExaminerQueue() {
+            try {
+                const res = await authFetch('/api/teacher/head-examiner/queue');
+                if (!res.ok) return;
+
+                const data = res.data;
+                const section = document.getElementById('he-queue-section');
+                const tbody = document.getElementById('he-queue-tbody');
+                const subjectsBadge = document.getElementById('he-subjects-badge');
+
+                if (!data.is_head_examiner) {
+                    section.style.display = 'none';
+                    return;
+                }
+
+                section.style.display = 'block';
+                subjectsBadge.textContent = data.head_subjects.join(', ') || 'Active Head';
+
+                const pending = data.pending_finalizations || [];
+                tbody.innerHTML = '';
+
+                if (pending.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">✓ All evaluations for your subject(s) are finalized. No pending items.</td></tr>';
+                    return;
+                }
+
+                pending.forEach(s => {
+                    const tr = document.createElement('tr');
+                    const isSelf = s.teacher_id === user.user_id;
+
+                    let actionBtn = '';
+                    if (isSelf) {
+                        actionBtn = '<span class="badge badge-assigned" title="Anti-self-approval rule: Head Examiner cannot approve their own evaluation" style="font-size: 10px;">Self-Graded (Override Req)</span>';
+                    } else {
+                        actionBtn = `<button class="btn btn-sm btn-primary" onclick="openHeFinalizeModal('${s.answer_script_id}', '${s.subject || 'DBMS'}', '${s.teacher_name || s.teacher_id}', '${s.marks}', '${s.max_marks || 100}')">Approve &amp; Finalize</button>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td><strong>${s.answer_script_id}</strong></td>
+                        <td>${s.student_name}<br><small style="color:var(--muted)">${s.student_id}</small></td>
+                        <td><span class="badge badge-finalized" style="font-size: 10px;">${s.subject || 'DBMS'}</span></td>
+                        <td>${s.teacher_name || s.teacher_id}</td>
+                        <td><strong>${s.marks}</strong> / ${s.max_marks || 100}</td>
+                        <td><span class="badge badge-evaluated">Awaiting Sign-off</span></td>
+                        <td>${actionBtn}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error('Failed to load Head Examiner queue:', e);
+            }
+        }
+
+        function openHeFinalizeModal(scriptId, subject, evaluator, marks, maxMarks) {
+            document.getElementById('he-modal-script-id').value = scriptId;
+            document.getElementById('he-modal-script-text').textContent = scriptId;
+            document.getElementById('he-modal-subject-text').textContent = subject;
+            document.getElementById('he-modal-evaluator-text').textContent = evaluator;
+            document.getElementById('he-modal-marks-text').textContent = `${marks} / ${maxMarks}`;
+            document.getElementById('he-finalize-modal').style.display = 'flex';
+        }
+
+        function closeHeFinalizeModal() {
+            document.getElementById('he-finalize-modal').style.display = 'none';
+        }
+
+        async function submitHeFinalize() {
+            const scriptId = document.getElementById('he-modal-script-id').value;
+            const remarks = document.getElementById('he-modal-remarks').value;
+
+            try {
+                const res = await authFetch('/api/teacher/head-examiner/finalize', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        answer_script_id: scriptId,
+                        remarks: remarks,
+                    }),
+                });
+                if (res.ok) {
+                    showToast(`Result for ${scriptId} finalized successfully on blockchain!`, 'success');
+                    closeHeFinalizeModal();
+                    loadHeadExaminerQueue();
+                    loadTeacherDashboard();
+                } else {
+                    showToast(res.data.error || res.data.message || 'Finalization failed', 'error');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
         loadTeacherDashboard();
+        loadTeacherElections();
+        loadHeadExaminerQueue();
     </script>
 </body>
 </html>

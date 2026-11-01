@@ -144,12 +144,27 @@ class AcademicApplicationService:
 
             if as_id not in scripts_map:
                 script_meta = meta.get(as_id, {})
+                exam_str = (str(script_meta.get("exam_name", "")) + " " + str(script_meta.get("exam_id", "")) + " " + str(tx_data.get("exam_id", ""))).upper()
+                if "OS" in exam_str or "OPERATING" in exam_str:
+                    inferred_subject = "OS"
+                elif "NETWORK" in exam_str:
+                    inferred_subject = "NETWORKS"
+                elif "SECURITY" in exam_str or "BLOCKCHAIN" in exam_str:
+                    inferred_subject = "BLOCKCHAIN"
+                elif "DISTRIBUTED" in exam_str:
+                    inferred_subject = "DBMS"  # Canonical subject mapping for distributed evaluations
+                else:
+                    inferred_subject = "DBMS"
+
+                subject = script_meta.get("subject") or tx_data.get("subject") or inferred_subject
+
                 scripts_map[as_id] = {
                     "answer_script_id": as_id,
                     "student_id": script_meta.get("student_id", "—"),
                     "student_name": script_meta.get("student_name", "—"),
                     "exam_id": script_meta.get("exam_id", tx_data.get("exam_id", "—")),
                     "exam_name": script_meta.get("exam_name", "—"),
+                    "subject": subject.strip().upper(),
                     "university": script_meta.get("university", tx_data.get("university", "TINT")),
                     "file_name": script_meta.get("file_name", tx_data.get("file_name", "—")),
                     "file_hash": script_meta.get("file_hash", tx_data.get("answer_script_hash", "—")),

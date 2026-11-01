@@ -6,6 +6,216 @@
     <title>Admin &amp; Operational Audit | AnswerChain</title>
     <link rel="stylesheet" href="/style.css">
     <script src="/api.js"></script>
+    <style>
+        .examiner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+
+        @media (min-width: 1560px) {
+            .examiner-grid {
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+            }
+        }
+
+        .examiner-node-card {
+            background: var(--surface, #ffffff);
+            border: 1px solid var(--border, #e6eaf0);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 12px;
+            min-width: 0;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .examiner-node-card:hover {
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+            border-color: #cbd5e1;
+        }
+
+        .examiner-node-card.offline {
+            background: #fff8f8;
+            border-color: #fca5a5;
+        }
+
+        .node-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border, #e6eaf0);
+            padding-bottom: 10px;
+        }
+
+        .node-card-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text, #172033);
+            white-space: nowrap;
+        }
+
+        .node-card-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            line-height: 1.3;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .node-card-badge.online {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+
+        .node-card-badge.crashed {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+
+        .node-card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .node-card-stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 2px;
+        }
+
+        .node-card-faculty {
+            font-size: 12px;
+            color: var(--muted, #687386);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .node-card-faculty strong {
+            color: var(--text, #172033);
+        }
+
+        .node-card-blocks {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .node-card-blocks-count {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text, #172033);
+            line-height: 1;
+        }
+
+        .node-card-blocks-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted, #687386);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .node-card-meta-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: var(--surface-soft, #f8fafc);
+            padding: 9px 11px;
+            border-radius: 8px;
+            border: 1px solid var(--border, #e6eaf0);
+            overflow: hidden;
+        }
+
+        .node-card-meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .node-card-meta-label {
+            color: var(--muted, #687386);
+            flex-shrink: 0;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .node-card-meta-val {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 10px;
+            color: var(--text, #172033);
+            max-width: 130px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            text-align: right;
+        }
+
+        .node-card-action-btn {
+            width: 100%;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 7px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            border: 1px solid transparent;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+
+        .node-card-action-btn.crash {
+            color: #dc2626;
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+
+        .node-card-action-btn.crash:hover {
+            background: #fee2e2;
+            border-color: #f87171;
+        }
+
+        .node-card-action-btn.restart {
+            color: #ffffff;
+            background: var(--primary, #315efb);
+        }
+
+        .node-card-action-btn.restart:hover {
+            background: #254edb;
+        }
+    </style>
 </head>
 <body>
     <div class="app">
@@ -65,7 +275,7 @@
                     <span class="stat-subtitle" id="node1-status">Port 5001 • Online</span>
                 </div>
                 <div class="stat-card">
-                    <span class="stat-title">Node-2 (Teacher)</span>
+                    <span class="stat-title">Node-2 (Teacher Gateway)</span>
                     <strong class="stat-value" id="node2-blocks">11 Blocks</strong>
                     <span class="stat-subtitle" id="node2-status">Port 5002 • Online</span>
                 </div>
@@ -73,6 +283,120 @@
                     <span class="stat-title">Node-3 (Authority)</span>
                     <strong class="stat-value" id="node3-blocks">11 Blocks</strong>
                     <span class="stat-subtitle" id="node3-status">Port 5003 • Online</span>
+                </div>
+            </div>
+
+            <!-- PHASE 9: MULTI-PROCESS EXAMINER NETWORK -->
+            <div class="table-card" style="margin-top: 24px;">
+                <div class="table-card-header">
+                    <div>
+                        <h3 style="display: flex; align-items: center; gap: 8px;">
+                            <span>⚡</span> Phase 9: Multi-Process Examiner Network (5 Independent Processes)
+                        </h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Genuine IPC via multiprocessing.Queue • Independent Databases • Multi-Stage BFT/CFT Consensus &amp; Quorum Certificates
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="badge badge-finalized" id="examiners-sync-badge">Cluster In Sync</span>
+                        <button class="btn btn-sm btn-outline" onclick="loadExaminers()">Refresh Processes</button>
+                    </div>
+                </div>
+
+                <!-- 5 EXAMINER PROCESS CARDS -->
+                <div style="padding: 18px 24px;">
+                    <div class="examiner-grid" id="examiner-process-grid">
+                        <!-- Populated by loadExaminers() -->
+                        <div style="text-align: center; color: var(--muted); padding: 20px; grid-column: 1 / -1;">Loading examiner processes...</div>
+                    </div>
+                </div>
+
+                <!-- IPC & CONSENSUS TELEMETRY BAR -->
+                <div style="border-top: 1px solid var(--border); background: var(--surface-soft, #f8fafc); font-size: 12px; color: var(--muted);" id="ipc-telemetry-bar">
+                    <!-- Row 1: Consensus & Quorum Telemetry -->
+                    <div style="padding: 10px 24px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;">
+                        <span><strong>Consensus Leader:</strong> <span id="consensus-leader" style="color: var(--primary); font-weight: 700;">NODE-001</span></span>
+                        <span><strong>Consensus View:</strong> <span id="consensus-view" style="font-weight: 700;">View 0</span></span>
+                        <span><strong>State:</strong> <span class="badge badge-finalized" id="consensus-state-badge" style="font-size: 10px; padding: 2px 8px;">NORMAL OPERATION</span></span>
+                        <span><strong>BFT Quorum:</strong> <span style="color: var(--success); font-weight: 700;">4/5 (80% • f=1)</span></span>
+                        <span><strong>CFT Quorum:</strong> <span style="color: var(--muted); font-weight: 600;">3/5 (60% • f=2)</span></span>
+                        <span><strong>Quorum Certs:</strong> <span id="cluster-qcs-count" style="font-weight: 700; color: var(--primary);">Verified</span></span>
+                        <span><strong>Byzantine Alerts:</strong> <span id="byzantine-alerts-badge" style="color: var(--success); font-weight: 700;">0 Detected</span></span>
+                    </div>
+                    <!-- Row 2: IPC Message Telemetry -->
+                    <div style="padding: 10px 24px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; font-size: 11px;">
+                        <span><strong>IPC Sent:</strong> <span id="ipc-sent">0</span></span>
+                        <span><strong>IPC Received:</strong> <span id="ipc-received">0</span></span>
+                        <span><strong>Direct Msg:</strong> <span id="ipc-direct">0</span></span>
+                        <span><strong>Broadcasts:</strong> <span id="ipc-broadcast">0</span></span>
+                        <span><strong>Durable WAL:</strong> <span style="color: var(--success); font-weight: 600;">ACTIVE (Equivocation Guard)</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE 9C: DEMOCRATIC HEAD EXAMINER ELECTIONS -->
+            <div class="table-card" style="margin-top: 24px;">
+                <div class="table-card-header">
+                    <div>
+                        <h3 style="display: flex; align-items: center; gap: 8px;">
+                            <span>🗳️</span> Subject-wise Head Examiner Elections (Democratic Governance)
+                        </h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Cryptographically Signed Ballots • One Vote Per Teacher • Auditable Election IDs • Blockchain Recorded
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-primary" onclick="showNewElectionDialog()">+ Start New Subject Election</button>
+                        <button class="btn btn-sm btn-outline" onclick="loadElections()">Refresh</button>
+                    </div>
+                </div>
+
+                <!-- ACTIVE HEAD EXAMINERS BANNER -->
+                <div style="padding: 16px 24px; background: rgba(59, 130, 246, 0.05); border-bottom: 1px solid var(--border);" id="active-head-examiners-banner">
+                    <strong style="font-size: 13px; color: var(--primary);">Active Head Examiners:</strong>
+                    <div id="head-examiners-list" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 13px;">
+                        Loading active appointments...
+                    </div>
+                </div>
+
+                <!-- ELECTIONS TABLE -->
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Election ID</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                                <th>Current / Elected Head</th>
+                                <th>Votes Cast</th>
+                                <th>Term Validity</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="elections-tbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading elections...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- NEW ELECTION MODAL (Hidden by default) -->
+            <div id="new-election-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center;">
+                <div style="background: var(--surface, #ffffff); padding: 24px; border-radius: 12px; max-width: 440px; width: 90%; border: 1px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+                    <h3 style="margin-bottom: 12px;">Start Subject Head Examiner Election</h3>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+                        Eligible faculty voters: TCH-001, TCH-002, TCH-003, TCH-004, TCH-005. Quorum: 3 votes.
+                    </p>
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Subject Name</label>
+                    <input type="text" id="election-subject-input" class="form-control" placeholder="e.g. DBMS, OS, NETWORKS" style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Term Duration (Days)</label>
+                    <input type="number" id="election-term-input" class="form-control" value="365" style="margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button class="btn btn-outline" onclick="closeNewElectionDialog()">Cancel</button>
+                        <button class="btn btn-primary" onclick="submitNewElection()">Create Election</button>
+                    </div>
                 </div>
             </div>
 
@@ -138,7 +462,258 @@
         }
 
         async function loadAdminData() {
-            await Promise.all([loadNetwork(), loadAuditLogs()]);
+            await Promise.all([loadNetwork(), loadAuditLogs(), loadExaminers(), loadElections()]);
+        }
+
+        async function loadExaminers() {
+            try {
+                const res = await authFetch('/api/admin/examiners');
+                if (res.ok) {
+                    const data = res.data;
+                    const grid = document.getElementById('examiner-process-grid');
+                    grid.innerHTML = '';
+
+                    const nodes = data.nodes || [];
+                    nodes.forEach(n => {
+                        const isOnline = n.status === 'ONLINE';
+                        const card = document.createElement('div');
+                        card.className = `examiner-node-card ${isOnline ? '' : 'offline'}`;
+
+                        const statusBadge = isOnline
+                            ? `<span class="node-card-badge online">PID ${n.pid} • ALIVE</span>`
+                            : `<span class="node-card-badge crashed">CRASHED</span>`;
+
+                        const actionBtn = isOnline
+                            ? `<button class="node-card-action-btn crash" onclick="crashNodeAction('${n.node_id}')">💥 Simulate Crash</button>`
+                            : `<button class="node-card-action-btn restart" onclick="restartNodeAction('${n.node_id}')">🔄 Restart Process</button>`;
+
+                        const dbName = n.database_file ? n.database_file.split('/').pop() : 'N/A';
+                        const hashDisplay = n.latest_block_hash ? (n.latest_block_hash.slice(0, 10) + '...') : 'GENESIS';
+
+                        card.innerHTML = `
+                            <div class="node-card-header">
+                                <div class="node-card-title">
+                                    <span style="font-size: 14px;">🖥️</span>
+                                    <span>${n.node_id}</span>
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <div class="node-card-body">
+                                <div class="node-card-stats-row">
+                                    <div class="node-card-faculty">
+                                        Faculty: <strong>${n.teacher_id}</strong>
+                                    </div>
+                                    <div class="node-card-blocks">
+                                        <span class="node-card-blocks-count">${n.block_count}</span>
+                                        <span class="node-card-blocks-label">Blocks</span>
+                                    </div>
+                                </div>
+                                <div class="node-card-meta-list">
+                                    <div class="node-card-meta-row">
+                                        <span class="node-card-meta-label">Database:</span>
+                                        <span class="node-card-meta-val" title="${n.database_file || ''}">${dbName}</span>
+                                    </div>
+                                    <div class="node-card-meta-row">
+                                        <span class="node-card-meta-label">Latest Hash:</span>
+                                        <span class="node-card-meta-val" style="color: #315efb; font-weight: 600;" title="${n.latest_block_hash || ''}">${hashDisplay}</span>
+                                    </div>
+                                    <div class="node-card-meta-row">
+                                        <span class="node-card-meta-label">IPC State:</span>
+                                        <span style="font-size: 10px; font-weight: 700; color: ${isOnline ? 'var(--success, #159567)' : '#dc2626'};">
+                                            ${isOnline ? 'CONNECTED' : 'OFFLINE'}
+                                        </span>
+                                    </div>
+                                    <div class="node-card-meta-row">
+                                        <span class="node-card-meta-label">Consensus State:</span>
+                                        <span style="font-size: 10px; font-weight: 600; color: var(--text);">
+                                            View ${n.current_view || 0} • ${n.qcs_count || 0} QCs
+                                        </span>
+                                    </div>
+                                    <div class="node-card-meta-row">
+                                        <span class="node-card-meta-label">Security Alerts:</span>
+                                        <span style="font-size: 10px; font-weight: 700; color: ${n.alerts_count > 0 ? '#dc2626' : 'var(--success, #159567)'};">
+                                            ${n.alerts_count > 0 ? n.alerts_count + ' Alert(s)' : 'Clean ✓'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 4px;">
+                                ${actionBtn}
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+
+                    // Update Consensus & BFT Telemetry
+                    if (data.consensus_leader) {
+                        document.getElementById('consensus-leader').textContent = data.consensus_leader;
+                    }
+                    if (data.current_view !== undefined) {
+                        document.getElementById('consensus-view').textContent = `View ${data.current_view}`;
+                    }
+                    const totalAlerts = nodes.reduce((acc, n) => acc + (n.alerts_count || 0), 0);
+                    const alertEl = document.getElementById('byzantine-alerts-badge');
+                    if (totalAlerts > 0) {
+                        alertEl.textContent = `${totalAlerts} Anomaly Alert(s)`;
+                        alertEl.style.color = '#dc2626';
+                    } else {
+                        alertEl.textContent = '0 Detected';
+                        alertEl.style.color = 'var(--success)';
+                    }
+                    const totalQCs = nodes.reduce((acc, n) => acc + (n.qcs_count || 0), 0);
+                    document.getElementById('cluster-qcs-count').textContent = totalQCs > 0 ? `${totalQCs} Validated` : 'Verified';
+
+                    // Update IPC stats
+                    if (data.ipc_stats) {
+                        document.getElementById('ipc-sent').textContent = data.ipc_stats.messages_sent || 0;
+                        document.getElementById('ipc-received').textContent = data.ipc_stats.messages_received || 0;
+                        document.getElementById('ipc-direct').textContent = data.ipc_stats.direct_messages || 0;
+                        document.getElementById('ipc-broadcast').textContent = data.ipc_stats.broadcasts || 0;
+                    }
+
+                    document.getElementById('examiners-sync-badge').textContent = data.is_synchronized
+                        ? 'Cluster In Sync (' + (data.online_nodes || 5) + '/5 Nodes)'
+                        : 'Synchronization Divergence';
+                    document.getElementById('examiners-sync-badge').className = data.is_synchronized
+                        ? 'badge badge-finalized'
+                        : 'badge badge-tampered';
+                }
+            } catch (e) {
+                console.error('Failed to load examiner network status:', e);
+            }
+        }
+
+        async function loadElections() {
+            try {
+                const res = await authFetch('/api/admin/elections');
+                if (res.ok) {
+                    const data = res.data;
+                    const tbody = document.getElementById('elections-tbody');
+                    const headList = document.getElementById('head-examiners-list');
+                    tbody.innerHTML = '';
+                    headList.innerHTML = '';
+
+                    // Active Head Examiners
+                    const activeHE = data.active_head_examiners || {};
+                    const subjects = Object.keys(activeHE);
+                    if (subjects.length === 0) {
+                        headList.innerHTML = '<span style="color: var(--muted);">No active Head Examiners appointed yet. Start an election below.</span>';
+                    } else {
+                        subjects.forEach(sub => {
+                            const info = activeHE[sub];
+                            const pill = document.createElement('div');
+                            pill.style.background = 'var(--surface, #ffffff)';
+                            pill.style.padding = '5px 12px';
+                            pill.style.borderRadius = '16px';
+                            pill.style.border = '1px solid var(--border)';
+                            pill.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
+                            pill.innerHTML = `<strong>${sub}:</strong> ${info.head_examiner_id} (${info.node_id}) <span class="badge badge-finalized" style="font-size: 10px; margin-left: 6px; padding: 2px 7px;">ACTIVE</span>`;
+                            headList.appendChild(pill);
+                        });
+                    }
+
+                    // Elections table
+                    const elections = data.elections || [];
+                    if (elections.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">No elections recorded yet.</td></tr>';
+                        return;
+                    }
+
+                    elections.forEach(elec => {
+                        const tr = document.createElement('tr');
+                        const statusClass = elec.status === 'CONCLUDED' ? 'badge-finalized' : 'badge-assigned';
+                        const validityText = elec.term_end
+                            ? new Date(elec.term_end * 1000).toLocaleDateString()
+                            : 'Pending conclusion';
+
+                        tr.innerHTML = `
+                            <td><span class="hash-display">${elec.election_id}</span></td>
+                            <td><strong>${elec.subject}</strong></td>
+                            <td><span class="badge ${statusClass}">${elec.status}</span></td>
+                            <td>${elec.winner_id ? '<strong>' + elec.winner_id + '</strong> (' + elec.winner_node_id + ')' : '<span style="color:var(--muted)">In voting</span>'}</td>
+                            <td><strong>${elec.votes_cast}</strong> / ${elec.eligible_voters ? elec.eligible_voters.length : 5}</td>
+                            <td style="font-size: 12px; color: var(--muted);">${validityText}</td>
+                            <td>
+                                ${elec.status === 'IN_PROGRESS'
+                                    ? `<span class="badge badge-assigned" style="font-size: 11px;">Voting Open (${elec.votes_cast}/5)</span>`
+                                    : `<span style="color: var(--success); font-weight: 600; font-size: 12px;">Appointed: ${elec.winner_id} ✓</span>`}
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load elections:', e);
+            }
+        }
+
+        async function crashNodeAction(nodeId) {
+            if (!confirm(`Simulate unexpected process crash for ${nodeId}?`)) return;
+            try {
+                const res = await authFetch('/api/admin/examiners/crash', {
+                    method: 'POST',
+                    body: JSON.stringify({ node_id: nodeId }),
+                });
+                if (res.ok) {
+                    showToast(`${nodeId} process crashed successfully`, 'info');
+                    loadExaminers();
+                } else {
+                    showToast('Failed to crash node', 'error');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function restartNodeAction(nodeId) {
+            try {
+                const res = await authFetch('/api/admin/examiners/restart', {
+                    method: 'POST',
+                    body: JSON.stringify({ node_id: nodeId }),
+                });
+                if (res.ok) {
+                    showToast(`${nodeId} restarted and synced`, 'success');
+                    loadExaminers();
+                } else {
+                    showToast('Failed to restart node', 'error');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        function showNewElectionDialog() {
+            document.getElementById('new-election-modal').style.display = 'flex';
+        }
+
+        function closeNewElectionDialog() {
+            document.getElementById('new-election-modal').style.display = 'none';
+        }
+
+        async function submitNewElection() {
+            const subject = document.getElementById('election-subject-input').value.trim();
+            const termDays = parseInt(document.getElementById('election-term-input').value, 10) || 365;
+
+            if (!subject) {
+                alert('Please enter a subject name');
+                return;
+            }
+
+            try {
+                const res = await authFetch('/api/admin/elections/start', {
+                    method: 'POST',
+                    body: JSON.stringify({ subject: subject, term_days: termDays }),
+                });
+                if (res.ok) {
+                    showToast(`Election started for ${subject}`, 'success');
+                    closeNewElectionDialog();
+                    loadElections();
+                } else {
+                    showToast(res.data.error || 'Failed to start election', 'error');
+                }
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
         }
 
         async function loadNetwork() {

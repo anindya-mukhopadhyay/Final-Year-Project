@@ -46,6 +46,7 @@ from backend.qr_service import (
     generate_qr_png_bytes,
     get_verification_url,
 )
+from backend.examiner import examiner_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -714,6 +715,272 @@ def admin_audit():
     actor = request.args.get("actor")
     events = get_audit_events(limit=limit, action=action, actor=actor)
     return jsonify({"audit_events": events}), 200
+
+
+# ============================================================
+# 7. PHASE 9: MULTI-PROCESS EXAMINER & HEAD ELECTION APIS
+# ============================================================
+
+@app.route("/api/admin/examiners", methods=["GET"])
+@app.route("/api/examiners/status", methods=["GET"])
+def api_examiners_status():
+    """
+    GET /api/admin/examiners (and /api/examiners/status)
+    Returns live diagnostic status across all 5 independent examiner processes,
+    PIDs, heights, consensus status, and IPC queue telemetry.
+    """
+    if not examiner_manager.is_running:
+        examiner_manager.start()
+        # Seed default DBMS Head Examiner if none present
+        if not examiner_manager.election_registry.active_head_examiners:
+            elec = examiner_manager.start_election(subject="DBMS", term_days=365)
+            for v, c in [("TCH-001", "TCH-002"), ("TCH-002", "TCH-002"), ("TCH-003", "TCH-002"), ("TCH-004", "TCH-002"), ("TCH-005", "TCH-001")]:
+                examiner_manager.cast_vote(elec["election_id"], v, c)
+
+    status = examiner_manager.get_status()
+    return jsonify(status), 200
+
+
+@app.route("/api/admin/elections", methods=["GET"])
+@app.route("/api/teacher/elections", methods=["GET"])
+def api_elections_list():
+    """GET /api/admin/elections or /api/teacher/elections - List all subject elections and active Head Examiners."""
+    return jsonify({
+        "elections": examiner_manager.election_registry.list_elections(),
+        "active_head_examiners": examiner_manager.election_registry.list_head_examiners(),
+    }), 200
+
+
+@app.route("/api/admin/elections", methods=["POST"])
+@app.route("/api/admin/elections/start", methods=["POST"])
+@require_auth
+@require_role(["ADMIN", "AUTHORITY"])
+def api_start_election():
+    """POST /api/admin/elections/start - Start democratic election for a subject."""
+    body = request.get_json(silent=True) or {}
+    subject = body.get("subject", "").strip().upper()
+    if not subject:
+        return jsonify({"error": "Missing subject name"}), 400
+
+    term_days = int(body.get("term_days", 365))
+    election = examiner_manager.start_election(subject=subject, term_days=term_days)
+    log_audit_event(
+        action="ELECTION_STARTED",
+        actor=get_current_user().user_id,
+        actor_role=get_current_user().role,
+        resource_id=election["election_id"],
+        details={"subject": subject, "term_days": term_days},
+    )
+    return jsonify({"success": True, "election": election}), 201
+
+
+@app.route("/api/admin/elections/vote", methods=["POST"])
+@app.route("/api/teacher/elections/vote", methods=["POST"])
+@require_auth
+@require_role(["TEACHER", "ADMIN"])
+def api_cast_vote():
+    """POST /api/teacher/elections/vote - Cast authenticated vote in an election."""
+    curr = get_current_user()
+    if curr.role != "TEACHER":
+        return jsonify({
+            "error": "UNAUTHORIZED_VOTER",
+            "message": "Only registered faculty examiners (Teachers TCH-001 to TCH-005) can cast election ballots. Administrators have oversight authority only.",
+        }), 403
+
+    body = request.get_json(silent=True) or {}
+    election_id = body.get("election_id")
+    candidate_id = body.get("candidate_id")
+    voter_id = curr.user_id
+
+    if not election_id or not candidate_id:
+        return jsonify({"error": "election_id and candidate_id are required"}), 400
+
+    ok, reason, details = examiner_manager.cast_vote(
+        election_id=election_id,
+        voter_id=voter_id,
+        candidate_id=candidate_id,
+        signature=body.get("signature"),
+    )
+    if not ok:
+        return jsonify({"error": reason, "details": details}), 400
+
+    log_audit_event(
+        action="ELECTION_VOTE_CAST",
+        actor=voter_id,
+        actor_role=curr.role,
+        resource_id=election_id,
+        details={"candidate_id": candidate_id, "reason": reason},
+    )
+    return jsonify({"success": True, "reason": reason, "election": details}), 200
+
+
+@app.route("/api/examiners/evaluate", methods=["POST"])
+@require_auth
+@require_role(["TEACHER", "ADMIN"])
+def api_examiner_evaluate():
+    """POST /api/examiners/evaluate - Submit evaluation into examiner approval workflow."""
+    body = request.get_json(silent=True) or {}
+    answer_script_id = body.get("answer_script_id")
+    subject = body.get("subject", "DBMS")
+    marks = body.get("marks")
+    max_marks = body.get("max_marks", 100.0)
+
+    if not answer_script_id or marks is None:
+        return jsonify({"error": "answer_script_id and marks are required"}), 400
+
+    teacher_id = get_current_user().user_id
+    ok, err, signed_tx = examiner_manager.submit_evaluation(
+        answer_script_id=answer_script_id,
+        teacher_id=teacher_id,
+        subject=subject,
+        marks=float(marks),
+        max_marks=float(max_marks),
+        remarks=body.get("remarks", "Evaluated by examiner"),
+    )
+    if not ok:
+        return jsonify({"error": err}), 400
+
+    return jsonify({
+        "success": True,
+        "message": "Evaluation submitted to Head Examiner review and consensus",
+        "evaluation": signed_tx,
+    }), 200
+
+
+@app.route("/api/teacher/head-examiner/queue", methods=["GET"])
+@require_auth
+@require_role(["TEACHER", "ADMIN"])
+def api_head_examiner_queue():
+    """
+    GET /api/teacher/head-examiner/queue
+    Returns the pending result finalization queue for the subjects headed by this elected teacher.
+    """
+    user = get_current_user()
+    all_he = examiner_manager.election_registry.list_head_examiners()
+
+    # Identify which subjects this teacher has won / is Head Examiner for
+    my_subjects = [
+        sub for sub, info in all_he.items()
+        if info.get("is_valid") and (
+            info.get("head_examiner_id") == user.user_id
+            or info.get("node_id") == user.user_id
+            or user.role == "ADMIN"
+        )
+    ]
+
+    all_scripts = academic_service.get_unified_scripts_status()
+    # Filter scripts belonging to this Head Examiner's subject(s)
+    subject_scripts = [s for s in all_scripts if s.get("subject") in my_subjects or (not my_subjects and user.role == "ADMIN")]
+
+    pending = [s for s in subject_scripts if s.get("evaluated") and not s.get("finalized")]
+    finalized = [s for s in subject_scripts if s.get("finalized")]
+
+    return jsonify({
+        "teacher_id": user.user_id,
+        "is_head_examiner": len(my_subjects) > 0,
+        "head_subjects": my_subjects,
+        "active_appointments": {s: all_he[s] for s in my_subjects if s in all_he},
+        "pending_finalizations": pending,
+        "finalized_history": finalized,
+    }), 200
+
+
+@app.route("/api/teacher/head-examiner/finalize", methods=["POST"])
+@require_auth
+@require_role(["TEACHER", "ADMIN"])
+def api_head_examiner_finalize():
+    """
+    POST /api/teacher/head-examiner/finalize
+    Elected Head Examiner approves and finalizes an evaluation for their subject.
+    Enforces subject authority and anti-self-approval rule.
+    """
+    user = get_current_user()
+    body = request.get_json(silent=True) or {}
+    script_id = body.get("answer_script_id")
+    if not script_id:
+        return jsonify({"error": "answer_script_id is required"}), 400
+
+    all_scripts = academic_service.get_unified_scripts_status()
+    script = next((s for s in all_scripts if s["answer_script_id"] == script_id), None)
+    if not script:
+        return jsonify({"error": f"Answer script {script_id} not found."}), 404
+
+    if not script.get("evaluated"):
+        return jsonify({"error": "Cannot finalize result: No evaluation has been submitted yet."}), 400
+
+    if script.get("finalized"):
+        return jsonify({"error": "Result is already finalized.", "result_id": script.get("result_id")}), 409
+
+    subject = script.get("subject", "DBMS").strip().upper()
+
+    # 1. Authority Verification: Is this user the elected Head Examiner for this subject?
+    is_he = (
+        examiner_manager.election_registry.is_head_examiner(user.user_id, subject)
+        or user.role == "ADMIN"
+    )
+    if not is_he:
+        he_info = examiner_manager.election_registry.get_head_examiner(subject)
+        active_he = he_info.get("head_examiner_id") if he_info else "None appointed"
+        return jsonify({
+            "error": "UNAUTHORIZED_HEAD_EXAMINER",
+            "message": f"Only the democratically elected Head Examiner for {subject} ({active_he}) can finalize this evaluation.",
+        }), 403
+
+    # 2. Anti-Self-Approval Enforcement
+    evaluator_id = str(script.get("teacher_id", "")).strip().upper()
+    if evaluator_id == user.user_id.upper() and user.role != "ADMIN":
+        return jsonify({
+            "error": "SELF_APPROVAL_PROHIBITED",
+            "message": f"Anti-self-approval rule: Head Examiner {user.user_id} cannot approve or finalize their own grading evaluation for script {script_id}.",
+        }), 400
+
+    # 3. Finalize result on blockchain ledger
+    success, payload, status_code = academic_service.finalize_result(
+        current_user=user,
+        answer_script_id=script_id,
+    )
+    if success:
+        log_audit_event(
+            action="HEAD_EXAMINER_RESULT_FINALIZED",
+            actor=user.user_id,
+            actor_role="HEAD_EXAMINER",
+            resource_id=script_id,
+            details={
+                "subject": subject,
+                "evaluator_id": evaluator_id,
+                "final_marks": script.get("marks"),
+                "remarks": body.get("remarks", "Approved by Head Examiner"),
+            },
+        )
+    return jsonify(payload), status_code
+
+
+@app.route("/api/admin/examiners/crash", methods=["POST"])
+@require_auth
+@require_role("ADMIN")
+def api_crash_examiner():
+    """POST /api/admin/examiners/crash - Simulate node process crash."""
+    body = request.get_json(silent=True) or {}
+    node_id = body.get("node_id", "").strip().upper()
+    if not node_id:
+        return jsonify({"error": "node_id required"}), 400
+
+    ok = examiner_manager.crash_node(node_id)
+    return jsonify({"success": ok, "node_id": node_id, "status": "CRASHED"}), 200
+
+
+@app.route("/api/admin/examiners/restart", methods=["POST"])
+@require_auth
+@require_role("ADMIN")
+def api_restart_examiner():
+    """POST /api/admin/examiners/restart - Restart crashed node and trigger state sync."""
+    body = request.get_json(silent=True) or {}
+    node_id = body.get("node_id", "").strip().upper()
+    if not node_id:
+        return jsonify({"error": "node_id required"}), 400
+
+    ok = examiner_manager.restart_node(node_id)
+    return jsonify({"success": ok, "node_id": node_id, "status": "RECOVERED"}), 200
 
 
 # ============================================================

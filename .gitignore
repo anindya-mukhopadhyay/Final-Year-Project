@@ -9,6 +9,8 @@ logs/
 *.backup
 *.bak
 blockchain_data/*.json
+blockchain_data/examiner_nodes/*.json
+blockchain_data/examiner_nodes/*.tmp
 data/*.json
 data/*.tmp
 generated/marksheets/*.pdf

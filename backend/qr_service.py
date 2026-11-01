@@ -11,6 +11,7 @@ import os
 from typing import Optional
 import qrcode
 from qrcode.constants import ERROR_CORRECT_M
+from qrcode.image.pil import PilImage
 
 # Default public verification base URL
 PUBLIC_VERIFY_BASE_URL = os.environ.get(
@@ -33,13 +34,14 @@ def generate_qr_png_bytes(marksheet_id: str) -> bytes:
         error_correction=ERROR_CORRECT_M,
         box_size=8,
         border=3,
+        image_factory=PilImage,
     )
     qr.add_data(verify_url)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
 
     buffer = io.BytesIO()
-    img.save(buffer,format="PNG")
+    img.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
