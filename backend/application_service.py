@@ -51,6 +51,42 @@ def _save_scripts_metadata(metadata: Dict[str, Dict[str, Any]]) -> None:
         logger.error("Failed to save scripts metadata: %s", e)
 
 
+def _infer_subject_name(exam_name: str, exam_id: str = "") -> str:
+    """Infer canonical academic subject from exam name or ID."""
+    clean_name = (exam_name or "").strip()
+    upper_name = clean_name.upper()
+    clean_id = (exam_id or "").strip().upper()
+    combined = f"{upper_name} {clean_id}".strip()
+
+    if clean_name in ["", "—", "-"]:
+        return "DBMS"
+
+    tokens = set(upper_name.replace("-", " ").replace("_", " ").split())
+    tokens_id = set(clean_id.replace("-", " ").replace("_", " ").split())
+    all_tokens = tokens | tokens_id
+
+    if "PM" in all_tokens or "PROJECT MANAGEMENT" in combined:
+        return "PM"
+    if "AIML" in all_tokens or "AI" in all_tokens or "ML" in all_tokens or "MACHINE LEARNING" in combined:
+        return "AIML"
+    if "OS" in all_tokens or "OPERATING" in combined:
+        return "OS"
+    if "DBMS" in all_tokens or "DATABASE" in combined or "DISTRIBUTED" in combined:
+        return "DBMS"
+    if "NETWORKS" in all_tokens or "NETWORK" in all_tokens or "NETWORKING" in combined:
+        return "NETWORKS"
+    if "BLOCKCHAIN" in all_tokens or "CRYPTOGRAPHY" in combined or "SECURITY" in combined:
+        return "BLOCKCHAIN"
+    if "CLOUD" in all_tokens:
+        return "CLOUD"
+
+    # If the exam name is a concise subject title (<= 25 chars)
+    if clean_name and len(clean_name) <= 25 and not any(k in upper_name for k in ["EXAMINATION", "CONSEN", "EXAM"]):
+        return clean_name.strip().upper()
+
+    return "DBMS"
+
+
 class AcademicApplicationService:
     """Core application orchestrator connecting frontend to blockchain."""
 
@@ -144,19 +180,13 @@ class AcademicApplicationService:
 
             if as_id not in scripts_map:
                 script_meta = meta.get(as_id, {})
-                exam_str = (str(script_meta.get("exam_name", "")) + " " + str(script_meta.get("exam_id", "")) + " " + str(tx_data.get("exam_id", ""))).upper()
-                if "OS" in exam_str or "OPERATING" in exam_str:
-                    inferred_subject = "OS"
-                elif "NETWORK" in exam_str:
-                    inferred_subject = "NETWORKS"
-                elif "SECURITY" in exam_str or "BLOCKCHAIN" in exam_str:
-                    inferred_subject = "BLOCKCHAIN"
-                elif "DISTRIBUTED" in exam_str:
-                    inferred_subject = "DBMS"  # Canonical subject mapping for distributed evaluations
+                explicit_sub = script_meta.get("subject") or tx_data.get("subject")
+                if explicit_sub and str(explicit_sub).strip() not in ["", "—", "-"]:
+                    subject = str(explicit_sub).strip().upper()
                 else:
-                    inferred_subject = "DBMS"
-
-                subject = script_meta.get("subject") or tx_data.get("subject") or inferred_subject
+                    exam_n = script_meta.get("exam_name") or tx_data.get("exam_name", "")
+                    exam_i = script_meta.get("exam_id") or tx_data.get("exam_id", "")
+                    subject = _infer_subject_name(exam_n, exam_i)
 
                 scripts_map[as_id] = {
                     "answer_script_id": as_id,
@@ -356,6 +386,7 @@ class AcademicApplicationService:
             "student_name": student_name.strip() or student_id.strip(),
             "exam_id": exam_id.strip(),
             "exam_name": exam_name.strip(),
+            "subject": _infer_subject_name(exam_name, exam_id),
             "university": university_name,
             "file_name": file_name or f"{answer_script_id}.pdf",
             "file_hash": file_hash,

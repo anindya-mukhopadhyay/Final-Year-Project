@@ -862,15 +862,20 @@ def api_head_examiner_queue():
     my_subjects = [
         sub for sub, info in all_he.items()
         if info.get("is_valid") and (
-            info.get("head_examiner_id") == user.user_id
-            or info.get("node_id") == user.user_id
+            str(info.get("head_examiner_id", "")).strip().upper() == user.user_id.upper()
+            or str(info.get("node_id", "")).strip().upper() == user.user_id.upper()
             or user.role == "ADMIN"
         )
     ]
+    my_subjects_upper = [s.strip().upper() for s in my_subjects]
 
     all_scripts = academic_service.get_unified_scripts_status()
     # Filter scripts belonging to this Head Examiner's subject(s)
-    subject_scripts = [s for s in all_scripts if s.get("subject") in my_subjects or (not my_subjects and user.role == "ADMIN")]
+    subject_scripts = [
+        s for s in all_scripts
+        if str(s.get("subject", "")).strip().upper() in my_subjects_upper
+        or (not my_subjects and user.role == "ADMIN")
+    ]
 
     pending = [s for s in subject_scripts if s.get("evaluated") and not s.get("finalized")]
     finalized = [s for s in subject_scripts if s.get("finalized")]
