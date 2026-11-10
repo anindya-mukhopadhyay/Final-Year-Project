@@ -82,7 +82,17 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="exam_id">Exam ID *</label>
-                                <input type="text" id="exam_id" class="form-control" placeholder="e.g. EXAM-2026-CS401" required>
+                                <select id="exam_id" class="form-control" required onchange="syncExamName()">
+                                    <option value="" disabled selected>— Select Exam —</option>
+                                    <option value="EXAM-2026-DBMS">EXAM-2026-DBMS</option>
+                                    <option value="EXAM-2026-OS">EXAM-2026-OS</option>
+                                    <option value="EXAM-2026-PM">EXAM-2026-PM</option>
+                                    <option value="EXAM-2026-AIML">EXAM-2026-AIML</option>
+                                    <option value="EXAM-2026-CYS">EXAM-2026-CYS</option>
+                                    <option value="EXAM-2026-ENGLISH">EXAM-2026-ENGLISH</option>
+                                    <option value="EXAM-2026-CLOUD">EXAM-2026-CLOUD</option>
+                                    <option value="EXAM-2026-04">EXAM-2026-04 (Legacy Demo)</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="answer_script_id">Answer Script ID (Optional)</label>
@@ -92,7 +102,17 @@
 
                         <div class="form-group">
                             <label for="exam_name">Examination Course / Module *</label>
-                            <input type="text" id="exam_name" class="form-control" placeholder="e.g. Cloud Computing & Distributed Networks" required>
+                            <select id="exam_name" class="form-control" required onchange="syncExamId()">
+                                <option value="" disabled selected>— Select Course / Module —</option>
+                                <option value="Database Management Systems (DBMS)">Database Management Systems (DBMS)</option>
+                                <option value="Operating Systems (OS)">Operating Systems (OS)</option>
+                                <option value="Project Management (PM)">Project Management (PM)</option>
+                                <option value="Artificial Intelligence & Machine Learning (AIML)">Artificial Intelligence & Machine Learning (AIML)</option>
+                                <option value="Cyber Security (CYS)">Cyber Security (CYS)</option>
+                                <option value="English Communication">English Communication</option>
+                                <option value="Cloud Computing & Distributed Networks">Cloud Computing & Distributed Networks</option>
+                                <option value="Distributed Systems & Advanced Consensus">Distributed Systems & Advanced Consensus (Legacy Demo)</option>
+                            </select>
                         </div>
 
                         <div class="form-group">
@@ -171,6 +191,35 @@
         }
 
         let selectedFile = null;
+
+        // Exam ID <-> Course/Module mapping for testing phase
+        const EXAM_MAP = {
+            'EXAM-2026-DBMS':    'Database Management Systems (DBMS)',
+            'EXAM-2026-OS':      'Operating Systems (OS)',
+            'EXAM-2026-PM':      'Project Management (PM)',
+            'EXAM-2026-AIML':    'Artificial Intelligence & Machine Learning (AIML)',
+            'EXAM-2026-CYS':    'Cyber Security (CYS)',
+            'EXAM-2026-ENGLISH': 'English Communication',
+            'EXAM-2026-CLOUD':   'Cloud Computing & Distributed Networks',
+            'EXAM-2026-04':      'Distributed Systems & Advanced Consensus',
+        };
+        const EXAM_MAP_REVERSE = Object.fromEntries(Object.entries(EXAM_MAP).map(([k, v]) => [v, k]));
+
+        function syncExamName() {
+            const examId = document.getElementById('exam_id').value;
+            const examNameSelect = document.getElementById('exam_name');
+            if (EXAM_MAP[examId]) {
+                examNameSelect.value = EXAM_MAP[examId];
+            }
+        }
+
+        function syncExamId() {
+            const examName = document.getElementById('exam_name').value;
+            const examIdSelect = document.getElementById('exam_id');
+            if (EXAM_MAP_REVERSE[examName]) {
+                examIdSelect.value = EXAM_MAP_REVERSE[examName];
+            }
+        }
 
         function handleFileSelected(input) {
             if (input.files && input.files[0]) {
