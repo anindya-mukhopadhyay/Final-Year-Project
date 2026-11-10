@@ -337,12 +337,16 @@
                     } else {
                         subjects.forEach(sub => {
                             const info = activeHE[sub];
+                            const heads = info.head_examiners || (info.head_examiner_id ? [info.head_examiner_id] : []);
                             const pill = document.createElement('div');
                             pill.style.background = 'var(--surface, #ffffff)';
                             pill.style.padding = '4px 10px';
                             pill.style.borderRadius = '14px';
                             pill.style.border = '1px solid var(--border)';
-                            pill.innerHTML = `<strong>${sub}:</strong> ${info.head_examiner_id} (${info.node_id}) <span class="badge badge-finalized" style="font-size: 10px; margin-left: 4px;">ACTIVE</span>`;
+                            pill.style.display = 'inline-flex';
+                            pill.style.alignItems = 'center';
+                            pill.style.gap = '5px';
+                            pill.innerHTML = `<strong>${sub}:</strong> ${heads.join(', ')} <span class="badge badge-finalized" style="font-size: 10px; margin-left: 4px;">ACTIVE</span>`;
                             heList.appendChild(pill);
                         });
                     }
@@ -457,7 +461,7 @@
 
                     let actionBtn = '';
                     if (isSelf) {
-                        actionBtn = '<span class="badge badge-assigned" title="Anti-self-approval rule: Head Examiner cannot approve their own evaluation" style="font-size: 10px;">Self-Graded (Override Req)</span>';
+                        actionBtn = '<span class="badge badge-assigned" title="Anti-self-approval rule: Head Examiner cannot approve their own evaluation. Sign-off must be performed by a co-Head Examiner or Examination Authority." style="font-size: 10px;">Self-Graded (Co-Head Sign-off Req)</span>';
                     } else {
                         actionBtn = `<button class="btn btn-sm btn-primary" onclick="openHeFinalizeModal('${s.answer_script_id}', '${s.subject || 'DBMS'}', '${s.teacher_name || s.teacher_id}', '${s.marks}', '${s.max_marks || 100}')">Approve &amp; Finalize</button>`;
                     }

@@ -413,45 +413,176 @@ class HeadExaminerRegistry:
         return election
 
     def record_election_conclusion(self, election: SubjectElection) -> None:
-        """Register concluded Head Examiner for the subject."""
+        """Register concluded Head Examiner for the subject, preserving multi-head appointments."""
         if election.status == ElectionStatus.CONCLUDED and election.winner_id:
-            self.active_head_examiners[election.subject] = {
-                "subject": election.subject,
-                "head_examiner_id": election.winner_id,
-                "node_id": election.winner_node_id,
-                "election_id": election.election_id,
-                "term_start": election.term_start,
-                "term_end": election.term_end,
-                "is_valid": True,
-            }
-            self.save()
+            self.record_appointment(
+                subject=election.subject,
+                head_examiner_id=election.winner_id,
+                node_id=election.winner_node_id,
+                election_id=election.election_id,
+                term_start=election.term_start,
+                term_end=election.term_end,
+            )
+
+    def record_appointment(
+        self,
+        subject: str,
+        head_examiner_id: str,
+        node_id: Optional[str] = None,
+        election_id: Optional[str] = None,
+        term_start: Optional[float] = None,
+        term_end: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Record an active Head Examiner appointment, allowing multiple Head Examiners per subject."""
+        clean_sub = subject.strip().upper()
+        clean_head = head_examiner_id.strip().upper()
+        clean_node = (node_id or TEACHER_EXAMINER_MAP.get(clean_head) or "NODE-001").strip().upper()
+        now = time.time()
+        start = float(term_start if term_start is not None else now)
+        end = float(term_end if term_end is not None else (start + 365 * 86400))
+
+        appt = {
+            "subject": clean_sub,
+            "head_examiner_id": clean_head,
+            "node_id": clean_node,
+            "election_id": election_id or f"APPT-{clean_sub}-{clean_head}-{int(now)}",
+            "term_start": start,
+            "term_end": end,
+            "is_valid": True,
+        }
+
+        existing = self.active_head_examiners.get(clean_sub, {})
+        all_appts = list(existing.get("all_appointments", []))
+        if not all_appts and existing.get("head_examiner_id"):
+            all_appts = [dict(existing)]
+
+        # Replace existing appointment for this specific teacher in this subject if any, else append
+        all_appts = [a for a in all_appts if str(a.get("head_examiner_id", "")).strip().upper() != clean_head]
+        all_appts.append(appt)
+
+        active_heads = [a["head_examiner_id"] for a in all_appts if a.get("is_valid", True) and (not a.get("term_end") or now <= a["term_end"])]
+
+        self.active_head_examiners[clean_sub] = {
+            "subject": clean_sub,
+            "head_examiner_id": clean_head,
+            "node_id": clean_node,
+            "head_examiners": active_heads,
+            "election_id": appt["election_id"],
+            "term_start": start,
+            "term_end": end,
+            "is_valid": True,
+            "all_appointments": all_appts,
+        }
+        self.save()
+        return self.active_head_examiners[clean_sub]
+
+    def direct_appoint_head_examiner(
+        self,
+        subject: str,
+        head_examiner_id: str,
+        term_days: int = 365,
+        appointed_by: str = "ADMIN-001",
+    ) -> Dict[str, Any]:
+        """Directly appoint a faculty teacher as Head Examiner, creating a completed election record."""
+        clean_sub = subject.strip().upper()
+        clean_head = head_examiner_id.strip().upper()
+        clean_node = TEACHER_EXAMINER_MAP.get(clean_head, "NODE-001")
+        now = time.time()
+        elec_id = f"APPT-{clean_sub}-{clean_head}-{int(now)}-{uuid.uuid4().hex[:4].upper()}"
+
+        election = SubjectElection(
+            election_id=elec_id,
+            subject=clean_sub,
+            term_days=term_days,
+            initiated_by=appointed_by,
+        )
+        election.status = ElectionStatus.CONCLUDED
+        election.winner_id = clean_head
+        election.winner_node_id = clean_node
+        election.term_start = now
+        election.term_end = now + term_days * 86400
+        election.votes_cast = len(election.eligible_voters)
+
+        # Record authenticated transaction
+        tx_payload = {
+            "type": "HEAD_EXAMINER_ELECTED",
+            "election_id": elec_id,
+            "subject": clean_sub,
+            "head_examiner_id": clean_head,
+            "head_examiner_node_id": clean_node,
+            "appointment_mode": "DIRECT_APPOINTMENT",
+            "appointed_by": appointed_by,
+            "term_start": election.term_start,
+            "term_end": election.term_end,
+            "term_days": term_days,
+            "status": "ELECTED",
+        }
+        signed_tx = sign_academic_transaction(
+            payload=tx_payload,
+            actor_id="AUTH-001",
+            actor_role="AUTHORITY",
+        )
+        election.certified_transaction = signed_tx
+        self.elections[elec_id] = election
+
+        appt_info = self.record_appointment(
+            subject=clean_sub,
+            head_examiner_id=clean_head,
+            node_id=clean_node,
+            election_id=elec_id,
+            term_start=election.term_start,
+            term_end=election.term_end,
+        )
+        return {"election": election.to_dict(), "appointment": appt_info}
 
     def get_head_examiner(self, subject: str) -> Optional[Dict[str, Any]]:
-        """Get active Head Examiner for a subject, checking term validity."""
+        """Get active Head Examiner record for a subject, checking term validity."""
         clean_sub = subject.strip().upper()
         info = self.active_head_examiners.get(clean_sub)
         if not info:
             return None
-        # Check term validity
-        if info.get("term_end") and time.time() > info["term_end"]:
+        now = time.time()
+        all_appts = info.get("all_appointments") or [info]
+        valid_appts = [
+            a for a in all_appts
+            if a.get("is_valid", True) and (not a.get("term_end") or now <= a["term_end"])
+        ]
+        if not valid_appts:
             info["is_valid"] = False
             return None
-        return info
+        return {
+            **info,
+            "head_examiner_id": valid_appts[-1]["head_examiner_id"],
+            "node_id": valid_appts[-1].get("node_id", ""),
+            "head_examiners": [a["head_examiner_id"] for a in valid_appts],
+            "all_appointments": valid_appts,
+            "is_valid": True,
+        }
 
     def is_head_examiner(self, actor_id: str, subject: str) -> bool:
         """Verify whether an actor holds valid, unexpired Head Examiner authority for a subject."""
         clean_actor = actor_id.strip().upper()
         clean_sub = subject.strip().upper()
-        info = self.get_head_examiner(clean_sub)
+        info = self.active_head_examiners.get(clean_sub)
         if not info or not info.get("is_valid"):
             return False
-        if info.get("term_end") and time.time() > info["term_end"]:
-            info["is_valid"] = False
-            return False
-        return (
-            info.get("head_examiner_id") == clean_actor
-            or info.get("node_id") == clean_actor
-        )
+
+        now = time.time()
+        all_appts = info.get("all_appointments")
+        if not all_appts:
+            all_appts = [info]
+
+        for appt in all_appts:
+            if not appt.get("is_valid", True):
+                continue
+            if appt.get("term_end") and now > appt["term_end"]:
+                continue
+            if (
+                str(appt.get("head_examiner_id", "")).strip().upper() == clean_actor
+                or str(appt.get("node_id", "")).strip().upper() == clean_actor
+            ):
+                return True
+        return False
 
     def list_elections(self) -> List[Dict[str, Any]]:
         """Return all elections."""
@@ -462,7 +593,22 @@ class HeadExaminerRegistry:
         now = time.time()
         result = {}
         for sub, info in self.active_head_examiners.items():
-            valid = bool(info.get("term_end") and now <= info["term_end"])
-            result[sub] = {**info, "is_valid": valid}
+            all_appts = info.get("all_appointments") or [info]
+            valid_appts = [
+                a for a in all_appts
+                if a.get("is_valid", True) and (not a.get("term_end") or now <= a["term_end"])
+            ]
+            if valid_appts:
+                heads = [a["head_examiner_id"] for a in valid_appts]
+                result[sub] = {
+                    **info,
+                    "head_examiner_id": valid_appts[-1]["head_examiner_id"],
+                    "node_id": valid_appts[-1].get("node_id", ""),
+                    "head_examiners": heads,
+                    "is_valid": True,
+                    "all_appointments": valid_appts,
+                }
+            else:
+                result[sub] = {**info, "is_valid": False, "head_examiners": []}
         return result
 

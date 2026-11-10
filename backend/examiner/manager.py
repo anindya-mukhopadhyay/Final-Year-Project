@@ -284,6 +284,30 @@ class ExaminerNetworkManager:
     # DEMOCRATIC HEAD EXAMINER ELECTIONS
     # ========================================================
 
+    def direct_appoint_head_examiner(
+        self,
+        subject: str,
+        head_examiner_id: str,
+        term_days: int = 365,
+        appointed_by: str = "ADMIN-001",
+    ) -> Dict[str, Any]:
+        """Directly appoint a faculty teacher as Head Examiner and broadcast to nodes."""
+        result = self.election_registry.direct_appoint_head_examiner(
+            subject=subject,
+            head_examiner_id=head_examiner_id,
+            term_days=term_days,
+            appointed_by=appointed_by,
+        )
+        if self.router:
+            msg = IPCMessage(
+                message_type=MessageType.HEAD_ELECTION_RESULT,
+                sender="MANAGER",
+                receiver="*",
+                payload={"result": result["appointment"]},
+            )
+            self.router.send(msg)
+        return result
+
     def start_election(
         self,
         subject: str,
@@ -346,7 +370,7 @@ class ExaminerNetworkManager:
             )
             self.router.send(msg)
 
-        # Check if all eligible teachers voted or quorum satisfied
+        # Auto-conclude when all eligible teachers have cast ballots
         if len(election.votes) >= len(election.eligible_voters):
             self.conclude_election(election_id)
 

@@ -756,22 +756,105 @@ def api_elections_list():
 @require_auth
 @require_role(["ADMIN", "AUTHORITY"])
 def api_start_election():
-    """POST /api/admin/elections/start - Start democratic election for a subject."""
+    """POST /api/admin/elections/start - Start election or directly appoint Head Examiner for a subject."""
     body = request.get_json(silent=True) or {}
     subject = body.get("subject", "").strip().upper()
     if not subject:
         return jsonify({"error": "Missing subject name"}), 400
 
     term_days = int(body.get("term_days", 365))
+    head_examiner_id = body.get("head_examiner_id", "").strip().upper()
+    direct_appoint = bool(body.get("direct_appoint", False) or head_examiner_id)
+
+    curr_user = get_current_user()
+    if direct_appoint and head_examiner_id:
+        result = examiner_manager.direct_appoint_head_examiner(
+            subject=subject,
+            head_examiner_id=head_examiner_id,
+            term_days=term_days,
+            appointed_by=curr_user.user_id,
+        )
+        log_audit_event(
+            action="HEAD_EXAMINER_DIRECT_APPOINTED",
+            actor=curr_user.user_id,
+            actor_role=curr_user.role,
+            resource_id=result["election"]["election_id"],
+            details={"subject": subject, "head_examiner_id": head_examiner_id, "term_days": term_days},
+        )
+        return jsonify({
+            "success": True,
+            "message": f"Head Examiner {head_examiner_id} appointed for {subject}",
+            "election": result["election"],
+            "appointment": result["appointment"],
+        }), 201
+
     election = examiner_manager.start_election(subject=subject, term_days=term_days)
     log_audit_event(
         action="ELECTION_STARTED",
-        actor=get_current_user().user_id,
-        actor_role=get_current_user().role,
+        actor=curr_user.user_id,
+        actor_role=curr_user.role,
         resource_id=election["election_id"],
         details={"subject": subject, "term_days": term_days},
     )
     return jsonify({"success": True, "election": election}), 201
+
+
+@app.route("/api/admin/elections/appoint", methods=["POST"])
+@require_auth
+@require_role(["ADMIN", "AUTHORITY"])
+def api_direct_appoint_head_examiner():
+    """POST /api/admin/elections/appoint - Directly appoint Head Examiner (supports multiple per subject)."""
+    body = request.get_json(silent=True) or {}
+    subject = body.get("subject", "").strip().upper()
+    head_examiner_id = body.get("head_examiner_id", "").strip().upper()
+    term_days = int(body.get("term_days", 365))
+    if not subject or not head_examiner_id:
+        return jsonify({"error": "subject and head_examiner_id are required"}), 400
+
+    curr_user = get_current_user()
+    result = examiner_manager.direct_appoint_head_examiner(
+        subject=subject,
+        head_examiner_id=head_examiner_id,
+        term_days=term_days,
+        appointed_by=curr_user.user_id,
+    )
+    log_audit_event(
+        action="HEAD_EXAMINER_DIRECT_APPOINTED",
+        actor=curr_user.user_id,
+        actor_role=curr_user.role,
+        resource_id=result["election"]["election_id"],
+        details={"subject": subject, "head_examiner_id": head_examiner_id, "term_days": term_days},
+    )
+    return jsonify({
+        "success": True,
+        "message": f"Head Examiner {head_examiner_id} successfully appointed for {subject}",
+        "appointment": result["appointment"],
+        "election": result["election"],
+    }), 201
+
+
+@app.route("/api/admin/elections/conclude", methods=["POST"])
+@require_auth
+@require_role(["ADMIN", "AUTHORITY"])
+def api_conclude_election():
+    """POST /api/admin/elections/conclude - Conclude an election once quorum is reached."""
+    body = request.get_json(silent=True) or {}
+    election_id = body.get("election_id", "").strip()
+    if not election_id:
+        return jsonify({"error": "election_id is required"}), 400
+
+    ok, reason, details = examiner_manager.conclude_election(election_id)
+    if not ok:
+        return jsonify({"error": reason, "details": details}), 400
+
+    log_audit_event(
+        action="ELECTION_CONCLUDED",
+        actor=get_current_user().user_id,
+        actor_role=get_current_user().role,
+        resource_id=election_id,
+        details=details,
+    )
+    return jsonify({"success": True, "message": "Election concluded successfully", "result": details}), 200
 
 
 @app.route("/api/admin/elections/vote", methods=["POST"])
@@ -858,15 +941,19 @@ def api_head_examiner_queue():
     user = get_current_user()
     all_he = examiner_manager.election_registry.list_head_examiners()
 
-    # Identify which subjects this teacher has won / is Head Examiner for
-    my_subjects = [
-        sub for sub, info in all_he.items()
-        if info.get("is_valid") and (
-            str(info.get("head_examiner_id", "")).strip().upper() == user.user_id.upper()
-            or str(info.get("node_id", "")).strip().upper() == user.user_id.upper()
-            or user.role == "ADMIN"
-        )
-    ]
+    # Identify which subjects this teacher has won / is Head Examiner for (supports multiple Head Examiners per subject)
+    my_subjects = []
+    for sub, info in all_he.items():
+        if not info.get("is_valid"):
+            continue
+        heads = [str(h).strip().upper() for h in info.get("head_examiners", [info.get("head_examiner_id", "")])]
+        nodes = [str(info.get("node_id", "")).strip().upper()]
+        for a in info.get("all_appointments", []):
+            heads.append(str(a.get("head_examiner_id", "")).strip().upper())
+            nodes.append(str(a.get("node_id", "")).strip().upper())
+        if user.user_id.upper() in heads or user.user_id.upper() in nodes or user.role == "ADMIN":
+            my_subjects.append(sub)
+
     my_subjects_upper = [s.strip().upper() for s in my_subjects]
 
     all_scripts = academic_service.get_unified_scripts_status()
@@ -925,10 +1012,10 @@ def api_head_examiner_finalize():
     )
     if not is_he:
         he_info = examiner_manager.election_registry.get_head_examiner(subject)
-        active_he = he_info.get("head_examiner_id") if he_info else "None appointed"
+        active_heads = ", ".join(he_info.get("head_examiners", [he_info.get("head_examiner_id")])) if he_info else "None appointed"
         return jsonify({
             "error": "UNAUTHORIZED_HEAD_EXAMINER",
-            "message": f"Only the democratically elected Head Examiner for {subject} ({active_he}) can finalize this evaluation.",
+            "message": f"Only the democratically elected/appointed Head Examiner for {subject} ({active_heads}) can finalize this evaluation.",
         }), 403
 
     # 2. Anti-Self-Approval Enforcement
