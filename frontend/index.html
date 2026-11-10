@@ -120,7 +120,7 @@
                     </p>
                 </div>
 
-                <div class="header-actions">
+                <div class="header-actions" id="header-actions-container">
 
                     <a href="/login.html" class="btn btn-primary" style="text-decoration: none;">
                         Academic Portal →
@@ -551,7 +551,58 @@
     </div>
 
 
+    <script src="api.js"></script>
     <script src="app.js"></script>
+    <script>
+        (function initAuthHeader() {
+            const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+            const headerActions = document.getElementById('header-actions-container');
+            if (!headerActions) return;
 
+            if (user) {
+                let returnUrl = '/login.html';
+                let roleLabel = user.role;
+                if (user.role === 'TEACHER') returnUrl = '/teacher/dashboard.html';
+                else if (user.role === 'AUTHORITY') returnUrl = '/authority/dashboard.html';
+                else if (user.role === 'UNIVERSITY') returnUrl = '/university/dashboard.html';
+                else if (user.role === 'ADMIN') returnUrl = '/admin/dashboard.html';
+
+                headerActions.innerHTML = `
+                    <a href="${returnUrl}" class="btn btn-primary" style="text-decoration: none; font-size: 13px; font-weight: 600; padding: 7px 14px; display: inline-flex; align-items: center; gap: 6px;">
+                        ← Return to ${roleLabel} Portal
+                    </a>
+                    <div style="display:flex; align-items:center; gap:8px; background:var(--surface, #ffffff); padding:5px 12px; border-radius:8px; border:1px solid var(--border); font-size:12px;">
+                        <strong>${user.name}</strong>
+                        <span class="badge badge-finalized" style="font-size:10px;">${user.role}</span>
+                        <button onclick="logoutFromMonitor()" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 8px; margin-left:4px;">Logout</button>
+                    </div>
+                    <button class="refresh-button" onclick="loadDashboard()">↻ Refresh</button>
+                    <div class="node-badge">
+                        <span class="status-dot"></span>
+                        <div>
+                            <small>Current Node</small>
+                            <strong id="currentNode">node-1</strong>
+                        </div>
+                    </div>
+                `;
+
+                // Wire up sidebar links dynamically so they point back into the portal
+                const navLinks = document.querySelectorAll('.sidebar .navigation a');
+                navLinks.forEach(link => {
+                    const text = link.textContent.trim();
+                    if (text.includes('Dashboard')) link.href = returnUrl;
+                    else if (text.includes('Answer Scripts')) link.href = user.role === 'UNIVERSITY' ? '/university/scripts.html' : (user.role === 'AUTHORITY' ? '/authority/pending-results.html' : '/teacher/dashboard.html');
+                    else if (text.includes('Evaluations')) link.href = user.role === 'TEACHER' ? '/teacher/dashboard.html' : '/authority/pending-results.html';
+                    else if (text.includes('Results')) link.href = user.role === 'AUTHORITY' ? '/authority/dashboard.html' : '/university/marksheets.html';
+                    else if (text.includes('Verification')) link.href = '/verify/index.html';
+                });
+            }
+        })();
+
+        function logoutFromMonitor() {
+            if (typeof clearSession === 'function') clearSession();
+            window.location.href = '/login.html';
+        }
+    </script>
 </body>
 </html>
