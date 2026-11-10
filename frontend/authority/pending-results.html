@@ -79,16 +79,17 @@
                             <tr>
                                 <th>Script ID</th>
                                 <th>Student Details</th>
-                                <th>Examiner (Teacher)</th>
+                                <th>Subject</th>
+                                <th>Examiner</th>
                                 <th>Awarded Marks</th>
-                                <th>Evaluation ID</th>
-                                <th>Status</th>
                                 <th>Governing Head Examiner</th>
+                                <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="queue-tbody">
                             <tr>
-                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 30px;">
+                                <td colspan="8" style="text-align: center; color: var(--muted); padding: 30px;">
                                     Loading review queue...
                                 </td>
                             </tr>
@@ -149,6 +150,7 @@
         }
 
         let pendingList = [];
+        let activeHE = {};
         let selectedScript = null;
 
         function renderQueueTable() {
@@ -157,22 +159,28 @@
             tbody.innerHTML = '';
 
             if (pendingList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 36px;">✓ No evaluations pending finalization. All submitted marks have been certified.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 36px;">✓ No evaluations pending finalization. All submitted marks have been certified.</td></tr>';
                 return;
             }
 
             pendingList.forEach(p => {
                 const tr = document.createElement('tr');
                 tr.id = `row-${p.answer_script_id}`;
+                const sub = (p.subject || 'DBMS').toUpperCase();
+                const heInfo = activeHE[sub];
+                const heads = heInfo ? (heInfo.head_examiners || [heInfo.head_examiner_id]) : ['None'];
+                const headDisplay = heads.join(', ');
+
                 tr.innerHTML = `
                     <td><strong>${p.answer_script_id}</strong></td>
                     <td>${p.student_name}<br><small style="color:var(--muted)">${p.student_id}</small></td>
+                    <td><span class="badge badge-finalized" style="font-size: 10px;">${sub}</span></td>
                     <td>${p.teacher_name || p.teacher_id}</td>
                     <td><strong>${p.marks}</strong> / ${p.max_marks}</td>
-                    <td><span class="hash-display">${p.evaluation_id}</span></td>
-                    <td><span class="badge badge-evaluated">Evaluation Submitted</span></td>
+                    <td><strong style="color:var(--primary); font-size:12px;">${headDisplay}</strong></td>
+                    <td><span class="badge badge-assigned" style="font-size: 10px;">HE Sign-off Pending</span></td>
                     <td>
-                        <span class="badge badge-assigned" style="font-size: 11px;">Subject HE Sign-off Pending</span>
+                        <button onclick="openFinalizeModal('${p.answer_script_id}')" class="btn btn-sm btn-primary" style="font-size: 11px; padding: 4px 10px; white-space: nowrap;">Authorize &amp; Finalize</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -190,6 +198,7 @@
                 }
 
                 pendingList = res.data.pending_results || [];
+                activeHE = res.data.active_head_examiners || {};
                 renderQueueTable();
                 return true;
             } catch (err) {

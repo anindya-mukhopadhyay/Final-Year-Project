@@ -442,6 +442,7 @@ def teacher_evaluate(script_id: str):
 def authority_dashboard():
     """GET /api/authority/dashboard"""
     data = academic_service.get_authority_dashboard()
+    data["active_head_examiners"] = examiner_manager.election_registry.list_head_examiners()
     return jsonify(data), 200
 
 
@@ -452,7 +453,10 @@ def authority_pending_results():
     """GET /api/authority/results/pending"""
     scripts = academic_service.get_unified_scripts_status()
     pending = [s for s in scripts if s["evaluated"] and not s["finalized"]]
-    return jsonify({"pending_results": pending}), 200
+    return jsonify({
+        "pending_results": pending,
+        "active_head_examiners": examiner_manager.election_registry.list_head_examiners(),
+    }), 200
 
 
 @app.route("/api/authority/results/<script_id>", methods=["GET"])
