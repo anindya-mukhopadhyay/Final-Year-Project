@@ -203,9 +203,18 @@
                     if (!s.assigned) {
                         actionBtn = `<a href="/university/assignments.html?id=${s.answer_script_id}" class="btn btn-sm btn-secondary">Assign</a>`;
                     } else if (s.marksheet_generated) {
-                        actionBtn = `<a href="/verify/index.html?id=${s.marksheet_id}" class="btn btn-sm btn-outline">Verify</a>`;
+                        actionBtn = `
+                            <div style="display:flex; gap:4px;">
+                                <a href="/api/marksheets/${s.marksheet_id}/pdf" target="_blank" class="btn btn-sm btn-primary" style="font-size:10px; padding:2px 6px;">PDF</a>
+                                <a href="/verify/index.html?id=${s.marksheet_id}" class="btn btn-sm btn-outline" style="font-size:10px; padding:2px 6px;">Verify</a>
+                            </div>
+                        `;
+                    } else if (s.finalized) {
+                        actionBtn = `<a href="/authority/dashboard.html" class="btn btn-sm btn-success" style="font-size:10px; padding:2px 6px;">Issue Marksheet →</a>`;
+                    } else if (s.evaluated) {
+                        actionBtn = `<span class="badge badge-evaluated" style="font-size:10px;">Awaiting Sign-off</span>`;
                     } else {
-                        actionBtn = `<span style="font-size: 11px; color: var(--muted);">In Pipeline</span>`;
+                        actionBtn = `<span style="font-size: 11px; color: var(--muted);">In Evaluation</span>`;
                     }
 
                     tr.innerHTML = `
