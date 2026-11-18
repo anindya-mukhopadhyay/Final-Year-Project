@@ -64,10 +64,12 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            text-decoration: none;
         }
 
         .pdf-btn:hover {
             background: rgba(255, 255, 255, 0.22);
+            color: #ffffff;
         }
 
         .pdf-btn:disabled {
@@ -92,7 +94,7 @@
             justify-content: center;
             align-items: flex-start;
             padding: 20px;
-            min-height: 520px;
+            min-height: 560px;
             position: relative;
         }
 
@@ -155,8 +157,8 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.15s ease;
             white-space: nowrap;
+            transition: all 0.15s ease;
         }
 
         .page-tab-btn:hover {
@@ -167,16 +169,16 @@
             background: var(--primary);
             color: #ffffff;
             border-color: var(--primary);
-            box-shadow: 0 2px 6px rgba(49, 94, 251, 0.35);
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
         }
 
         .page-tab-btn.completed {
-            border-color: #16a34a;
-            color: #15803d;
+            border-color: #86efac;
             background: #f0fdf4;
+            color: #166534;
         }
 
-        .page-tab-btn.completed.active {
+        .page-tab-btn.active.completed {
             background: #16a34a;
             color: #ffffff;
             border-color: #16a34a;
@@ -185,59 +187,9 @@
         .eval-console-body {
             padding: 20px;
             flex: 1;
-            overflow-y: auto;
-        }
-
-        .question-card {
-            background: #f8fafc;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 14px;
-            margin-bottom: 14px;
-            transition: border-color 0.15s ease;
-        }
-
-        .question-card:focus-within {
-            border-color: var(--primary);
-            background: #ffffff;
-        }
-
-        .question-header {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .q-input-group {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 8px;
-        }
-
-        .q-input-group label {
-            display: block;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--muted);
-            margin-bottom: 4px;
-            text-transform: uppercase;
-        }
-
-        .q-input-group input {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .q-input-group input.invalid-input {
-            border-color: #dc2626 !important;
-            background: #fef2f2 !important;
-            color: #b91c1c !important;
+            flex-direction: column;
+            overflow-y: auto;
         }
 
         .score-summary-bar {
@@ -245,54 +197,71 @@
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             padding: 12px 16px;
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
         }
 
-        /* MODAL STYLING */
+        .page-entry-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .page-entry-card:hover {
+            border-color: #cbd5e1;
+        }
+
+        .form-control.invalid-input {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+        }
+
+        /* CONFIRMATION MODAL */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(15, 23, 42, 0.75);
+            background: rgba(15, 23, 42, 0.7);
             backdrop-filter: blur(4px);
             display: none;
             place-items: center;
-            z-index: 9999;
+            z-index: 1000;
             padding: 20px;
         }
 
         .modal-card {
             background: #ffffff;
-            border-radius: 14px;
-            max-width: 650px;
+            border-radius: 12px;
+            max-width: 640px;
             width: 100%;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            border: 1px solid var(--border);
             overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
             animation: modalFadeIn 0.2s ease-out;
         }
 
         @keyframes modalFadeIn {
-            from { opacity: 0; transform: scale(0.96); }
-            to { opacity: 1; transform: scale(1); }
+            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         .modal-header {
+            padding: 16px 24px;
             background: #1e293b;
             color: #ffffff;
-            padding: 18px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .modal-body {
-            padding: 24px;
+            padding: 20px 24px;
             max-height: 70vh;
             overflow-y: auto;
         }
@@ -314,7 +283,7 @@
         }
 
         .breakdown-table th, .breakdown-table td {
-            padding: 8px 12px;
+            padding: 10px 14px;
             border: 1px solid #e2e8f0;
             text-align: left;
         }
@@ -421,13 +390,14 @@
                             <span style="font-size: 11px; font-weight: 600; color: #94a3b8;" id="zoom-level-text">100%</span>
                             <button class="pdf-btn" onclick="zoomPdf(0.2)" title="Zoom In">+ Zoom</button>
                             <button class="pdf-btn" onclick="fitPdfWidth()">Fit Width</button>
+                            <a class="pdf-btn" id="btn-popout-pdf" href="#" target="_blank" title="Open PDF in new browser tab">↗ Popout</a>
                             <button class="pdf-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen">⛶ Fullscreen</button>
                         </div>
                     </div>
 
                     <div class="pdf-canvas-container" id="canvas-wrapper">
                         <canvas id="pdf-canvas"></canvas>
-                        <div id="pdf-loading-msg" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ffffff; font-weight: 600; display: none;">
+                        <div id="pdf-loading-msg" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ffffff; font-weight: 600; background: rgba(15, 23, 42, 0.85); padding: 14px 20px; border-radius: 8px;">
                             Loading Answer Script PDF...
                         </div>
                     </div>
@@ -443,7 +413,7 @@
                     <div class="eval-console-header">
                         <div>
                             <h3 style="font-size: 16px; font-weight: 700; color: var(--text);" id="console-page-title">Page 1 Evaluation</h3>
-                            <small style="color: var(--muted);">Digitally mark individual questions for this page</small>
+                            <small style="color: var(--muted);">Digitally enter page-wise marks for this answer script</small>
                         </div>
                         <span id="page-status-badge" class="badge badge-assigned">In Progress</span>
                     </div>
@@ -457,7 +427,7 @@
                         <!-- LIVE SCORE SUMMARY -->
                         <div class="score-summary-bar">
                             <div>
-                                <small style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">Page Subtotal</small>
+                                <small style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">Page Score</small>
                                 <strong style="font-size: 16px; color: var(--text);" id="lbl-page-subtotal">0.0 / 25.0</strong>
                             </div>
                             <div style="text-align: center;">
@@ -465,24 +435,42 @@
                                 <strong style="font-size: 14px; color: var(--primary);" id="lbl-completion-stat">0 / 3 Pages</strong>
                             </div>
                             <div style="text-align: right;">
-                                <small style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">Overall Total</small>
+                                <small style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">Grand Total</small>
                                 <strong style="font-size: 16px; color: #16a34a;" id="lbl-overall-total">0.0 / 100</strong>
                             </div>
                         </div>
 
-                        <!-- QUESTIONS LIST FOR ACTIVE PAGE -->
-                        <div id="questions-container">
-                            <!-- Populated dynamically -->
-                        </div>
+                        <!-- PAGE-WISE MARKS INPUT CARD -->
+                        <div class="page-entry-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                                <span style="font-size: 14px; font-weight: 700; color: var(--text);">PAGE <span id="lbl-active-page-num">1</span> MARKS</span>
+                                <span id="lbl-page-completion-pill" class="badge badge-assigned">Pending Evaluation</span>
+                            </div>
 
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="addQuestionField()" style="margin-bottom: 16px; width: 100%; justify-content: center;">
-                            + Add Question / Sub-Question to Page
-                        </button>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px;">
+                                        Max Marks for Page <span id="lbl-field-page-num-max">1</span>
+                                    </label>
+                                    <input type="number" step="0.5" min="1" max="100" class="form-control" id="page-max-input" value="25.0" oninput="handlePageMarksChange()" style="font-size: 15px; font-weight: 600;">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 6px;">
+                                        Marks Awarded for Page <span id="lbl-field-page-num-awarded">1</span> *
+                                    </label>
+                                    <input type="number" step="0.5" min="0" max="100" class="form-control" id="page-awarded-input" placeholder="e.g. 20.0" oninput="handlePageMarksChange()" style="font-size: 16px; font-weight: 700; color: var(--primary);">
+                                </div>
+                            </div>
 
-                        <!-- PAGE REMARKS -->
-                        <div style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px;">Page Examiner Remarks &amp; Feedback</label>
-                            <textarea id="page-remarks" class="form-control" rows="2" placeholder="e.g. Accurate derivation and clear diagram..."></textarea>
+                            <div id="page-marks-error" style="display: none; color: #dc2626; font-size: 12px; font-weight: 600; margin-bottom: 12px; padding: 8px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;">
+                            </div>
+
+                            <div>
+                                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px;">
+                                    Examiner Remarks for Page <span id="lbl-field-page-num-remarks">1</span> (Optional)
+                                </label>
+                                <textarea id="page-remarks-input" class="form-control" rows="3" placeholder="e.g. Accurate derivation and clear diagram on this page..."></textarea>
+                            </div>
                         </div>
 
                         <!-- PAGE ACTIONS -->
@@ -546,6 +534,9 @@
                     </div>
 
                     <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="toggleViewForm()">
+                            View Page Marks Breakdown
+                        </button>
                         <a href="/teacher/assignments.html" class="btn btn-primary" style="flex: 1; justify-content: center;">
                             Return to My Assignments
                         </a>
@@ -582,8 +573,9 @@
                     <thead>
                         <tr>
                             <th>Page #</th>
-                            <th>Questions</th>
-                            <th>Subtotal</th>
+                            <th>Max Marks</th>
+                            <th>Marks Awarded</th>
+                            <th>Remarks</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -592,8 +584,10 @@
                     </tbody>
                     <tfoot>
                         <tr style="background: #f8fafc; font-weight: 700;">
-                            <td colspan="2">Grand Total Awarded</td>
-                            <td colspan="2" style="font-size: 16px; color: var(--primary);" id="modal-grand-total">—</td>
+                            <td>Grand Total</td>
+                            <td id="modal-grand-max">—</td>
+                            <td style="font-size: 16px; color: var(--primary);" id="modal-grand-total">—</td>
+                            <td colspan="2" style="color: #166534;">✓ All Pages Complete</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -650,6 +644,7 @@
         let pdfScale = 1.0;
         let assignmentData = null;
         let draftData = null;
+        let blobUrl = null;
 
         // Load Assignment and Initialize
         async function initEvaluationStudio() {
@@ -673,6 +668,9 @@
                 document.getElementById('lbl-exam-name').textContent = assignmentData.exam_name;
                 document.getElementById('pdf-hash-display').textContent = assignmentData.file_hash;
 
+                totalPagesCount = draftData.total_pages || 3;
+                document.getElementById('total-page-count').textContent = totalPagesCount;
+
                 if (data.evaluated) {
                     document.getElementById('script-badge').className = 'badge badge-evaluated';
                     document.getElementById('script-badge').textContent = 'Evaluated';
@@ -682,7 +680,7 @@
                 // 2. Load PDF into integrated viewer
                 loadPdfViewer();
 
-                // 3. Render Page Tabs & Current Page Questions
+                // 3. Render Page Tabs & Current Page Inputs
                 renderPageTabs();
                 renderActivePage(currentPageNum);
                 updateSummaryDisplays();
@@ -698,62 +696,98 @@
         // ==========================================
 
         async function loadPdfViewer() {
-            const canvas = document.getElementById('pdf-canvas');
+            const canvasWrapper = document.getElementById('canvas-wrapper');
             const loadingMsg = document.getElementById('pdf-loading-msg');
-            loadingMsg.style.display = 'block';
+            if (loadingMsg) loadingMsg.style.display = 'block';
 
             try {
-                const pdfUrl = `/api/teacher/assignments/${scriptId}/file`;
                 const token = getAuthToken();
+                const fileUrl = `/api/teacher/assignments/${scriptId}/file?token=${encodeURIComponent(token)}`;
 
-                const loadingTask = pdfjsLib.getDocument({
-                    url: pdfUrl,
-                    httpHeaders: { 'Authorization': `Bearer ${token}` }
+                // Authenticated fetch for binary ArrayBuffer
+                const res = await fetch(fileUrl, {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                pdfDoc = await loadingTask.promise;
-                totalPagesCount = pdfDoc.numPages;
-                document.getElementById('total-page-count').textContent = totalPagesCount;
-                loadingMsg.style.display = 'none';
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || errData.message || `HTTP ${res.status}`);
+                }
 
-                renderPdfPage(currentPageNum);
+                const arrayBuffer = await res.arrayBuffer();
+                const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+                blobUrl = URL.createObjectURL(blob);
+
+                // Update Popout Link
+                const popoutBtn = document.getElementById('btn-popout-pdf');
+                if (popoutBtn) {
+                    popoutBtn.href = blobUrl;
+                }
+
+                let pdfJsRendered = false;
+                if (window.pdfjsLib) {
+                    try {
+                        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                        pdfDoc = await loadingTask.promise;
+                        totalPagesCount = pdfDoc.numPages;
+                        document.getElementById('total-page-count').textContent = totalPagesCount;
+                        if (loadingMsg) loadingMsg.style.display = 'none';
+                        await renderPdfPage(currentPageNum);
+                        pdfJsRendered = true;
+                    } catch (canvasErr) {
+                        console.warn("PDF.js canvas rendering failed, using native viewer:", canvasErr);
+                    }
+                }
+
+                if (!pdfJsRendered) {
+                    // Render native browser PDF viewer with blob URL (authenticated in-memory)
+                    if (loadingMsg) loadingMsg.style.display = 'none';
+                    canvasWrapper.innerHTML = `
+                        <iframe id="pdf-native-frame" src="${blobUrl}#page=1&toolbar=1" style="width: 100%; height: 700px; border: none; border-radius: 8px; background: #525659;"></iframe>
+                    `;
+                }
             } catch (err) {
                 console.error("PDF Load Error:", err);
-                loadingMsg.textContent = "Unable to load PDF via canvas. Rendering native fallback viewer...";
-                // Fallback to iframe/embed if canvas fails
-                document.getElementById('canvas-wrapper').innerHTML = `
-                    <iframe src="/api/teacher/assignments/${scriptId}/file" style="width: 100%; height: 600px; border: none;"></iframe>
-                `;
+                if (loadingMsg) {
+                    loadingMsg.innerHTML = `<span style="color:#ef4444; background: rgba(0,0,0,0.85); padding: 12px 18px; border-radius: 8px;">Failed to load script PDF: ${err.message}</span>`;
+                }
             }
         }
 
         async function renderPdfPage(num) {
-            if (!pdfDoc) return;
-            const page = await pdfDoc.getPage(num);
-            const canvas = document.getElementById('pdf-canvas');
-            const ctx = canvas.getContext('2d');
-
-            const viewport = page.getViewport({ scale: pdfScale });
-            const outputScale = window.devicePixelRatio || 1;
-
-            canvas.width = Math.floor(viewport.width * outputScale);
-            canvas.height = Math.floor(viewport.height * outputScale);
-            canvas.style.width = Math.floor(viewport.width) + "px";
-            canvas.style.height = Math.floor(viewport.height) + "px";
-
-            const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
-
-            const renderContext = {
-                canvasContext: ctx,
-                transform: transform,
-                viewport: viewport
-            };
-
-            await page.render(renderContext).promise;
-
             document.getElementById('current-page-num').textContent = num;
             document.getElementById('btn-prev-page').disabled = (num <= 1);
             document.getElementById('btn-next-page').disabled = (num >= totalPagesCount);
+
+            if (pdfDoc) {
+                const canvas = document.getElementById('pdf-canvas');
+                if (!canvas) return;
+                const page = await pdfDoc.getPage(num);
+                const ctx = canvas.getContext('2d');
+
+                const viewport = page.getViewport({ scale: pdfScale });
+                const outputScale = window.devicePixelRatio || 1;
+
+                canvas.width = Math.floor(viewport.width * outputScale);
+                canvas.height = Math.floor(viewport.height * outputScale);
+                canvas.style.width = Math.floor(viewport.width) + "px";
+                canvas.style.height = Math.floor(viewport.height) + "px";
+
+                const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+                const renderContext = {
+                    canvasContext: ctx,
+                    transform: transform,
+                    viewport: viewport
+                };
+
+                await page.render(renderContext).promise;
+            } else {
+                const nativeFrame = document.getElementById('pdf-native-frame');
+                if (nativeFrame && blobUrl) {
+                    nativeFrame.src = `${blobUrl}#page=${num}&toolbar=1`;
+                }
+            }
         }
 
         function prevPdfPage() {
@@ -796,23 +830,24 @@
         }
 
         // ==========================================
-        // PAGE-WISE EVALUATION FUNCTIONS
+        // PAGE-WISE EVALUATION FUNCTIONS (STRICTLY PAGE-WISE)
         // ==========================================
 
         function renderPageTabs() {
             const tabsContainer = document.getElementById('page-tabs-bar');
             tabsContainer.innerHTML = '';
 
-            const total = draftData.total_pages || totalPagesCount || 3;
+            const total = totalPagesCount || (draftData ? draftData.total_pages : 3) || 3;
             for (let i = 1; i <= total; i++) {
                 const pageKey = String(i);
-                const pageData = (draftData.pages && draftData.pages[pageKey]) || { is_completed: false };
+                const pageData = (draftData && draftData.pages && draftData.pages[pageKey]) || { is_completed: false };
                 const isCompleted = pageData.is_completed;
                 const isActive = (i === currentPageNum);
 
                 const tab = document.createElement('button');
                 tab.className = `page-tab-btn ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`;
-                tab.innerHTML = `Page ${i} ${isCompleted ? '✓' : ''}`;
+                const marksDisplay = isCompleted ? ` (${pageData.awarded_marks !== undefined ? pageData.awarded_marks : pageData.page_total || 0})` : '';
+                tab.innerHTML = `Page ${i} ${isCompleted ? '✓' + marksDisplay : ''}`;
                 tab.onclick = () => switchActivePage(i);
                 tabsContainer.appendChild(tab);
             }
@@ -828,136 +863,91 @@
         function renderActivePage(pageNum) {
             const pageKey = String(pageNum);
             document.getElementById('console-page-title').textContent = `Page ${pageNum} Evaluation`;
+            document.getElementById('lbl-active-page-num').textContent = pageNum;
+            document.getElementById('lbl-field-page-num-max').textContent = pageNum;
+            document.getElementById('lbl-field-page-num-awarded').textContent = pageNum;
+            document.getElementById('lbl-field-page-num-remarks').textContent = pageNum;
 
-            const pageData = (draftData.pages && draftData.pages[pageKey]) || {
+            const pageData = (draftData && draftData.pages && draftData.pages[pageKey]) || {
                 page_number: pageNum,
                 is_completed: false,
-                page_remarks: '',
-                questions: [
-                    { question_id: `Q${pageNum}`, question_title: `Question ${pageNum}`, max_marks: 25, awarded_marks: 0, remarks: '' }
-                ]
+                awarded_marks: 0,
+                max_marks: 25,
+                page_remarks: ''
             };
 
-            // Badge
-            const badge = document.getElementById('page-status-badge');
-            if (pageData.is_completed) {
-                badge.className = 'badge badge-evaluated';
-                badge.textContent = 'Completed ✓';
+            const isCompleted = pageData.is_completed;
+            const statusBadge = document.getElementById('page-status-badge');
+            const pillBadge = document.getElementById('lbl-page-completion-pill');
+
+            const maxVal = pageData.max_marks !== undefined ? pageData.max_marks : (pageData.page_max || 25);
+            const awardedVal = pageData.awarded_marks !== undefined ? pageData.awarded_marks : (pageData.page_total || 0);
+
+            if (isCompleted) {
+                statusBadge.className = 'badge badge-evaluated';
+                statusBadge.textContent = 'Completed ✓';
+                pillBadge.className = 'badge badge-evaluated';
+                pillBadge.textContent = `Completed (${awardedVal} / ${maxVal})`;
             } else {
-                badge.className = 'badge badge-assigned';
-                badge.textContent = 'In Progress';
+                statusBadge.className = 'badge badge-assigned';
+                statusBadge.textContent = 'In Progress';
+                pillBadge.className = 'badge badge-assigned';
+                pillBadge.textContent = 'Pending Evaluation';
             }
 
-            // Questions Container
-            const container = document.getElementById('questions-container');
-            container.innerHTML = '';
+            document.getElementById('page-max-input').value = maxVal;
+            document.getElementById('page-awarded-input').value = (awardedVal !== null && awardedVal !== undefined) ? awardedVal : '';
+            document.getElementById('page-remarks-input').value = pageData.page_remarks || '';
 
-            (pageData.questions || []).forEach((q, idx) => {
-                const card = document.createElement('div');
-                card.className = 'question-card';
-                card.id = `q-card-${idx}`;
-                card.innerHTML = `
-                    <div class="question-header">
-                        <strong style="font-size: 13px; color: var(--text);">Question ${idx + 1}</strong>
-                        ${pageData.questions.length > 1 ? `<button type="button" class="btn btn-sm" style="color: #ef4444; padding: 2px 6px;" onclick="removeQuestionField(${idx})">✕</button>` : ''}
-                    </div>
-                    <div style="margin-bottom: 8px;">
-                        <input type="text" class="form-control" style="font-size: 12px; padding: 6px 10px;" id="q-title-${idx}" value="${q.question_title || ''}" placeholder="Question Title / Topic">
-                    </div>
-                    <div class="q-input-group">
-                        <div>
-                            <label>Question ID</label>
-                            <input type="text" id="q-id-${idx}" value="${q.question_id || 'Q' + (idx + 1)}">
-                        </div>
-                        <div>
-                            <label>Max Marks</label>
-                            <input type="number" step="0.5" min="1" id="q-max-${idx}" value="${q.max_marks || 10}" oninput="calcActivePageTotal()">
-                        </div>
-                    </div>
-                    <div class="q-input-group">
-                        <div>
-                            <label>Awarded Marks *</label>
-                            <input type="number" step="0.5" min="0" id="q-awarded-${idx}" value="${q.awarded_marks !== undefined ? q.awarded_marks : 0}" oninput="calcActivePageTotal()">
-                        </div>
-                        <div>
-                            <label>Remark (Optional)</label>
-                            <input type="text" id="q-remark-${idx}" value="${q.remarks || ''}" placeholder="e.g. Good concept">
-                        </div>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-
-            document.getElementById('page-remarks').value = pageData.page_remarks || '';
-            calcActivePageTotal();
+            handlePageMarksChange();
         }
 
-        function addQuestionField() {
-            const pageKey = String(currentPageNum);
-            draftData.pages = draftData.pages || {};
-            draftData.pages[pageKey] = draftData.pages[pageKey] || { questions: [] };
-            draftData.pages[pageKey].questions = draftData.pages[pageKey].questions || [];
+        function handlePageMarksChange() {
+            const awardedInput = document.getElementById('page-awarded-input');
+            const maxInput = document.getElementById('page-max-input');
+            const errorDiv = document.getElementById('page-marks-error');
 
-            const nextNum = draftData.pages[pageKey].questions.length + 1;
-            draftData.pages[pageKey].questions.push({
-                question_id: `Q${currentPageNum}(${String.fromCharCode(96 + nextNum)})`,
-                question_title: `Sub-question ${nextNum}`,
-                max_marks: 10,
-                awarded_marks: 0,
-                remarks: ''
-            });
+            const awarded = parseFloat(awardedInput.value);
+            const max = parseFloat(maxInput.value);
 
-            renderActivePage(currentPageNum);
-        }
+            let hasError = false;
+            let errorMsg = '';
 
-        function removeQuestionField(idx) {
-            const pageKey = String(currentPageNum);
-            if (draftData.pages && draftData.pages[pageKey] && draftData.pages[pageKey].questions.length > 1) {
-                draftData.pages[pageKey].questions.splice(idx, 1);
-                renderActivePage(currentPageNum);
+            if (isNaN(max) || max <= 0) {
+                hasError = true;
+                errorMsg = 'Maximum marks must be greater than zero.';
+            } else if (!isNaN(awarded) && (awarded < 0 || awarded > max)) {
+                hasError = true;
+                errorMsg = `Awarded marks cannot be negative or exceed maximum marks (${max}).`;
             }
-        }
 
-        function calcActivePageTotal() {
-            let pageAwarded = 0;
-            let pageMax = 0;
-            let hasErrors = false;
+            if (hasError) {
+                errorDiv.textContent = errorMsg;
+                errorDiv.style.display = 'block';
+                awardedInput.classList.add('invalid-input');
+            } else {
+                errorDiv.style.display = 'none';
+                awardedInput.classList.remove('invalid-input');
+            }
 
-            const qCards = document.querySelectorAll('.question-card');
-            qCards.forEach((card, idx) => {
-                const awardedInput = document.getElementById(`q-awarded-${idx}`);
-                const maxInput = document.getElementById(`q-max-${idx}`);
-                if (!awardedInput || !maxInput) return;
-
-                const awarded = parseFloat(awardedInput.value) || 0;
-                const max = parseFloat(maxInput.value) || 0;
-
-                if (awarded < 0 || awarded > max) {
-                    awardedInput.classList.add('invalid-input');
-                    hasErrors = true;
-                } else {
-                    awardedInput.classList.remove('invalid-input');
-                }
-
-                pageAwarded += awarded;
-                pageMax += max;
-            });
-
-            document.getElementById('lbl-page-subtotal').textContent = `${pageAwarded.toFixed(1)} / ${pageMax.toFixed(1)}`;
-            updateSummaryDisplays();
-            return { pageAwarded, pageMax, hasErrors };
+            const currentAwarded = isNaN(awarded) ? 0 : awarded;
+            const currentMax = isNaN(max) ? 0 : max;
+            document.getElementById('lbl-page-subtotal').textContent = `${currentAwarded.toFixed(1)} / ${currentMax.toFixed(1)}`;
+            return !hasError;
         }
 
         function updateSummaryDisplays() {
             let totalAwarded = 0;
             let totalMax = 0;
             let completedCount = 0;
-            const totalRequired = draftData ? (draftData.total_pages || 3) : 3;
+            const totalRequired = totalPagesCount || (draftData ? draftData.total_pages : 3) || 3;
 
             if (draftData && draftData.pages) {
                 Object.values(draftData.pages).forEach(p => {
-                    totalAwarded += parseFloat(p.page_total) || 0;
-                    totalMax += parseFloat(p.page_max) || 0;
+                    const aw = p.awarded_marks !== undefined ? p.awarded_marks : (p.page_total || 0);
+                    const mx = p.max_marks !== undefined ? p.max_marks : (p.page_max || 25);
+                    totalAwarded += parseFloat(aw) || 0;
+                    totalMax += parseFloat(mx) || 0;
                     if (p.is_completed) completedCount++;
                 });
             }
@@ -966,55 +956,61 @@
             document.getElementById('lbl-overall-total').textContent = `${totalAwarded.toFixed(1)} / ${totalMax.toFixed(1)}`;
             document.getElementById('hdr-score-display').textContent = `${totalAwarded.toFixed(1)} / ${totalMax.toFixed(1)}`;
 
-            const allCompleted = (completedCount >= totalRequired);
+            const allCompleted = (completedCount >= totalRequired && totalRequired > 0);
             document.getElementById('submission-callout-pending').style.display = allCompleted ? 'none' : 'block';
             document.getElementById('submission-callout-ready').style.display = allCompleted ? 'block' : 'none';
         }
 
-        // Save Current Page
+        // Save Current Page-wise Marks
         async function saveActivePage(markCompleted = false) {
-            const { pageAwarded, pageMax, hasErrors } = calcActivePageTotal();
-            if (hasErrors) {
-                showToast("Awarded marks cannot be negative or exceed maximum marks.", "error");
+            const isValid = handlePageMarksChange();
+            if (!isValid) {
+                showToast("Please fix marks validation errors before proceeding.", "error");
                 return;
             }
 
-            const questions = [];
-            const qCards = document.querySelectorAll('.question-card');
-            qCards.forEach((card, idx) => {
-                questions.push({
-                    question_id: document.getElementById(`q-id-${idx}`).value.trim(),
-                    question_title: document.getElementById(`q-title-${idx}`).value.trim(),
-                    max_marks: parseFloat(document.getElementById(`q-max-${idx}`).value) || 10,
-                    awarded_marks: parseFloat(document.getElementById(`q-awarded-${idx}`).value) || 0,
-                    remarks: document.getElementById(`q-remark-${idx}`).value.trim(),
-                });
-            });
+            const maxMarks = parseFloat(document.getElementById('page-max-input').value);
+            const awardedMarks = parseFloat(document.getElementById('page-awarded-input').value);
+            const pageRemarks = document.getElementById('page-remarks-input').value.trim();
 
-            const pageRemarks = document.getElementById('page-remarks').value.trim();
+            if (isNaN(maxMarks) || maxMarks <= 0) {
+                showToast("Please enter a valid maximum marks greater than 0.", "error");
+                return;
+            }
+
+            if (isNaN(awardedMarks)) {
+                showToast(`Please enter awarded marks for Page ${currentPageNum}.`, "error");
+                return;
+            }
+
+            if (awardedMarks < 0 || awardedMarks > maxMarks) {
+                showToast(`Awarded marks cannot be negative or exceed maximum marks (${maxMarks}).`, "error");
+                return;
+            }
 
             try {
                 const res = await authFetch(`/api/teacher/assignments/${scriptId}/page`, {
                     method: 'POST',
                     body: JSON.stringify({
                         page_number: currentPageNum,
-                        questions: questions,
+                        awarded_marks: awardedMarks,
+                        max_marks: maxMarks,
                         page_remarks: pageRemarks,
                         mark_completed: markCompleted
                     })
                 });
 
                 if (res.ok) {
-                    showToast(markCompleted ? `Page ${currentPageNum} marked complete!` : "Page progress saved.", "success");
+                    showToast(markCompleted ? `Page ${currentPageNum} marked complete!` : `Page ${currentPageNum} progress saved.`, "success");
                     draftData.pages = draftData.pages || {};
                     draftData.pages[String(currentPageNum)] = res.data.page;
                     renderPageTabs();
                     renderActivePage(currentPageNum);
                     updateSummaryDisplays();
 
-                    // If completed and not last page, advance
+                    // If completed and not last page, advance to next page
                     if (markCompleted && currentPageNum < totalPagesCount) {
-                        setTimeout(() => switchActivePage(currentPageNum + 1), 350);
+                        setTimeout(() => switchActivePage(currentPageNum + 1), 300);
                     }
                 } else {
                     showToast(res.data.error || "Failed to save page evaluation.", "error");
@@ -1041,24 +1037,26 @@
             let grandTotal = 0;
             let grandMax = 0;
 
-            const total = draftData.total_pages || 3;
+            const total = totalPagesCount || (draftData ? draftData.total_pages : 3) || 3;
             for (let i = 1; i <= total; i++) {
-                const p = (draftData.pages && draftData.pages[String(i)]) || { page_total: 0, page_max: 0, questions: [], is_completed: false };
-                grandTotal += parseFloat(p.page_total) || 0;
-                grandMax += parseFloat(p.page_max) || 0;
-
-                const qLabels = (p.questions || []).map(q => `${q.question_id}: ${q.awarded_marks}/${q.max_marks}`).join(', ');
+                const p = (draftData.pages && draftData.pages[String(i)]) || { awarded_marks: 0, max_marks: 25, page_remarks: '', is_completed: false };
+                const aw = p.awarded_marks !== undefined ? p.awarded_marks : (p.page_total || 0);
+                const mx = p.max_marks !== undefined ? p.max_marks : (p.page_max || 25);
+                grandTotal += parseFloat(aw) || 0;
+                grandMax += parseFloat(mx) || 0;
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>Page ${i}</strong></td>
-                    <td style="color: var(--muted); font-size: 12px;">${qLabels || '—'}</td>
-                    <td><strong>${(p.page_total || 0).toFixed(1)} / ${(p.page_max || 0).toFixed(1)}</strong></td>
+                    <td>${parseFloat(mx).toFixed(1)}</td>
+                    <td style="font-weight: 700; color: var(--primary);">${parseFloat(aw).toFixed(1)}</td>
+                    <td style="color: var(--muted); font-size: 12px;">${p.page_remarks || '—'}</td>
                     <td><span class="badge badge-evaluated">✓ Completed</span></td>
                 `;
                 tbody.appendChild(tr);
             }
 
+            document.getElementById('modal-grand-max').textContent = grandMax.toFixed(1);
             document.getElementById('modal-grand-total').textContent = `${grandTotal.toFixed(1)} / ${grandMax.toFixed(1)}`;
             document.getElementById('modal-confirm-checkbox').checked = false;
             document.getElementById('btn-final-submit').disabled = true;
@@ -1083,11 +1081,13 @@
             let grandMax = 0;
             const pageList = [];
 
-            const total = draftData.total_pages || 3;
+            const total = totalPagesCount || (draftData ? draftData.total_pages : 3) || 3;
             for (let i = 1; i <= total; i++) {
                 const p = draftData.pages[String(i)];
-                grandTotal += parseFloat(p.page_total) || 0;
-                grandMax += parseFloat(p.page_max) || 0;
+                const aw = p.awarded_marks !== undefined ? p.awarded_marks : (p.page_total || 0);
+                const mx = p.max_marks !== undefined ? p.max_marks : (p.page_max || 25);
+                grandTotal += parseFloat(aw) || 0;
+                grandMax += parseFloat(mx) || 0;
                 pageList.push(p);
             }
 
@@ -1138,6 +1138,11 @@
             document.getElementById('rec-marks').textContent = `${a.marks} / ${a.max_marks}`;
             document.getElementById('rec-block').textContent = `Block #${a.block_number !== undefined ? a.block_number : 'Ledger'}`;
             document.getElementById('rec-tx-id').textContent = a.transaction_id || 'Committed On-Chain';
+        }
+
+        function toggleViewForm() {
+            document.getElementById('eval-receipt-card').style.display = 'none';
+            document.getElementById('eval-console').style.display = 'flex';
         }
 
         // Initialize on load

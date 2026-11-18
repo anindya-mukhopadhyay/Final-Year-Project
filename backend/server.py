@@ -463,7 +463,9 @@ def teacher_save_page(script_id: str):
     user = get_current_user()
     data = request.get_json(silent=True) or {}
     page_number = data.get("page_number", 1)
-    questions = data.get("questions", [])
+    questions = data.get("questions")
+    awarded_marks = data.get("awarded_marks")
+    max_marks = data.get("max_marks")
     page_remarks = data.get("page_remarks", "")
     mark_completed = data.get("mark_completed", False)
 
@@ -472,6 +474,8 @@ def teacher_save_page(script_id: str):
         answer_script_id=script_id,
         page_number=page_number,
         questions=questions,
+        awarded_marks=awarded_marks,
+        max_marks=max_marks,
         page_remarks=page_remarks,
         mark_completed=mark_completed,
     )

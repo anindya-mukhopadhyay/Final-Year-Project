@@ -746,53 +746,63 @@ class AcademicApplicationService:
 
         draft = _load_evaluation_draft(answer_script_id)
         if not draft:
-            # Initialize default 3-page evaluation schema
+            # Detect actual total pages from uploaded PDF if available
+            pdf_path = os.path.join(UPLOADS_DIR, f"{answer_script_id}.pdf")
+            total_pages = 3
+            if os.path.isfile(pdf_path):
+                try:
+                    from pyhanko.pdf_utils.reader import PdfFileReader
+                    with open(pdf_path, "rb") as pf:
+                        r = PdfFileReader(pf)
+                        total_pages = int(r.root["/Pages"]["/Count"])
+                except Exception as ex:
+                    logger.warning("Could not read PDF page count: %s", ex)
+                    total_pages = 3
+            if total_pages < 1:
+                total_pages = 1
+
+            # Initialize clean page-wise evaluation schema
             draft = {
                 "answer_script_id": answer_script_id,
                 "teacher_id": current_user.user_id,
-                "total_pages": 3,
+                "total_pages": total_pages,
                 "pages": {
-                    "1": {
-                        "page_number": 1,
+                    str(p): {
+                        "page_number": p,
                         "is_completed": False,
                         "page_remarks": "",
-                        "questions": [
-                            {"question_id": "Q1(a)", "question_title": "PBFT Protocol & Phase Operations", "max_marks": 15.0, "awarded_marks": 0.0, "remarks": ""},
-                            {"question_id": "Q1(b)", "question_title": "Quorum Intersection Proof (3f + 1)", "max_marks": 10.0, "awarded_marks": 0.0, "remarks": ""},
-                        ],
+                        "awarded_marks": 0.0,
+                        "max_marks": round(100.0 / total_pages, 1),
                         "page_total": 0.0,
-                        "page_max": 25.0,
-                    },
-                    "2": {
-                        "page_number": 2,
-                        "is_completed": False,
-                        "page_remarks": "",
+                        "page_max": round(100.0 / total_pages, 1),
                         "questions": [
-                            {"question_id": "Q2", "question_title": "PAdES Signatures & ByteRange Hash Verification", "max_marks": 35.0, "awarded_marks": 0.0, "remarks": ""},
+                            {
+                                "question_id": f"Page-{p}",
+                                "question_title": f"Page {p} Marks",
+                                "max_marks": round(100.0 / total_pages, 1),
+                                "awarded_marks": 0.0,
+                                "remarks": "",
+                            }
                         ],
-                        "page_total": 0.0,
-                        "page_max": 35.0,
-                    },
-                    "3": {
-                        "page_number": 3,
-                        "is_completed": False,
-                        "page_remarks": "",
-                        "questions": [
-                            {"question_id": "Q3", "question_title": "Write-Ahead Logging (WAL) & Crash Finality", "max_marks": 40.0, "awarded_marks": 0.0, "remarks": ""},
-                        ],
-                        "page_total": 0.0,
-                        "page_max": 40.0,
-                    },
+                    }
+                    for p in range(1, total_pages + 1)
                 },
                 "overall_remarks": "",
                 "last_updated": time.time(),
             }
             _save_evaluation_draft(answer_script_id, draft)
 
-        # Recalculate live progress
+        # Ensure page objects have awarded_marks and max_marks fields
         pages = draft.get("pages", {})
-        total_awarded = sum(float(p.get("page_total", 0.0)) for p in pages.values())
-        total_max = sum(float(p.get("page_max", 0.0)) for p in pages.values())
+        for p_val in pages.values():
+            if "awarded_marks" not in p_val:
+                p_val["awarded_marks"] = p_val.get("page_total", 0.0)
+            if "max_marks" not in p_val:
+                p_val["max_marks"] = p_val.get("page_max", 25.0)
+
+        # Recalculate live progress
+        total_awarded = sum(float(p.get("page_total", p.get("awarded_marks", 0.0))) for p in pages.values())
+        total_max = sum(float(p.get("page_max", p.get("max_marks", 0.0))) for p in pages.values())
         completed_count = sum(1 for p in pages.values() if p.get("is_completed", False))
         total_count = len(pages)
         all_completed = (completed_count == total_count and total_count > 0)
@@ -815,13 +825,17 @@ class AcademicApplicationService:
         current_user: User,
         answer_script_id: str,
         page_number: int,
-        questions: List[Dict[str, Any]],
+        questions: Optional[List[Dict[str, Any]]] = None,
+        awarded_marks: Optional[float] = None,
+        max_marks: Optional[float] = None,
         page_remarks: str = "",
         mark_completed: bool = False,
     ) -> Tuple[bool, Dict[str, Any], int]:
         """
         Save page-wise marks and annotations.
-        Validates that awarded marks do not exceed max marks for any question.
+        Supports both direct page-wise marks (page_number, awarded_marks, max_marks)
+        and question-wise breakdown for flexibility.
+        Validates that awarded marks do not exceed max marks.
         Automatically updates completion status and totals.
         """
         scripts = self.get_unified_scripts_status()
@@ -838,42 +852,67 @@ class AcademicApplicationService:
         if script.get("evaluated"):
             return False, {"error": "Conflict: Evaluation has already been finalized and committed."}, 409
 
-        if not questions:
-            return False, {"error": "At least one question is required for the page."}, 400
-
         validated_questions = []
         page_total = 0.0
         page_max = 0.0
 
-        for q in questions:
-            q_id = str(q.get("question_id", "Q")).strip()
-            q_title = str(q.get("question_title", q_id)).strip()
+        if questions and len(questions) > 0:
+            # Question-wise breakdown provided
+            for q in questions:
+                q_id = str(q.get("question_id", "Q")).strip()
+                q_title = str(q.get("question_title", q_id)).strip()
+                try:
+                    awarded = float(q.get("awarded_marks", 0.0))
+                    q_max = float(q.get("max_marks", 10.0))
+                except (ValueError, TypeError):
+                    return False, {"error": f"Invalid marks for question '{q_id}'. Must be numeric."}, 400
+
+                if q_max <= 0:
+                    return False, {"error": f"Maximum marks for question '{q_id}' must be greater than zero."}, 400
+
+                if awarded < 0:
+                    return False, {"error": f"Awarded marks for question '{q_id}' cannot be negative ({awarded})."}, 400
+
+                if awarded > q_max:
+                    return False, {
+                        "error": f"Awarded marks ({awarded}) cannot exceed maximum marks ({q_max}) for question '{q_id}'."
+                    }, 400
+
+                validated_questions.append({
+                    "question_id": q_id,
+                    "question_title": q_title,
+                    "max_marks": q_max,
+                    "awarded_marks": awarded,
+                    "remarks": str(q.get("remarks", "")).strip(),
+                })
+                page_total += awarded
+                page_max += q_max
+        else:
+            # Direct Page-wise evaluation (Primary workflow)
+            if awarded_marks is None:
+                return False, {"error": f"Awarded marks for Page {page_number} are required."}, 400
             try:
-                awarded = float(q.get("awarded_marks", 0.0))
-                q_max = float(q.get("max_marks", 10.0))
+                page_total = float(awarded_marks)
+                page_max = float(max_marks if max_marks is not None else 25.0)
             except (ValueError, TypeError):
-                return False, {"error": f"Invalid marks for question '{q_id}'. Must be numeric."}, 400
+                return False, {"error": f"Invalid marks for Page {page_number}. Must be numeric."}, 400
 
-            if q_max <= 0:
-                return False, {"error": f"Maximum marks for question '{q_id}' must be greater than zero."}, 400
-
-            if awarded < 0:
-                return False, {"error": f"Awarded marks for question '{q_id}' cannot be negative ({awarded})."}, 400
-
-            if awarded > q_max:
+            if page_max <= 0:
+                return False, {"error": f"Maximum marks for Page {page_number} must be greater than zero."}, 400
+            if page_total < 0:
+                return False, {"error": f"Awarded marks for Page {page_number} cannot be negative ({page_total})."}, 400
+            if page_total > page_max:
                 return False, {
-                    "error": f"Awarded marks ({awarded}) cannot exceed maximum marks ({q_max}) for question '{q_id}'."
+                    "error": f"Awarded marks ({page_total}) cannot exceed maximum marks ({page_max}) for Page {page_number}."
                 }, 400
 
-            validated_questions.append({
-                "question_id": q_id,
-                "question_title": q_title,
-                "max_marks": q_max,
-                "awarded_marks": awarded,
-                "remarks": str(q.get("remarks", "")).strip(),
-            })
-            page_total += awarded
-            page_max += q_max
+            validated_questions = [{
+                "question_id": f"Page-{page_number}",
+                "question_title": f"Page {page_number} Marks",
+                "max_marks": page_max,
+                "awarded_marks": page_total,
+                "remarks": page_remarks.strip(),
+            }]
 
         draft = _load_evaluation_draft(answer_script_id) or {
             "answer_script_id": answer_script_id,
@@ -889,9 +928,11 @@ class AcademicApplicationService:
             "page_number": int(page_number),
             "is_completed": bool(mark_completed),
             "page_remarks": page_remarks.strip(),
-            "questions": validated_questions,
+            "awarded_marks": round(page_total, 2),
+            "max_marks": round(page_max, 2),
             "page_total": round(page_total, 2),
             "page_max": round(page_max, 2),
+            "questions": validated_questions,
         }
         draft["last_updated"] = time.time()
         _save_evaluation_draft(answer_script_id, draft)

@@ -156,17 +156,15 @@ class TestDigitalEvaluation(unittest.TestCase):
         )
         self.assertEqual(neg_marks_resp.status_code, 400)
 
-        # 3. Valid save for Page 1
+        # 3. Valid save for Page 1 (using direct page-wise marks)
         valid_page1 = self.client.post(
             f"/api/teacher/assignments/{script_id}/page",
             headers={"Authorization": f"Bearer {self.tch1_token}"},
             data=json.dumps({
                 "page_number": 1,
-                "questions": [
-                    {"question_id": "Q1(a)", "max_marks": 15, "awarded_marks": 14.5, "remarks": "Very clear"},
-                    {"question_id": "Q1(b)", "max_marks": 10, "awarded_marks": 9.0, "remarks": "Accurate proof"}
-                ],
-                "page_remarks": "Page 1 thoroughly answered",
+                "awarded_marks": 23.5,
+                "max_marks": 25.0,
+                "page_remarks": "Page 1 thoroughly answered with page-wise grading",
                 "mark_completed": True,
             }),
             content_type="application/json",
@@ -175,6 +173,8 @@ class TestDigitalEvaluation(unittest.TestCase):
         p1_data = valid_page1.get_json()
         self.assertEqual(p1_data["page"]["page_total"], 23.5)
         self.assertEqual(p1_data["page"]["page_max"], 25.0)
+        self.assertEqual(p1_data["page"]["awarded_marks"], 23.5)
+        self.assertEqual(p1_data["page"]["max_marks"], 25.0)
         self.assertTrue(p1_data["page"]["is_completed"])
         self.assertEqual(p1_data["completed_pages_count"], 1)
         self.assertFalse(p1_data["all_pages_completed"])
