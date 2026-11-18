@@ -14,6 +14,8 @@ blockchain_data/examiner_nodes/*.tmp
 data/*.json
 data/*.tmp
 data/*.db
+data/evaluation_drafts/
+data/uploads/
 generated/marksheets/*.pdf
 *.pdf
 scratch/

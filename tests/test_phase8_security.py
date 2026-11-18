@@ -274,8 +274,9 @@ class Phase8SecurityTests(unittest.TestCase):
             corrupted_chain[-1]["hash"] = "deadbeef" * 8
             self.assertFalse(nb.is_valid_chain(corrupted_chain))
 
-        # Test receive-block endpoint with forged hash
-        latest = nb.chain[-1]
+        # Test receive-block endpoint with forged hash on live node chain
+        from nodes.node import blockchain as live_nb
+        latest = live_nb.chain[-1]
         forged_block = {
             "index": latest["index"] + 1,
             "timestamp": time.time(),

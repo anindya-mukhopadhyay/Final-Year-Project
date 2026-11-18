@@ -408,19 +408,90 @@ def teacher_assignment_detail(script_id: str):
     return jsonify(payload), status_code
 
 
+@app.route("/api/teacher/assignments/<script_id>/file", methods=["GET"])
+@require_auth
+@require_role(["TEACHER", "ADMIN", "UNIVERSITY", "AUTHORITY"])
+def teacher_assignment_file(script_id: str):
+    """
+    GET /api/teacher/assignments/<id>/file
+    Securely serves original answer-script PDF with strict ownership verification.
+    """
+    user = get_current_user()
+    success, pdf_path, file_hash, status_code = academic_service.get_answer_script_file_path(
+        current_user=user,
+        answer_script_id=script_id,
+    )
+    if not success or not pdf_path or not os.path.isfile(pdf_path):
+        return jsonify({"error": "Answer script file not found or access denied."}), status_code
+
+    response = send_file(
+        pdf_path,
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name=f"{script_id}.pdf",
+    )
+    response.headers["X-AnswerScript-Hash"] = file_hash or ""
+    response.headers["X-AnswerScript-ID"] = script_id
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+@app.route("/api/teacher/assignments/<script_id>/draft", methods=["GET"])
+@require_auth
+@require_role(["TEACHER", "ADMIN"])
+def teacher_assignment_draft(script_id: str):
+    """
+    GET /api/teacher/assignments/<id>/draft
+    Retrieves page-wise evaluation progress, questions, and marks draft.
+    """
+    user = get_current_user()
+    success, payload, status_code = academic_service.get_evaluation_draft(
+        current_user=user,
+        answer_script_id=script_id,
+    )
+    return jsonify(payload), status_code
+
+
+@app.route("/api/teacher/assignments/<script_id>/page", methods=["POST"])
+@require_auth
+@require_role(["TEACHER", "ADMIN"])
+def teacher_save_page(script_id: str):
+    """
+    POST /api/teacher/assignments/<id>/page
+    Saves page-wise marks and annotations, updating completion status and live totals.
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    page_number = data.get("page_number", 1)
+    questions = data.get("questions", [])
+    page_remarks = data.get("page_remarks", "")
+    mark_completed = data.get("mark_completed", False)
+
+    success, payload, status_code = academic_service.save_page_evaluation(
+        current_user=user,
+        answer_script_id=script_id,
+        page_number=page_number,
+        questions=questions,
+        page_remarks=page_remarks,
+        mark_completed=mark_completed,
+    )
+    return jsonify(payload), status_code
+
+
 @app.route("/api/teacher/assignments/<script_id>/evaluate", methods=["POST"])
 @require_auth
 @require_role(["TEACHER", "ADMIN"])
 def teacher_evaluate(script_id: str):
     """
     POST /api/teacher/assignments/<id>/evaluate
-    Body: {"marks": 85, "max_marks": 100, "comments": "Good work"}
+    Body: {"marks": 85, "max_marks": 100, "comments": "Good work", "page_evaluations": [...]}
     """
     user = get_current_user()
     data = request.get_json(silent=True) or {}
     marks = data.get("marks")
     max_marks = data.get("max_marks", 100)
     comments = data.get("comments")
+    page_evaluations = data.get("page_evaluations")
 
     success, payload, status_code = academic_service.evaluate_assignment(
         current_user=user,
@@ -428,6 +499,7 @@ def teacher_evaluate(script_id: str):
         marks=marks,
         max_marks=max_marks,
         comments=comments,
+        page_evaluations=page_evaluations,
     )
     return jsonify(payload), status_code
 

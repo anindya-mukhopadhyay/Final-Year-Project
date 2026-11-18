@@ -3,9 +3,327 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluate Script | Faculty Examiner</title>
+    <title>Digital Answer-Script Evaluation | Faculty Examiner</title>
     <link rel="stylesheet" href="/style.css">
     <script src="/api.js"></script>
+    <!-- Local self-contained PDF.js library -->
+    <script src="/vendor/pdfjs/pdf.min.js"></script>
+    <style>
+        .studio-container {
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 20px;
+            align-items: stretch;
+            min-height: calc(100vh - 160px);
+        }
+
+        @media (max-width: 1200px) {
+            .studio-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* PDF VIEWER STYLING */
+        .pdf-viewer-card {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .pdf-toolbar {
+            background: #1e293b;
+            color: #ffffff;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pdf-toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pdf-btn {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .pdf-btn:hover {
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        .pdf-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pdf-page-display {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .pdf-canvas-container {
+            flex: 1;
+            background: #475569;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            min-height: 520px;
+            position: relative;
+        }
+
+        #pdf-canvas {
+            background: #ffffff;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+            border-radius: 4px;
+            max-width: 100%;
+        }
+
+        .pdf-footer {
+            background: #f8fafc;
+            border-top: 1px solid var(--border);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        /* EVALUATION STUDIO STYLING */
+        .eval-console-card {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .eval-console-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-soft);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-tabs-bar {
+            display: flex;
+            gap: 6px;
+            padding: 12px 20px;
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .page-tab-btn {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .page-tab-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .page-tab-btn.active {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 2px 6px rgba(49, 94, 251, 0.35);
+        }
+
+        .page-tab-btn.completed {
+            border-color: #16a34a;
+            color: #15803d;
+            background: #f0fdf4;
+        }
+
+        .page-tab-btn.completed.active {
+            background: #16a34a;
+            color: #ffffff;
+            border-color: #16a34a;
+        }
+
+        .eval-console-body {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .question-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 14px;
+            transition: border-color 0.15s ease;
+        }
+
+        .question-card:focus-within {
+            border-color: var(--primary);
+            background: #ffffff;
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .q-input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .q-input-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .q-input-group input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .q-input-group input.invalid-input {
+            border-color: #dc2626 !important;
+            background: #fef2f2 !important;
+            color: #b91c1c !important;
+        }
+
+        .score-summary-bar {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        /* MODAL STYLING */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            place-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .modal-card {
+            background: #ffffff;
+            border-radius: 14px;
+            max-width: 650px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            background: #1e293b;
+            color: #ffffff;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 24px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            background: #f8fafc;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 13px;
+        }
+
+        .breakdown-table th, .breakdown-table td {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        .breakdown-table th {
+            background: #f1f5f9;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
     <div class="app">
@@ -41,8 +359,8 @@
         <main class="main-content">
             <header class="topbar">
                 <div>
-                    <h2 style="font-size: 20px; font-weight: 700;">Answer Script Evaluation</h2>
-                    <p style="font-size: 13px; color: var(--muted);">Submit verified examination marks to the distributed ledger</p>
+                    <h2 style="font-size: 20px; font-weight: 700;">Digital Answer-Script Evaluation Studio</h2>
+                    <p style="font-size: 13px; color: var(--muted);">View original scanned PDF and record verified page-wise marks on the blockchain</p>
                 </div>
 
                 <div class="header-actions">
@@ -57,98 +375,259 @@
                 </div>
             </header>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
-                <!-- EVALUATION FORM -->
-                <div class="form-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="font-size: 16px; font-weight: 600;">Grade Submission</h3>
-                        <span id="script-badge" class="badge badge-assigned">Assigned</span>
+            <!-- METADATA HEADER CARD -->
+            <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                    <div>
+                        <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; display: block;">Script ID</span>
+                        <strong style="font-size: 15px; color: var(--text);" id="lbl-script-id">—</strong>
                     </div>
-
-                    <form id="eval-form">
-                        <div style="background: var(--surface-soft); padding: 14px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 20px;">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
-                                <div><span style="color:var(--muted)">Script ID:</span> <strong id="lbl-script-id">—</strong></div>
-                                <div><span style="color:var(--muted)">Student ID:</span> <strong id="lbl-student-id">—</strong></div>
-                                <div><span style="color:var(--muted)">Student Name:</span> <strong id="lbl-student-name">—</strong></div>
-                                <div><span style="color:var(--muted)">Examination:</span> <strong id="lbl-exam-name">—</strong></div>
-                            </div>
-                            <div style="margin-top: 8px; font-size: 11px;">
-                                <span style="color:var(--muted)">SHA-256 Hash:</span> <span class="hash-display" id="lbl-hash">—</span>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="marks">Marks Obtained *</label>
-                                <input type="number" step="0.5" id="marks" class="form-control" placeholder="e.g. 88" required min="0">
-                            </div>
-                            <div class="form-group">
-                                <label for="max_marks">Maximum Marks *</label>
-                                <input type="number" id="max_marks" class="form-control" value="100" required min="1">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="comments">Examiner Remarks &amp; Feedback (Optional)</label>
-                            <textarea id="comments" class="form-control" rows="3" placeholder="Enter academic feedback or grading notes..."></textarea>
-                        </div>
-
-                        <div style="margin-top: 10px; padding: 10px 14px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; font-size: 12px; color: #92400e;">
-                            ⚠️ <strong>Immutable Record:</strong> Once submitted, your evaluation transaction will be broadcast to the distributed blockchain network and cannot be altered.
-                        </div>
-
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button type="submit" id="eval-btn" class="btn btn-primary" style="flex: 2; justify-content: center;">
-                                Submit Evaluation to Blockchain
-                            </button>
-                            <a href="/teacher/assignments.html" class="btn btn-secondary" style="flex: 1; justify-content: center;">Cancel</a>
-                        </div>
-                    </form>
+                    <div>
+                        <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; display: block;">Candidate</span>
+                        <strong style="font-size: 15px; color: var(--text);" id="lbl-student-name">—</strong>
+                        <small style="color: var(--muted);" id="lbl-student-id">(—)</small>
+                    </div>
+                    <div>
+                        <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; display: block;">Subject / Exam</span>
+                        <strong style="font-size: 14px; color: var(--text);" id="lbl-exam-name">—</strong>
+                    </div>
                 </div>
 
-                <!-- CONFIRMATION RECEIPT -->
-                <div class="table-card" id="eval-receipt" style="display: none; padding: 24px;">
-                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #dcfce7; color: #166534; display: grid; place-items: center; font-size: 20px;">✓</div>
+                <div style="display: flex; gap: 16px; align-items: center;">
+                    <div style="text-align: right;">
+                        <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; display: block;">Total Score</span>
+                        <strong style="font-size: 20px; color: var(--primary);" id="hdr-score-display">0.0 / 100</strong>
+                    </div>
+                    <span id="script-badge" class="badge badge-assigned" style="padding: 6px 12px; font-size: 12px;">Assigned</span>
+                </div>
+            </div>
+
+            <!-- STUDIO WORKSPACE: SPLIT SCREEN -->
+            <div class="studio-container" id="studio-workspace">
+                
+                <!-- LEFT COLUMN: INTEGRATED PDF VIEWER -->
+                <div class="pdf-viewer-card" id="pdf-container">
+                    <div class="pdf-toolbar">
+                        <div class="pdf-toolbar-group">
+                            <button class="pdf-btn" id="btn-prev-page" onclick="prevPdfPage()">◀ Prev</button>
+                            <span class="pdf-page-display">
+                                Page <span id="current-page-num">1</span> of <span id="total-page-count">3</span>
+                            </span>
+                            <button class="pdf-btn" id="btn-next-page" onclick="nextPdfPage()">Next ▶</button>
+                        </div>
+
+                        <div class="pdf-toolbar-group">
+                            <button class="pdf-btn" onclick="zoomPdf(-0.2)" title="Zoom Out">− Zoom</button>
+                            <span style="font-size: 11px; font-weight: 600; color: #94a3b8;" id="zoom-level-text">100%</span>
+                            <button class="pdf-btn" onclick="zoomPdf(0.2)" title="Zoom In">+ Zoom</button>
+                            <button class="pdf-btn" onclick="fitPdfWidth()">Fit Width</button>
+                            <button class="pdf-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen">⛶ Fullscreen</button>
+                        </div>
+                    </div>
+
+                    <div class="pdf-canvas-container" id="canvas-wrapper">
+                        <canvas id="pdf-canvas"></canvas>
+                        <div id="pdf-loading-msg" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ffffff; font-weight: 600; display: none;">
+                            Loading Answer Script PDF...
+                        </div>
+                    </div>
+
+                    <div class="pdf-footer">
+                        <span><strong style="color: #16a34a;">✓ SHA-256 Verified:</strong> <span id="pdf-hash-display" class="hash-display" style="font-size: 10px;">—</span></span>
+                        <span>Original Student Script Protected</span>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: DIGITAL PAGE-WISE EVALUATION -->
+                <div class="eval-console-card" id="eval-console">
+                    <div class="eval-console-header">
                         <div>
-                            <h3 style="font-size: 18px; font-weight: 700; color: #166534;">Evaluation Broadcast &amp; Confirmed</h3>
-                            <p style="font-size: 12px; color: var(--muted);">Recorded on distributed ledger by Teacher Node</p>
+                            <h3 style="font-size: 16px; font-weight: 700; color: var(--text);" id="console-page-title">Page 1 Evaluation</h3>
+                            <small style="color: var(--muted);">Digitally mark individual questions for this page</small>
+                        </div>
+                        <span id="page-status-badge" class="badge badge-assigned">In Progress</span>
+                    </div>
+
+                    <!-- PAGE NAVIGATION TABS -->
+                    <div class="page-tabs-bar" id="page-tabs-bar">
+                        <!-- Populated dynamically: Page 1, Page 2, Page 3 -->
+                    </div>
+
+                    <div class="eval-console-body">
+                        <!-- LIVE SCORE SUMMARY -->
+                        <div class="score-summary-bar">
+                            <div>
+                                <small style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">Page Subtotal</small>
+                                <strong style="font-size: 16px; color: var(--text);" id="lbl-page-subtotal">0.0 / 25.0</strong>
+                            </div>
+                            <div style="text-align: center;">
+                                <small style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">Completion</small>
+                                <strong style="font-size: 14px; color: var(--primary);" id="lbl-completion-stat">0 / 3 Pages</strong>
+                            </div>
+                            <div style="text-align: right;">
+                                <small style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600; display: block;">Overall Total</small>
+                                <strong style="font-size: 16px; color: #16a34a;" id="lbl-overall-total">0.0 / 100</strong>
+                            </div>
+                        </div>
+
+                        <!-- QUESTIONS LIST FOR ACTIVE PAGE -->
+                        <div id="questions-container">
+                            <!-- Populated dynamically -->
+                        </div>
+
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="addQuestionField()" style="margin-bottom: 16px; width: 100%; justify-content: center;">
+                            + Add Question / Sub-Question to Page
+                        </button>
+
+                        <!-- PAGE REMARKS -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px;">Page Examiner Remarks &amp; Feedback</label>
+                            <textarea id="page-remarks" class="form-control" rows="2" placeholder="e.g. Accurate derivation and clear diagram..."></textarea>
+                        </div>
+
+                        <!-- PAGE ACTIONS -->
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <button type="button" class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="saveActivePage(false)">
+                                Save Progress
+                            </button>
+                            <button type="button" class="btn btn-primary" id="btn-complete-page" style="flex: 1.5; justify-content: center;" onclick="saveActivePage(true)">
+                                ✓ Mark Page Complete
+                            </button>
+                        </div>
+
+                        <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+
+                        <!-- FINAL SUBMISSION CALLOUT -->
+                        <div id="submission-callout-pending" style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 12px; font-size: 12px; color: #92400e;">
+                            ⚠️ <strong>Complete all pages:</strong> You must enter marks and mark all pages complete to unlock final blockchain submission.
+                        </div>
+
+                        <div id="submission-callout-ready" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; text-align: center;">
+                            <p style="font-size: 13px; font-weight: 600; color: #166534; margin-bottom: 8px;">
+                                ✓ All pages have been completed and verified!
+                            </p>
+                            <button type="button" class="btn btn-primary" onclick="openConfirmationModal()" style="width: 100%; justify-content: center; background: #16a34a; border-color: #16a34a; font-size: 14px; padding: 10px;">
+                                Review &amp; Confirm Final Evaluation
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- CONFIRMATION RECEIPT (SHOWN AFTER SUBMISSION) -->
+                <div class="eval-console-card" id="eval-receipt-card" style="display: none; padding: 24px;">
+                    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 24px;">
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: #dcfce7; color: #166534; display: grid; place-items: center; font-size: 24px; font-weight: 700;">✓</div>
+                        <div>
+                            <h3 style="font-size: 18px; font-weight: 700; color: #166534;">Evaluation Broadcast &amp; Committed</h3>
+                            <p style="font-size: 12px; color: var(--muted);">Cryptographically signed and verified by Examiner Consensus Node</p>
                         </div>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 14px; font-size: 13px;">
                         <div>
-                            <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Evaluation ID</span>
+                            <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Evaluation Reference ID</span>
                             <strong style="font-size: 16px; color: var(--text);" id="rec-eval-id">—</strong>
                         </div>
                         <div style="display: flex; gap: 24px;">
                             <div>
-                                <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Marks Awarded</span>
-                                <strong style="font-size: 16px; color: var(--primary);" id="rec-marks">—</strong>
+                                <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Final Marks Awarded</span>
+                                <strong style="font-size: 18px; color: var(--primary);" id="rec-marks">—</strong>
                             </div>
                             <div>
-                                <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Block Number</span>
-                                <strong style="font-size: 16px; color: var(--primary);" id="rec-block">—</strong>
+                                <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Blockchain Block</span>
+                                <strong style="font-size: 18px; color: var(--primary);" id="rec-block">—</strong>
                             </div>
                         </div>
                         <div>
-                            <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Transaction ID</span>
+                            <span style="color: var(--muted); display: block; font-size: 11px; text-transform: uppercase;">Immutable Transaction Hash</span>
                             <div class="hash-display" id="rec-tx-id">—</div>
                         </div>
                     </div>
 
-                    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; gap: 10px;">
+                    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; gap: 12px;">
                         <a href="/teacher/assignments.html" class="btn btn-primary" style="flex: 1; justify-content: center;">
-                            Return to Assignments
+                            Return to My Assignments
                         </a>
                     </div>
                 </div>
+
             </div>
         </main>
     </div>
 
+    <!-- FINAL CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="confirm-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3 style="font-size: 17px; font-weight: 700;">Confirm Evaluation Submission</h3>
+                    <p style="font-size: 12px; color: #94a3b8;">Review breakdown before cryptographic blockchain broadcast</p>
+                </div>
+                <button type="button" onclick="closeConfirmationModal()" style="background: none; border: none; color: #ffffff; font-size: 20px; cursor: pointer;">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div style="background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+                        <div><span style="color:var(--muted)">Script ID:</span> <strong id="modal-script-id">—</strong></div>
+                        <div><span style="color:var(--muted)">Student ID:</span> <strong id="modal-student-id">—</strong></div>
+                        <div><span style="color:var(--muted)">Candidate:</span> <strong id="modal-student-name">—</strong></div>
+                        <div><span style="color:var(--muted)">Examination:</span> <strong id="modal-exam-name">—</strong></div>
+                    </div>
+                </div>
+
+                <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">Page-wise Evaluation Breakdown</h4>
+                <table class="breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>Page #</th>
+                            <th>Questions</th>
+                            <th>Subtotal</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-breakdown-body">
+                        <!-- Dynamic rows -->
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f8fafc; font-weight: 700;">
+                            <td colspan="2">Grand Total Awarded</td>
+                            <td colspan="2" style="font-size: 16px; color: var(--primary);" id="modal-grand-total">—</td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div style="margin-top: 14px;">
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px;">Overall Examiner Remarks (Optional)</label>
+                    <textarea id="modal-overall-remarks" class="form-control" rows="2" placeholder="Overall examination performance notes..."></textarea>
+                </div>
+
+                <div style="margin-top: 16px; padding: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 12px; color: #1e40af;">
+                    <label style="display: flex; gap: 8px; align-items: flex-start; cursor: pointer;">
+                        <input type="checkbox" id="modal-confirm-checkbox" style="margin-top: 2px;">
+                        <span>
+                            <strong>Legal Declaration:</strong> I confirm that I have evaluated every answer page of this script. The marks are final and verified. Upon submission, this record will be cryptographically signed with my faculty key and cannot be altered.
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeConfirmationModal()">Cancel &amp; Edit</button>
+                <button type="button" class="btn btn-primary" id="btn-final-submit" onclick="submitFinalEvaluation()" disabled style="background: #16a34a; border-color: #16a34a;">
+                    Confirm &amp; Broadcast to Blockchain
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Setup PDF.js worker
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.js';
+        }
+
         const user = requireAuth(["TEACHER", "ADMIN"]);
         if (user) {
             document.getElementById('user-name').textContent = user.name;
@@ -164,81 +643,505 @@
             window.location.href = '/teacher/assignments.html';
         }
 
-        async function loadScriptDetails() {
+        // State Management
+        let pdfDoc = null;
+        let currentPageNum = 1;
+        let totalPagesCount = 3;
+        let pdfScale = 1.0;
+        let assignmentData = null;
+        let draftData = null;
+
+        // Load Assignment and Initialize
+        async function initEvaluationStudio() {
             try {
-                const res = await authFetch(`/api/teacher/assignments/${scriptId}`);
-                if (!res.ok) {
-                    alert(res.data.message || 'Access denied: You are not assigned to evaluate this answer script.');
+                // 1. Load Draft and Assignment Detail
+                const draftRes = await authFetch(`/api/teacher/assignments/${scriptId}/draft`);
+                if (!draftRes.ok) {
+                    alert(draftRes.data.error || draftRes.data.message || 'Access denied to this assignment.');
                     window.location.href = '/teacher/assignments.html';
                     return;
                 }
 
-                const a = res.data.assignment;
-                document.getElementById('lbl-script-id').textContent = a.answer_script_id;
-                document.getElementById('lbl-student-id').textContent = a.student_id;
-                document.getElementById('lbl-student-name').textContent = a.student_name;
-                document.getElementById('lbl-exam-name').textContent = a.exam_name;
-                document.getElementById('lbl-hash').textContent = a.file_hash;
+                const data = draftRes.data;
+                assignmentData = data.script;
+                draftData = data.draft;
 
-                if (a.evaluated) {
-                    document.getElementById('marks').value = a.marks;
-                    document.getElementById('max_marks').value = a.max_marks;
-                    document.getElementById('marks').disabled = true;
-                    document.getElementById('max_marks').disabled = true;
-                    document.getElementById('comments').disabled = true;
-                    document.getElementById('eval-btn').disabled = true;
-                    document.getElementById('eval-btn').textContent = 'Evaluation Already Submitted';
+                // Update Header
+                document.getElementById('lbl-script-id').textContent = assignmentData.answer_script_id;
+                document.getElementById('lbl-student-id').textContent = `(${assignmentData.student_id})`;
+                document.getElementById('lbl-student-name').textContent = assignmentData.student_name;
+                document.getElementById('lbl-exam-name').textContent = assignmentData.exam_name;
+                document.getElementById('pdf-hash-display').textContent = assignmentData.file_hash;
+
+                if (data.evaluated) {
                     document.getElementById('script-badge').className = 'badge badge-evaluated';
                     document.getElementById('script-badge').textContent = 'Evaluated';
+                    showAlreadyEvaluatedReceipt(assignmentData);
                 }
-            } catch (e) {
-                console.error(e);
-                showToast('Network error loading assignment', 'error');
+
+                // 2. Load PDF into integrated viewer
+                loadPdfViewer();
+
+                // 3. Render Page Tabs & Current Page Questions
+                renderPageTabs();
+                renderActivePage(currentPageNum);
+                updateSummaryDisplays();
+
+            } catch (err) {
+                console.error("Init Studio Error:", err);
+                showToast("Failed to initialize evaluation studio.", "error");
             }
         }
 
-        document.getElementById('eval-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('eval-btn');
-            btn.disabled = true;
-            btn.textContent = 'Submitting & Broadcasting to Node-2...';
+        // ==========================================
+        // PDF VIEWER FUNCTIONS
+        // ==========================================
 
-            const marks = parseFloat(document.getElementById('marks').value);
-            const maxMarks = parseFloat(document.getElementById('max_marks').value);
-            const comments = document.getElementById('comments').value;
+        async function loadPdfViewer() {
+            const canvas = document.getElementById('pdf-canvas');
+            const loadingMsg = document.getElementById('pdf-loading-msg');
+            loadingMsg.style.display = 'block';
+
+            try {
+                const pdfUrl = `/api/teacher/assignments/${scriptId}/file`;
+                const token = getAuthToken();
+
+                const loadingTask = pdfjsLib.getDocument({
+                    url: pdfUrl,
+                    httpHeaders: { 'Authorization': `Bearer ${token}` }
+                });
+
+                pdfDoc = await loadingTask.promise;
+                totalPagesCount = pdfDoc.numPages;
+                document.getElementById('total-page-count').textContent = totalPagesCount;
+                loadingMsg.style.display = 'none';
+
+                renderPdfPage(currentPageNum);
+            } catch (err) {
+                console.error("PDF Load Error:", err);
+                loadingMsg.textContent = "Unable to load PDF via canvas. Rendering native fallback viewer...";
+                // Fallback to iframe/embed if canvas fails
+                document.getElementById('canvas-wrapper').innerHTML = `
+                    <iframe src="/api/teacher/assignments/${scriptId}/file" style="width: 100%; height: 600px; border: none;"></iframe>
+                `;
+            }
+        }
+
+        async function renderPdfPage(num) {
+            if (!pdfDoc) return;
+            const page = await pdfDoc.getPage(num);
+            const canvas = document.getElementById('pdf-canvas');
+            const ctx = canvas.getContext('2d');
+
+            const viewport = page.getViewport({ scale: pdfScale });
+            const outputScale = window.devicePixelRatio || 1;
+
+            canvas.width = Math.floor(viewport.width * outputScale);
+            canvas.height = Math.floor(viewport.height * outputScale);
+            canvas.style.width = Math.floor(viewport.width) + "px";
+            canvas.style.height = Math.floor(viewport.height) + "px";
+
+            const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+            const renderContext = {
+                canvasContext: ctx,
+                transform: transform,
+                viewport: viewport
+            };
+
+            await page.render(renderContext).promise;
+
+            document.getElementById('current-page-num').textContent = num;
+            document.getElementById('btn-prev-page').disabled = (num <= 1);
+            document.getElementById('btn-next-page').disabled = (num >= totalPagesCount);
+        }
+
+        function prevPdfPage() {
+            if (currentPageNum > 1) {
+                switchActivePage(currentPageNum - 1);
+            }
+        }
+
+        function nextPdfPage() {
+            if (currentPageNum < totalPagesCount) {
+                switchActivePage(currentPageNum + 1);
+            }
+        }
+
+        function zoomPdf(delta) {
+            pdfScale = Math.max(0.6, Math.min(2.5, pdfScale + delta));
+            document.getElementById('zoom-level-text').textContent = `${Math.round(pdfScale * 100)}%`;
+            renderPdfPage(currentPageNum);
+        }
+
+        function fitPdfWidth() {
+            const containerWidth = document.getElementById('canvas-wrapper').clientWidth - 40;
+            if (pdfDoc) {
+                pdfDoc.getPage(currentPageNum).then(page => {
+                    const unscaledViewport = page.getViewport({ scale: 1.0 });
+                    pdfScale = Math.max(0.5, containerWidth / unscaledViewport.width);
+                    document.getElementById('zoom-level-text').textContent = `${Math.round(pdfScale * 100)}%`;
+                    renderPdfPage(currentPageNum);
+                });
+            }
+        }
+
+        function toggleFullscreen() {
+            const el = document.getElementById('pdf-container');
+            if (!document.fullscreenElement) {
+                el.requestFullscreen().catch(err => alert("Fullscreen error: " + err.message));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // ==========================================
+        // PAGE-WISE EVALUATION FUNCTIONS
+        // ==========================================
+
+        function renderPageTabs() {
+            const tabsContainer = document.getElementById('page-tabs-bar');
+            tabsContainer.innerHTML = '';
+
+            const total = draftData.total_pages || totalPagesCount || 3;
+            for (let i = 1; i <= total; i++) {
+                const pageKey = String(i);
+                const pageData = (draftData.pages && draftData.pages[pageKey]) || { is_completed: false };
+                const isCompleted = pageData.is_completed;
+                const isActive = (i === currentPageNum);
+
+                const tab = document.createElement('button');
+                tab.className = `page-tab-btn ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`;
+                tab.innerHTML = `Page ${i} ${isCompleted ? '✓' : ''}`;
+                tab.onclick = () => switchActivePage(i);
+                tabsContainer.appendChild(tab);
+            }
+        }
+
+        function switchActivePage(pageNum) {
+            currentPageNum = pageNum;
+            renderPdfPage(pageNum);
+            renderPageTabs();
+            renderActivePage(pageNum);
+        }
+
+        function renderActivePage(pageNum) {
+            const pageKey = String(pageNum);
+            document.getElementById('console-page-title').textContent = `Page ${pageNum} Evaluation`;
+
+            const pageData = (draftData.pages && draftData.pages[pageKey]) || {
+                page_number: pageNum,
+                is_completed: false,
+                page_remarks: '',
+                questions: [
+                    { question_id: `Q${pageNum}`, question_title: `Question ${pageNum}`, max_marks: 25, awarded_marks: 0, remarks: '' }
+                ]
+            };
+
+            // Badge
+            const badge = document.getElementById('page-status-badge');
+            if (pageData.is_completed) {
+                badge.className = 'badge badge-evaluated';
+                badge.textContent = 'Completed ✓';
+            } else {
+                badge.className = 'badge badge-assigned';
+                badge.textContent = 'In Progress';
+            }
+
+            // Questions Container
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
+            (pageData.questions || []).forEach((q, idx) => {
+                const card = document.createElement('div');
+                card.className = 'question-card';
+                card.id = `q-card-${idx}`;
+                card.innerHTML = `
+                    <div class="question-header">
+                        <strong style="font-size: 13px; color: var(--text);">Question ${idx + 1}</strong>
+                        ${pageData.questions.length > 1 ? `<button type="button" class="btn btn-sm" style="color: #ef4444; padding: 2px 6px;" onclick="removeQuestionField(${idx})">✕</button>` : ''}
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <input type="text" class="form-control" style="font-size: 12px; padding: 6px 10px;" id="q-title-${idx}" value="${q.question_title || ''}" placeholder="Question Title / Topic">
+                    </div>
+                    <div class="q-input-group">
+                        <div>
+                            <label>Question ID</label>
+                            <input type="text" id="q-id-${idx}" value="${q.question_id || 'Q' + (idx + 1)}">
+                        </div>
+                        <div>
+                            <label>Max Marks</label>
+                            <input type="number" step="0.5" min="1" id="q-max-${idx}" value="${q.max_marks || 10}" oninput="calcActivePageTotal()">
+                        </div>
+                    </div>
+                    <div class="q-input-group">
+                        <div>
+                            <label>Awarded Marks *</label>
+                            <input type="number" step="0.5" min="0" id="q-awarded-${idx}" value="${q.awarded_marks !== undefined ? q.awarded_marks : 0}" oninput="calcActivePageTotal()">
+                        </div>
+                        <div>
+                            <label>Remark (Optional)</label>
+                            <input type="text" id="q-remark-${idx}" value="${q.remarks || ''}" placeholder="e.g. Good concept">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('page-remarks').value = pageData.page_remarks || '';
+            calcActivePageTotal();
+        }
+
+        function addQuestionField() {
+            const pageKey = String(currentPageNum);
+            draftData.pages = draftData.pages || {};
+            draftData.pages[pageKey] = draftData.pages[pageKey] || { questions: [] };
+            draftData.pages[pageKey].questions = draftData.pages[pageKey].questions || [];
+
+            const nextNum = draftData.pages[pageKey].questions.length + 1;
+            draftData.pages[pageKey].questions.push({
+                question_id: `Q${currentPageNum}(${String.fromCharCode(96 + nextNum)})`,
+                question_title: `Sub-question ${nextNum}`,
+                max_marks: 10,
+                awarded_marks: 0,
+                remarks: ''
+            });
+
+            renderActivePage(currentPageNum);
+        }
+
+        function removeQuestionField(idx) {
+            const pageKey = String(currentPageNum);
+            if (draftData.pages && draftData.pages[pageKey] && draftData.pages[pageKey].questions.length > 1) {
+                draftData.pages[pageKey].questions.splice(idx, 1);
+                renderActivePage(currentPageNum);
+            }
+        }
+
+        function calcActivePageTotal() {
+            let pageAwarded = 0;
+            let pageMax = 0;
+            let hasErrors = false;
+
+            const qCards = document.querySelectorAll('.question-card');
+            qCards.forEach((card, idx) => {
+                const awardedInput = document.getElementById(`q-awarded-${idx}`);
+                const maxInput = document.getElementById(`q-max-${idx}`);
+                if (!awardedInput || !maxInput) return;
+
+                const awarded = parseFloat(awardedInput.value) || 0;
+                const max = parseFloat(maxInput.value) || 0;
+
+                if (awarded < 0 || awarded > max) {
+                    awardedInput.classList.add('invalid-input');
+                    hasErrors = true;
+                } else {
+                    awardedInput.classList.remove('invalid-input');
+                }
+
+                pageAwarded += awarded;
+                pageMax += max;
+            });
+
+            document.getElementById('lbl-page-subtotal').textContent = `${pageAwarded.toFixed(1)} / ${pageMax.toFixed(1)}`;
+            updateSummaryDisplays();
+            return { pageAwarded, pageMax, hasErrors };
+        }
+
+        function updateSummaryDisplays() {
+            let totalAwarded = 0;
+            let totalMax = 0;
+            let completedCount = 0;
+            const totalRequired = draftData ? (draftData.total_pages || 3) : 3;
+
+            if (draftData && draftData.pages) {
+                Object.values(draftData.pages).forEach(p => {
+                    totalAwarded += parseFloat(p.page_total) || 0;
+                    totalMax += parseFloat(p.page_max) || 0;
+                    if (p.is_completed) completedCount++;
+                });
+            }
+
+            document.getElementById('lbl-completion-stat').textContent = `${completedCount} / ${totalRequired} Pages`;
+            document.getElementById('lbl-overall-total').textContent = `${totalAwarded.toFixed(1)} / ${totalMax.toFixed(1)}`;
+            document.getElementById('hdr-score-display').textContent = `${totalAwarded.toFixed(1)} / ${totalMax.toFixed(1)}`;
+
+            const allCompleted = (completedCount >= totalRequired);
+            document.getElementById('submission-callout-pending').style.display = allCompleted ? 'none' : 'block';
+            document.getElementById('submission-callout-ready').style.display = allCompleted ? 'block' : 'none';
+        }
+
+        // Save Current Page
+        async function saveActivePage(markCompleted = false) {
+            const { pageAwarded, pageMax, hasErrors } = calcActivePageTotal();
+            if (hasErrors) {
+                showToast("Awarded marks cannot be negative or exceed maximum marks.", "error");
+                return;
+            }
+
+            const questions = [];
+            const qCards = document.querySelectorAll('.question-card');
+            qCards.forEach((card, idx) => {
+                questions.push({
+                    question_id: document.getElementById(`q-id-${idx}`).value.trim(),
+                    question_title: document.getElementById(`q-title-${idx}`).value.trim(),
+                    max_marks: parseFloat(document.getElementById(`q-max-${idx}`).value) || 10,
+                    awarded_marks: parseFloat(document.getElementById(`q-awarded-${idx}`).value) || 0,
+                    remarks: document.getElementById(`q-remark-${idx}`).value.trim(),
+                });
+            });
+
+            const pageRemarks = document.getElementById('page-remarks').value.trim();
+
+            try {
+                const res = await authFetch(`/api/teacher/assignments/${scriptId}/page`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        page_number: currentPageNum,
+                        questions: questions,
+                        page_remarks: pageRemarks,
+                        mark_completed: markCompleted
+                    })
+                });
+
+                if (res.ok) {
+                    showToast(markCompleted ? `Page ${currentPageNum} marked complete!` : "Page progress saved.", "success");
+                    draftData.pages = draftData.pages || {};
+                    draftData.pages[String(currentPageNum)] = res.data.page;
+                    renderPageTabs();
+                    renderActivePage(currentPageNum);
+                    updateSummaryDisplays();
+
+                    // If completed and not last page, advance
+                    if (markCompleted && currentPageNum < totalPagesCount) {
+                        setTimeout(() => switchActivePage(currentPageNum + 1), 350);
+                    }
+                } else {
+                    showToast(res.data.error || "Failed to save page evaluation.", "error");
+                }
+            } catch (err) {
+                console.error("Save Page Error:", err);
+                showToast("Network error saving page.", "error");
+            }
+        }
+
+        // ==========================================
+        // FINAL CONFIRMATION & BLOCKCHAIN SUBMISSION
+        // ==========================================
+
+        function openConfirmationModal() {
+            document.getElementById('modal-script-id').textContent = assignmentData.answer_script_id;
+            document.getElementById('modal-student-id').textContent = assignmentData.student_id;
+            document.getElementById('modal-student-name').textContent = assignmentData.student_name;
+            document.getElementById('modal-exam-name').textContent = assignmentData.exam_name;
+
+            const tbody = document.getElementById('modal-breakdown-body');
+            tbody.innerHTML = '';
+
+            let grandTotal = 0;
+            let grandMax = 0;
+
+            const total = draftData.total_pages || 3;
+            for (let i = 1; i <= total; i++) {
+                const p = (draftData.pages && draftData.pages[String(i)]) || { page_total: 0, page_max: 0, questions: [], is_completed: false };
+                grandTotal += parseFloat(p.page_total) || 0;
+                grandMax += parseFloat(p.page_max) || 0;
+
+                const qLabels = (p.questions || []).map(q => `${q.question_id}: ${q.awarded_marks}/${q.max_marks}`).join(', ');
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>Page ${i}</strong></td>
+                    <td style="color: var(--muted); font-size: 12px;">${qLabels || '—'}</td>
+                    <td><strong>${(p.page_total || 0).toFixed(1)} / ${(p.page_max || 0).toFixed(1)}</strong></td>
+                    <td><span class="badge badge-evaluated">✓ Completed</span></td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            document.getElementById('modal-grand-total').textContent = `${grandTotal.toFixed(1)} / ${grandMax.toFixed(1)}`;
+            document.getElementById('modal-confirm-checkbox').checked = false;
+            document.getElementById('btn-final-submit').disabled = true;
+
+            document.getElementById('modal-confirm-checkbox').onchange = (e) => {
+                document.getElementById('btn-final-submit').disabled = !e.target.checked;
+            };
+
+            document.getElementById('confirm-modal').style.display = 'grid';
+        }
+
+        function closeConfirmationModal() {
+            document.getElementById('confirm-modal').style.display = 'none';
+        }
+
+        async function submitFinalEvaluation() {
+            const btn = document.getElementById('btn-final-submit');
+            btn.disabled = true;
+            btn.textContent = 'Signing & Broadcasting to Blockchain...';
+
+            let grandTotal = 0;
+            let grandMax = 0;
+            const pageList = [];
+
+            const total = draftData.total_pages || 3;
+            for (let i = 1; i <= total; i++) {
+                const p = draftData.pages[String(i)];
+                grandTotal += parseFloat(p.page_total) || 0;
+                grandMax += parseFloat(p.page_max) || 0;
+                pageList.push(p);
+            }
+
+            const overallRemarks = document.getElementById('modal-overall-remarks').value.trim();
 
             try {
                 const res = await authFetch(`/api/teacher/assignments/${scriptId}/evaluate`, {
                     method: 'POST',
-                    body: JSON.stringify({ marks: marks, max_marks: maxMarks, comments: comments })
+                    body: JSON.stringify({
+                        marks: grandTotal,
+                        max_marks: grandMax,
+                        comments: overallRemarks,
+                        page_evaluations: pageList
+                    })
                 });
 
                 if (res.ok) {
-                    showToast('Evaluation submitted successfully to blockchain!', 'success');
-                    document.getElementById('eval-receipt').style.display = 'block';
-                    document.getElementById('rec-eval-id').textContent = res.data.evaluation_id;
-                    document.getElementById('rec-marks').textContent = `${marks} / ${maxMarks}`;
-                    document.getElementById('rec-block').textContent = `Block #${res.data.block_number !== undefined ? res.data.block_number : 'Synced'}`;
-                    document.getElementById('rec-tx-id').textContent = res.data.transaction_id || 'Confirmed';
+                    closeConfirmationModal();
+                    showToast("Evaluation committed to blockchain!", "success");
 
-                    document.getElementById('marks').disabled = true;
-                    document.getElementById('max_marks').disabled = true;
-                    document.getElementById('comments').disabled = true;
-                    btn.textContent = 'Evaluation Confirmed';
+                    document.getElementById('studio-workspace').style.display = 'grid';
+                    document.getElementById('eval-console').style.display = 'none';
+                    document.getElementById('eval-receipt-card').style.display = 'block';
+
+                    document.getElementById('rec-eval-id').textContent = res.data.evaluation_id;
+                    document.getElementById('rec-marks').textContent = `${grandTotal.toFixed(1)} / ${grandMax.toFixed(1)}`;
+                    document.getElementById('rec-block').textContent = `Block #${res.data.block_number !== undefined ? res.data.block_number : 'Synced'}`;
+                    document.getElementById('rec-tx-id').textContent = res.data.transaction_id || 'Confirmed & Committed';
+                    document.getElementById('script-badge').className = 'badge badge-evaluated';
+                    document.getElementById('script-badge').textContent = 'Evaluated';
                 } else {
-                    showToast(res.data.error || res.data.message || 'Evaluation submission failed.', 'error');
+                    showToast(res.data.error || res.data.message || "Failed to commit evaluation.", "error");
                     btn.disabled = false;
-                    btn.textContent = 'Submit Evaluation to Blockchain';
+                    btn.textContent = 'Confirm & Broadcast to Blockchain';
                 }
             } catch (err) {
-                console.error(err);
-                showToast('Failed to submit evaluation.', 'error');
+                console.error("Submit Error:", err);
+                showToast("Network error broadcasting evaluation.", "error");
                 btn.disabled = false;
-                btn.textContent = 'Submit Evaluation to Blockchain';
+                btn.textContent = 'Confirm & Broadcast to Blockchain';
             }
-        });
+        }
 
-        loadScriptDetails();
+        function showAlreadyEvaluatedReceipt(a) {
+            document.getElementById('eval-console').style.display = 'none';
+            document.getElementById('eval-receipt-card').style.display = 'block';
+            document.getElementById('rec-eval-id').textContent = a.evaluation_id || 'EVAL-COMMITTED';
+            document.getElementById('rec-marks').textContent = `${a.marks} / ${a.max_marks}`;
+            document.getElementById('rec-block').textContent = `Block #${a.block_number !== undefined ? a.block_number : 'Ledger'}`;
+            document.getElementById('rec-tx-id').textContent = a.transaction_id || 'Committed On-Chain';
+        }
+
+        // Initialize on load
+        initEvaluationStudio();
     </script>
 </body>
 </html>

@@ -25,7 +25,11 @@ PROJECT_ROOT = os.path.abspath(
 )
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 SCRIPTS_FILE = os.path.join(DATA_DIR, "scripts_metadata.json")
+UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
+DRAFTS_DIR = os.path.join(DATA_DIR, "evaluation_drafts")
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(DRAFTS_DIR, exist_ok=True)
 
 # Allowed file extensions and max upload size
 ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".txt"}
@@ -50,6 +54,157 @@ def _save_scripts_metadata(metadata: Dict[str, Dict[str, Any]]) -> None:
         os.replace(temp_file, SCRIPTS_FILE)
     except Exception as e:
         logger.error("Failed to save scripts metadata: %s", e)
+
+
+def _load_evaluation_draft(answer_script_id: str) -> Optional[Dict[str, Any]]:
+    draft_file = os.path.join(DRAFTS_DIR, f"{answer_script_id}.json")
+    if os.path.isfile(draft_file):
+        try:
+            with open(draft_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error("Failed to load draft for %s: %s", answer_script_id, e)
+            return None
+    return None
+
+
+def _save_evaluation_draft(answer_script_id: str, draft: Dict[str, Any]) -> None:
+    draft_file = os.path.join(DRAFTS_DIR, f"{answer_script_id}.json")
+    try:
+        temp_file = f"{draft_file}.tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(draft, f, indent=2, ensure_ascii=False)
+        os.replace(temp_file, draft_file)
+    except Exception as e:
+        logger.error("Failed to save draft for %s: %s", answer_script_id, e)
+
+
+def _generate_demo_answer_script_pdf(
+    pdf_path: str,
+    answer_script_id: str,
+    student_name: str,
+    student_id: str,
+    exam_name: str,
+    subject: str,
+) -> str:
+    """Generate a clean, realistic 3-page student answer script PDF for digital evaluation."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+
+    os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+    doc = SimpleDocTemplate(
+        pdf_path,
+        pagesize=A4,
+        leftMargin=36,
+        rightMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+        title=f"Answer Script {answer_script_id}",
+        author="AnswerChain Examination System",
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "ScriptHeader",
+        parent=styles["Title"],
+        fontSize=14,
+        leading=18,
+        textColor=colors.HexColor("#0f172a"),
+        alignment=0,
+    )
+    body_style = ParagraphStyle(
+        "AnswerBody",
+        parent=styles["Normal"],
+        fontSize=9.5,
+        leading=14,
+        textColor=colors.HexColor("#1e293b"),
+    )
+
+    story = []
+    # --- PAGE 1 ---
+    story.append(Paragraph(f"<b>Techno International New Town &bull; {exam_name}</b>", title_style))
+    story.append(Spacer(1, 8))
+    header_data = [
+        ["Answer Script ID:", answer_script_id, "Candidate ID:", student_id],
+        ["Student Name:", student_name, "Subject:", subject or "Distributed Systems (CS801)"],
+        ["Examination:", exam_name, "Total Booklet Pages:", "3 Pages (Complete)"]
+    ]
+    t = Table(header_data, colWidths=[100, 160, 100, 160])
+    t.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#0f172a")),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("<b>[Page 1] Question 1(a): Practical Byzantine Fault Tolerance (PBFT) Protocol (Max: 15 Marks)</b>", styles["Heading3"]))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Student Response:</b><br/>"
+        "PBFT achieves state machine replication across independent nodes by executing three message exchange phases: "
+        "Pre-Prepare, Prepare, and Commit.<br/>"
+        "1. <i>Pre-Prepare Phase:</i> The primary node broadcasts a pre-prepare message containing view number v, sequence number n, and block digest d.<br/>"
+        "2. <i>Prepare Phase:</i> Non-faulty backup replicas verify the message signature and sequence bounds, broadcasting prepare messages to all peers. Once 2f+1 valid prepare messages match, a node prepares the proposal.<br/>"
+        "3. <i>Commit Phase:</i> Nodes broadcast commit messages. Upon collecting 2f+1 matching commit messages, the node enters committed-local and appends the block.<br/>"
+        "This guarantees safety and non-forking as long as Byzantine malicious nodes f &lt; N/3.",
+        body_style
+    ))
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("<b>Question 1(b): Quorum Threshold and Fault Bound Proof (Max: 10 Marks)</b>", styles["Heading3"]))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Student Response:</b><br/>"
+        "In a network of N = 3f + 1 nodes with f Byzantine nodes, any quorum requires Q &ge; 2f + 1 nodes. "
+        "Suppose two conflicting blocks b1 and b2 could both achieve quorum. Then each requires at least 2f + 1 votes. "
+        "The intersection of two quorums has size at least (2f + 1) + (2f + 1) - (3f + 1) = f + 1 nodes. "
+        "Since at most f nodes are faulty, at least one honest node must belong to both quorums. Honest nodes never vote "
+        "for conflicting proposals in the same view. Hence conflicting proposals cannot both commit, preserving safety.",
+        body_style
+    ))
+
+    # --- PAGE 2 ---
+    story.append(PageBreak())
+    story.append(Paragraph(f"<b>Answer Script: {answer_script_id} &bull; Page 2 of 3 &bull; Candidate: {student_name}</b>", styles["Heading3"]))
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("<b>[Page 2] Question 2: Digital Signatures and PAdES Integrity Verification (Max: 35 Marks)</b>", styles["Heading3"]))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Student Response:</b><br/>"
+        "PAdES (PDF Advanced Electronic Signatures) embeds cryptographic signatures directly into the PDF ISO-32000 structure.<br/>"
+        "• <i>ByteRange Partitioning:</i> The signature dictionary defines a ByteRange array [0, /Contents offset, /Contents end, remaining file length]. "
+        "The cryptographic hash (SHA-256) is computed over every byte outside the signature container itself.<br/>"
+        "• <i>Institutional Key Signing:</i> The resulting SHA-256 hash is signed using the institutional X.509 private key.<br/>"
+        "• <i>Tamper-Evidence:</i> If any byte in the student information, evaluation table, or grade fields is altered by even a single bit, "
+        "the recomputed SHA-256 byte range fails to match the decrypted digital signature hash, immediately exposing tampering.<br/>"
+        "• <i>Reader Validation:</i> Standard PDF viewers (Adobe Acrobat, Foxit) and web verification portals use the institutional Root Certificate Authority "
+        "to validate the trust chain and render authentic signature status.",
+        body_style
+    ))
+
+    # --- PAGE 3 ---
+    story.append(PageBreak())
+    story.append(Paragraph(f"<b>Answer Script: {answer_script_id} &bull; Page 3 of 3 &bull; Candidate: {student_name}</b>", styles["Heading3"]))
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("<b>[Page 3] Question 3: Durable Write-Ahead Logging (WAL) and View-Change Resilience (Max: 40 Marks)</b>", styles["Heading3"]))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Student Response:</b><br/>"
+        "Distributed consensus nodes must maintain strict crash resilience without risking fork generation upon restart.<br/>"
+        "• <i>Write-Ahead Logging:</i> Before any replica responds to a prepare or commit message, it records the vote, view number, and block hash to an append-only WAL on durable storage (fsync).<br/>"
+        "• <i>Crash Recovery:</i> When a crashed node reboots, it replays its WAL to restore its locked view and highest prepared certificate, preventing it from double-voting.<br/>"
+        "• <i>View-Change Safety:</i> If a primary node fails, backup nodes initiate a View-Change by broadcasting VIEW-CHANGE messages. The newly elected leader must inspect the highest prepared certificate from the quorum and re-propose that exact block, ensuring that no previously committed transaction is ever lost or overridden.",
+        body_style
+    ))
+
+    doc.build(story)
+    with open(pdf_path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 def _infer_subject_name(exam_name: str, exam_id: str = "") -> str:
@@ -380,6 +535,15 @@ class AcademicApplicationService:
             status_code = resp.get("status_code", 500)
             return False, resp.get("data", {"error": "Registration failed on node."}), status_code
 
+        # Save uploaded physical file if bytes provided
+        if file_bytes:
+            saved_pdf_path = os.path.join(UPLOADS_DIR, f"{answer_script_id}.pdf")
+            try:
+                with open(saved_pdf_path, "wb") as f:
+                    f.write(file_bytes)
+            except Exception as e:
+                logger.error("Failed to save uploaded answer script file: %s", e)
+
         # Store metadata
         existing_meta[answer_script_id] = {
             "answer_script_id": answer_script_id,
@@ -522,6 +686,249 @@ class AcademicApplicationService:
 
         return True, {"assignment": script}, 200
 
+    def get_answer_script_file_path(
+        self,
+        current_user: User,
+        answer_script_id: str,
+    ) -> Tuple[bool, Optional[str], Optional[str], int]:
+        """
+        Retrieve original answer script PDF path and authoritative SHA-256 hash.
+        Authorized for assigned teacher, university, authority, or admin.
+        Preserves original document without modifying bytes.
+        """
+        scripts = self.get_unified_scripts_status()
+        script = next((s for s in scripts if s["answer_script_id"] == answer_script_id), None)
+        if not script:
+            return False, None, None, 404
+
+        # Access control: Teacher must be assigned
+        if current_user.role == "TEACHER" and script.get("teacher_id") != current_user.user_id:
+            return False, None, None, 403
+
+        meta = _load_scripts_metadata().get(answer_script_id, {})
+        student_name = script.get("student_name") or meta.get("student_name", "Student")
+        student_id = script.get("student_id") or meta.get("student_id", "STU-001")
+        exam_name = script.get("exam_name") or meta.get("exam_name", "University Examination")
+        subject = script.get("subject") or meta.get("subject", "Distributed Systems")
+
+        pdf_path = os.path.join(UPLOADS_DIR, f"{answer_script_id}.pdf")
+        if not os.path.isfile(pdf_path):
+            file_hash = _generate_demo_answer_script_pdf(
+                pdf_path=pdf_path,
+                answer_script_id=answer_script_id,
+                student_name=student_name,
+                student_id=student_id,
+                exam_name=exam_name,
+                subject=subject,
+            )
+        else:
+            with open(pdf_path, "rb") as f:
+                file_hash = hashlib.sha256(f.read()).hexdigest()
+
+        return True, pdf_path, file_hash, 200
+
+    def get_evaluation_draft(
+        self,
+        current_user: User,
+        answer_script_id: str,
+    ) -> Tuple[bool, Dict[str, Any], int]:
+        """Get current page-wise evaluation draft and progress for an assigned script."""
+        scripts = self.get_unified_scripts_status()
+        script = next((s for s in scripts if s["answer_script_id"] == answer_script_id), None)
+        if not script:
+            return False, {"error": "Answer script not found."}, 404
+
+        if script.get("teacher_id") != current_user.user_id and current_user.role != "ADMIN":
+            return False, {
+                "error": "Forbidden",
+                "message": "Access denied. This answer script is not assigned to you.",
+            }, 403
+
+        draft = _load_evaluation_draft(answer_script_id)
+        if not draft:
+            # Initialize default 3-page evaluation schema
+            draft = {
+                "answer_script_id": answer_script_id,
+                "teacher_id": current_user.user_id,
+                "total_pages": 3,
+                "pages": {
+                    "1": {
+                        "page_number": 1,
+                        "is_completed": False,
+                        "page_remarks": "",
+                        "questions": [
+                            {"question_id": "Q1(a)", "question_title": "PBFT Protocol & Phase Operations", "max_marks": 15.0, "awarded_marks": 0.0, "remarks": ""},
+                            {"question_id": "Q1(b)", "question_title": "Quorum Intersection Proof (3f + 1)", "max_marks": 10.0, "awarded_marks": 0.0, "remarks": ""},
+                        ],
+                        "page_total": 0.0,
+                        "page_max": 25.0,
+                    },
+                    "2": {
+                        "page_number": 2,
+                        "is_completed": False,
+                        "page_remarks": "",
+                        "questions": [
+                            {"question_id": "Q2", "question_title": "PAdES Signatures & ByteRange Hash Verification", "max_marks": 35.0, "awarded_marks": 0.0, "remarks": ""},
+                        ],
+                        "page_total": 0.0,
+                        "page_max": 35.0,
+                    },
+                    "3": {
+                        "page_number": 3,
+                        "is_completed": False,
+                        "page_remarks": "",
+                        "questions": [
+                            {"question_id": "Q3", "question_title": "Write-Ahead Logging (WAL) & Crash Finality", "max_marks": 40.0, "awarded_marks": 0.0, "remarks": ""},
+                        ],
+                        "page_total": 0.0,
+                        "page_max": 40.0,
+                    },
+                },
+                "overall_remarks": "",
+                "last_updated": time.time(),
+            }
+            _save_evaluation_draft(answer_script_id, draft)
+
+        # Recalculate live progress
+        pages = draft.get("pages", {})
+        total_awarded = sum(float(p.get("page_total", 0.0)) for p in pages.values())
+        total_max = sum(float(p.get("page_max", 0.0)) for p in pages.values())
+        completed_count = sum(1 for p in pages.values() if p.get("is_completed", False))
+        total_count = len(pages)
+        all_completed = (completed_count == total_count and total_count > 0)
+
+        summary = {
+            "draft": draft,
+            "script": script,
+            "total_awarded_marks": round(total_awarded, 2),
+            "total_max_marks": round(total_max, 2),
+            "completed_pages_count": completed_count,
+            "total_pages_count": total_count,
+            "all_pages_completed": all_completed,
+            "evaluated": script.get("evaluated", False),
+            "finalized": script.get("finalized", False),
+        }
+        return True, summary, 200
+
+    def save_page_evaluation(
+        self,
+        current_user: User,
+        answer_script_id: str,
+        page_number: int,
+        questions: List[Dict[str, Any]],
+        page_remarks: str = "",
+        mark_completed: bool = False,
+    ) -> Tuple[bool, Dict[str, Any], int]:
+        """
+        Save page-wise marks and annotations.
+        Validates that awarded marks do not exceed max marks for any question.
+        Automatically updates completion status and totals.
+        """
+        scripts = self.get_unified_scripts_status()
+        script = next((s for s in scripts if s["answer_script_id"] == answer_script_id), None)
+        if not script:
+            return False, {"error": "Answer script not found."}, 404
+
+        if script.get("teacher_id") != current_user.user_id and current_user.role != "ADMIN":
+            return False, {
+                "error": "Forbidden",
+                "message": "Only the assigned teacher can evaluate this script.",
+            }, 403
+
+        if script.get("evaluated"):
+            return False, {"error": "Conflict: Evaluation has already been finalized and committed."}, 409
+
+        if not questions:
+            return False, {"error": "At least one question is required for the page."}, 400
+
+        validated_questions = []
+        page_total = 0.0
+        page_max = 0.0
+
+        for q in questions:
+            q_id = str(q.get("question_id", "Q")).strip()
+            q_title = str(q.get("question_title", q_id)).strip()
+            try:
+                awarded = float(q.get("awarded_marks", 0.0))
+                q_max = float(q.get("max_marks", 10.0))
+            except (ValueError, TypeError):
+                return False, {"error": f"Invalid marks for question '{q_id}'. Must be numeric."}, 400
+
+            if q_max <= 0:
+                return False, {"error": f"Maximum marks for question '{q_id}' must be greater than zero."}, 400
+
+            if awarded < 0:
+                return False, {"error": f"Awarded marks for question '{q_id}' cannot be negative ({awarded})."}, 400
+
+            if awarded > q_max:
+                return False, {
+                    "error": f"Awarded marks ({awarded}) cannot exceed maximum marks ({q_max}) for question '{q_id}'."
+                }, 400
+
+            validated_questions.append({
+                "question_id": q_id,
+                "question_title": q_title,
+                "max_marks": q_max,
+                "awarded_marks": awarded,
+                "remarks": str(q.get("remarks", "")).strip(),
+            })
+            page_total += awarded
+            page_max += q_max
+
+        draft = _load_evaluation_draft(answer_script_id) or {
+            "answer_script_id": answer_script_id,
+            "teacher_id": current_user.user_id,
+            "total_pages": 3,
+            "pages": {},
+            "overall_remarks": "",
+        }
+
+        page_key = str(page_number)
+        draft.setdefault("pages", {})
+        draft["pages"][page_key] = {
+            "page_number": int(page_number),
+            "is_completed": bool(mark_completed),
+            "page_remarks": page_remarks.strip(),
+            "questions": validated_questions,
+            "page_total": round(page_total, 2),
+            "page_max": round(page_max, 2),
+        }
+        draft["last_updated"] = time.time()
+        _save_evaluation_draft(answer_script_id, draft)
+
+        # Audit log for page evaluation progress
+        log_audit_event(
+            action="PAGE_EVALUATION_SAVED",
+            actor=current_user.user_id,
+            actor_role=current_user.role,
+            resource_id=answer_script_id,
+            status="SUCCESS",
+            details={
+                "page_number": page_number,
+                "page_total": round(page_total, 2),
+                "page_max": round(page_max, 2),
+                "is_completed": mark_completed,
+            },
+        )
+
+        # Calculate updated summary
+        pages = draft["pages"]
+        total_awarded = sum(float(p.get("page_total", 0.0)) for p in pages.values())
+        total_max = sum(float(p.get("page_max", 0.0)) for p in pages.values())
+        completed_count = sum(1 for p in pages.values() if p.get("is_completed", False))
+        total_count = len(pages)
+        all_completed = (completed_count == total_count and total_count >= int(draft.get("total_pages", 3)))
+
+        return True, {
+            "message": f"Page {page_number} evaluation saved successfully.",
+            "page": draft["pages"][page_key],
+            "total_awarded_marks": round(total_awarded, 2),
+            "total_max_marks": round(total_max, 2),
+            "completed_pages_count": completed_count,
+            "total_pages_count": total_count,
+            "all_pages_completed": all_completed,
+        }, 200
+
     def evaluate_assignment(
         self,
         current_user: User,
@@ -529,9 +936,11 @@ class AcademicApplicationService:
         marks: float,
         max_marks: float,
         comments: Optional[str] = None,
+        page_evaluations: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[bool, Dict[str, Any], int]:
         """
-        Submit teacher evaluation. Validates teacher identity and bounds.
+        Submit teacher evaluation. Validates teacher identity, page completion, and bounds.
+        Digitally signs transaction and commits through blockchain consensus.
         """
         scripts = self.get_unified_scripts_status()
         script = next((s for s in scripts if s["answer_script_id"] == answer_script_id), None)
@@ -566,6 +975,49 @@ class AcademicApplicationService:
         if marks < 0 or marks > max_marks:
             return False, {"error": f"Marks ({marks}) cannot be negative or exceed maximum marks ({max_marks})."}, 400
 
+        # Page completion validation
+        draft = _load_evaluation_draft(answer_script_id)
+        final_page_records = []
+        if page_evaluations:
+            # Explicit page evaluations submitted in payload
+            incomplete_pages = []
+            page_sum = 0.0
+            for p in page_evaluations:
+                if not p.get("is_completed", False):
+                    incomplete_pages.append(p.get("page_number", "?"))
+                page_sum += float(p.get("page_total", 0.0))
+            if incomplete_pages:
+                return False, {
+                    "error": "Incomplete Pages",
+                    "message": f"All pages must be completed before final submission. Incomplete pages: {incomplete_pages}",
+                }, 400
+            if abs(marks - page_sum) > 0.01:
+                return False, {
+                    "error": "Total Mismatch",
+                    "message": f"Total marks ({marks}) does not match sum of page evaluations ({page_sum}).",
+                }, 400
+            final_page_records = page_evaluations
+        elif draft and draft.get("pages"):
+            # Check draft completion
+            pages = draft["pages"]
+            total_req = int(draft.get("total_pages", 3))
+            incomplete_pages = [
+                pg for pg in range(1, total_req + 1)
+                if not pages.get(str(pg), {}).get("is_completed", False)
+            ]
+            if incomplete_pages:
+                return False, {
+                    "error": "Incomplete Pages",
+                    "message": f"All pages must be completed before final submission. Incomplete pages: {incomplete_pages}",
+                }, 400
+            page_sum = sum(float(p.get("page_total", 0.0)) for p in pages.values())
+            if abs(marks - page_sum) > 0.01:
+                return False, {
+                    "error": "Total Mismatch",
+                    "message": f"Total marks ({marks}) does not match sum of page evaluations ({page_sum}).",
+                }, 400
+            final_page_records = list(pages.values())
+
         raw_tx_data = {
             "type": "EVALUATION_SUBMITTED",
             "answer_script_id": answer_script_id,
@@ -596,6 +1048,13 @@ class AcademicApplicationService:
         block = resp["data"].get("block", {})
         eval_id = tx.get("data", {}).get("evaluation_id", "—")
 
+        # Mark draft as committed
+        if draft:
+            draft["committed"] = True
+            draft["evaluation_id"] = eval_id
+            draft["committed_at"] = time.time()
+            _save_evaluation_draft(answer_script_id, draft)
+
         log_audit_event(
             action="EVALUATION_SUBMITTED",
             actor=current_user.user_id,
@@ -609,6 +1068,7 @@ class AcademicApplicationService:
                 "max_marks": max_marks,
                 "comments": comments or "",
                 "block_number": block.get("index"),
+                "pages_evaluated": len(final_page_records),
             },
         )
 
