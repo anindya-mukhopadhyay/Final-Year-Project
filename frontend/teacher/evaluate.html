@@ -695,6 +695,15 @@
         // PDF VIEWER FUNCTIONS
         // ==========================================
 
+        // Helper to retrieve auth token reliably with fallback
+        function getAuthToken() {
+            if (typeof getToken === 'function') {
+                const t = getToken();
+                if (t) return t;
+            }
+            return localStorage.getItem("answerchain_token") || "";
+        }
+
         async function loadPdfViewer() {
             const canvasWrapper = document.getElementById('canvas-wrapper');
             const loadingMsg = document.getElementById('pdf-loading-msg');

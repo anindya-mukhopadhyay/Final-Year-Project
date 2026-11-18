@@ -12,6 +12,10 @@ function getToken() {
     return localStorage.getItem("answerchain_token") || "";
 }
 
+function getAuthToken() {
+    return getToken();
+}
+
 function getCurrentUser() {
     try {
         const raw = localStorage.getItem("answerchain_user");
