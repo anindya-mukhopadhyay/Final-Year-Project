@@ -44,6 +44,124 @@ ACTORS = [
 ]
 
 
+def generate_x509_pki(force: bool = False):
+    """Generate local development X.509 Root CA and Institutional Signer certs if missing."""
+    import datetime
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    ca_key_path = os.path.join(KEY_STORAGE_DIR, "answerchain_ca_key.pem")
+    ca_cert_path = os.path.join(KEY_STORAGE_DIR, "answerchain_ca_cert.pem")
+    auth_key_path = os.path.join(KEY_STORAGE_DIR, "authority_pdf_key.pem")
+    auth_cert_path = os.path.join(KEY_STORAGE_DIR, "authority_pdf_cert.pem")
+
+    if not force and os.path.isfile(ca_cert_path) and os.path.isfile(auth_cert_path):
+        print(f"  ✓ Existing Root CA: {os.path.basename(ca_cert_path)} (preserved)")
+        print(f"  ✓ Existing Signer:  {os.path.basename(auth_cert_path)} (preserved)")
+        return
+
+    # 1. AnswerChain Root CA
+    ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    ca_subject = x509.Name([
+        x509.NameAttribute(NameOID.COUNTRY_NAME, "IN"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "AnswerChain Trust Network"),
+        x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "Root Authority"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "AnswerChain Root Certificate Authority"),
+    ])
+    ca_cert = (
+        x509.CertificateBuilder()
+        .subject_name(ca_subject)
+        .issuer_name(ca_subject)
+        .public_key(ca_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .add_extension(x509.KeyUsage(digital_signature=True, key_cert_sign=True, crl_sign=True, content_commitment=False, key_encipherment=False, data_encipherment=False, key_agreement=False, encipher_only=False, decipher_only=False), critical=True)
+        .sign(ca_key, hashes.SHA256())
+    )
+
+    ca_key_path = os.path.join(KEY_STORAGE_DIR, "answerchain_ca_key.pem")
+    ca_cert_path = os.path.join(KEY_STORAGE_DIR, "answerchain_ca_cert.pem")
+    with open(ca_key_path, "wb") as f:
+        f.write(ca_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    with open(ca_cert_path, "wb") as f:
+        f.write(ca_cert.public_bytes(serialization.Encoding.PEM))
+    print(f"  ✓ Root CA: {os.path.basename(ca_cert_path)} [CN: AnswerChain Root Certificate Authority]")
+
+    # 2. Institutional Signer Certificate
+    signer_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    signer_subject = x509.Name([
+        x509.NameAttribute(NameOID.COUNTRY_NAME, "IN"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "AnswerChain Authorized Institution"),
+        x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "Examination Authority"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "AnswerChain Examination Authority"),
+    ])
+    signer_cert = (
+        x509.CertificateBuilder()
+        .subject_name(signer_subject)
+        .issuer_name(ca_subject)
+        .public_key(signer_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1825))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.KeyUsage(digital_signature=True, content_commitment=True, key_encipherment=False, data_encipherment=False, key_agreement=False, key_cert_sign=False, crl_sign=False, encipher_only=False, decipher_only=False), critical=True)
+        .sign(ca_key, hashes.SHA256())
+    )
+
+    auth_key_path = os.path.join(KEY_STORAGE_DIR, "authority_pdf_key.pem")
+    auth_cert_path = os.path.join(KEY_STORAGE_DIR, "authority_pdf_cert.pem")
+    with open(auth_key_path, "wb") as f:
+        f.write(signer_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    with open(auth_cert_path, "wb") as f:
+        f.write(signer_cert.public_bytes(serialization.Encoding.PEM))
+    print(f"  ✓ Signer:  {os.path.basename(auth_cert_path)} [CN: AnswerChain Examination Authority]")
+
+    # 3. Untrusted test CA & Signer (for testing Rule 8: untrusted issuer)
+    untrusted_ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    untrusted_ca_subj = x509.Name([
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Rogue Fake Cert Authority"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "Rogue Root CA"),
+    ])
+    untrusted_ca_cert = (
+        x509.CertificateBuilder()
+        .subject_name(untrusted_ca_subj)
+        .issuer_name(untrusted_ca_subj)
+        .public_key(untrusted_ca_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(untrusted_ca_key, hashes.SHA256())
+    )
+    untrusted_signer_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    untrusted_signer_subj = x509.Name([
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Untrusted Third Party"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "Fake Exam Signer"),
+    ])
+    untrusted_signer_cert = (
+        x509.CertificateBuilder()
+        .subject_name(untrusted_signer_subj)
+        .issuer_name(untrusted_ca_subj)
+        .public_key(untrusted_signer_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .sign(untrusted_ca_key, hashes.SHA256())
+    )
+    with open(os.path.join(KEY_STORAGE_DIR, "untrusted_ca_cert.pem"), "wb") as f:
+        f.write(untrusted_ca_cert.public_bytes(serialization.Encoding.PEM))
+    with open(os.path.join(KEY_STORAGE_DIR, "untrusted_pdf_key.pem"), "wb") as f:
+        f.write(untrusted_signer_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    with open(os.path.join(KEY_STORAGE_DIR, "untrusted_pdf_cert.pem"), "wb") as f:
+        f.write(untrusted_signer_cert.public_bytes(serialization.Encoding.PEM))
+    print("  ✓ Untrusted Test Keys generated.")
+
+
 def main():
     print(f"=== Generating AnswerChain Development Keypairs in {KEY_STORAGE_DIR} ===")
     os.makedirs(KEY_STORAGE_DIR, exist_ok=True)
@@ -55,6 +173,10 @@ def main():
         print(f"  ✓ {role} [{actor_id}] ({name})")
         print(f"    Public Key (Hex): {pub_hex}")
         print(f"    Private: {os.path.basename(priv_path)} | Public: {os.path.basename(pub_path)}")
+
+    # Institutional X.509 PKI for PDF Digital Signatures
+    print("\n=== Generating AnswerChain X.509 Institutional PKI (PAdES PDF Signatures) ===")
+    generate_x509_pki()
 
     print("\n[SECURITY NOTICE]")
     print("These keys are for local development and integration testing only.")

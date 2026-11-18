@@ -13,6 +13,7 @@ blockchain_data/examiner_nodes/*.json
 blockchain_data/examiner_nodes/*.tmp
 data/*.json
 data/*.tmp
+data/*.db
 generated/marksheets/*.pdf
 *.pdf
 scratch/

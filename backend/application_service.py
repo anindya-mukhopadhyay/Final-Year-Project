@@ -16,6 +16,7 @@ from backend.audit import log_audit_event
 from backend.auth import User, get_user_by_id
 from backend.blockchain_service import BlockchainService, blockchain_service
 from backend.crypto import sign_academic_transaction
+from backend.marksheet_pdf import verify_pdf_digital_signature
 
 logger = logging.getLogger("application_service")
 
@@ -945,7 +946,117 @@ class AcademicApplicationService:
         # 2. Calculate authoritative SHA-256 directly from uploaded bytes
         uploaded_pdf_hash = hashlib.sha256(file_bytes).hexdigest()
 
-        # 3. Blockchain lookup: search MARKSHEET_REGISTERED records
+        # 3. Cryptographic PAdES Digital Signature Verification (pyHanko)
+        sig_info = verify_pdf_digital_signature(file_bytes)
+        sig_status = sig_info.get("status")
+
+        # 4. Check for Cryptographic Tampering (Rule 5: Altered after signing)
+        if sig_status == "TAMPERED_INVALID":
+            log_audit_event(
+                action="PDF_VERIFIED",
+                actor="PUBLIC_VERIFIER",
+                actor_role="VERIFIER",
+                resource_id="—",
+                status="FAILED",
+                details={
+                    "status": "TAMPERED_INVALID",
+                    "reason": "CRYPTOGRAPHIC_INTEGRITY_FAILED",
+                    "uploaded_pdf_hash": uploaded_pdf_hash,
+                    "filename": clean_name,
+                    "digital_signature": sig_info,
+                },
+            )
+            return False, {
+                "verified": False,
+                "status": "TAMPERED_INVALID",
+                "document_status": "DOCUMENT_TAMPERED",
+                "visual_badge": {
+                    "type": "RED_TAMPERED",
+                    "icon": "✕",
+                    "title": "Document Tampered / Invalid",
+                    "subtitle": "Cryptographic integrity failed: PDF was modified after digital signing.",
+                    "color": "#dc2626",
+                    "bg_color": "#fef2f2",
+                    "border_color": "#fca5a5",
+                },
+                "digital_signature": sig_info,
+                "message": "Document integrity check failed. The cryptographic signature indicates that the PDF bytes were modified or altered after signing.",
+                "explanation": sig_info.get("explanation", "The mathematical checksum of the document differs from the checksum calculated when the document was signed by the institution."),
+                "uploaded_pdf_hash": uploaded_pdf_hash,
+            }, 422
+
+        # 5. Check for Untrusted Issuer (Rule 6: Unknown/Untrusted CA)
+        if sig_status == "UNTRUSTED_ISSUER":
+            log_audit_event(
+                action="PDF_VERIFIED",
+                actor="PUBLIC_VERIFIER",
+                actor_role="VERIFIER",
+                resource_id="—",
+                status="FAILED",
+                details={
+                    "status": "TAMPERED_OR_UNKNOWN",
+                    "signature_status": "UNTRUSTED_ISSUER",
+                    "uploaded_pdf_hash": uploaded_pdf_hash,
+                    "filename": clean_name,
+                    "digital_signature": sig_info,
+                },
+            )
+            return False, {
+                "verified": False,
+                "status": "TAMPERED_OR_UNKNOWN",
+                "signature_status": "UNTRUSTED_ISSUER",
+                "document_status": "SIGNATURE_UNTRUSTED",
+                "visual_badge": {
+                    "type": "YELLOW_QUESTION",
+                    "icon": "?",
+                    "title": "Signature Not Verified",
+                    "subtitle": "This document could not be authenticated as an official AnswerChain certificate.",
+                    "color": "#d97706",
+                    "bg_color": "#fffbeb",
+                    "border_color": "#fcd34d",
+                },
+                "digital_signature": sig_info,
+                "message": "Signature Not Verified: The signing issuer is unknown or untrusted. The digital signature does not chain to the official AnswerChain Certificate Authority.",
+                "explanation": sig_info.get("explanation", "Certificate was issued by an unrecognized entity not in the AnswerChain Institutional Trust Network."),
+                "uploaded_pdf_hash": uploaded_pdf_hash,
+            }, 404
+
+        # 6. Check for Unsigned Document (Rule 2 & Rule 7: Unsigned Copy)
+        if sig_status == "UNSIGNED" or not sig_info.get("has_signature"):
+            log_audit_event(
+                action="PDF_VERIFIED",
+                actor="PUBLIC_VERIFIER",
+                actor_role="VERIFIER",
+                resource_id="—",
+                status="FAILED",
+                details={
+                    "status": "TAMPERED_OR_UNKNOWN",
+                    "signature_status": "UNSIGNED_COPY",
+                    "uploaded_pdf_hash": uploaded_pdf_hash,
+                    "filename": clean_name,
+                },
+            )
+            return False, {
+                "verified": False,
+                "status": "TAMPERED_OR_UNKNOWN",
+                "signature_status": "UNSIGNED_COPY",
+                "document_status": "DOCUMENT_MISMATCH",
+                "visual_badge": {
+                    "type": "YELLOW_QUESTION",
+                    "icon": "?",
+                    "title": "Signature Not Verified",
+                    "subtitle": "This document could not be authenticated as an official AnswerChain certificate.",
+                    "color": "#d97706",
+                    "bg_color": "#fffbeb",
+                    "border_color": "#fcd34d",
+                },
+                "digital_signature": sig_info,
+                "message": "The uploaded PDF does not match any registered AnswerChain marksheet.",
+                "explanation": "This document contains no embedded cryptographic institutional signature. Genuine official certificates must be digitally signed by an authorized institution.",
+                "uploaded_pdf_hash": uploaded_pdf_hash,
+            }, 404
+
+        # 7. Blockchain lookup: search MARKSHEET_REGISTERED records
         transactions = self.get_all_blockchain_transactions()
 
         matching_tx = None
@@ -957,7 +1068,7 @@ class AcademicApplicationService:
                     matching_tx = tx
                     break
 
-        # 4. Not Found / Tampered Response
+        # 8. Signature is valid and trusted, but no blockchain record found
         if not matching_tx:
             log_audit_event(
                 action="PDF_VERIFIED",
@@ -966,20 +1077,33 @@ class AcademicApplicationService:
                 resource_id="—",
                 status="FAILED",
                 details={
-                    "status": "TAMPERED_OR_UNKNOWN",
+                    "status": "NOT_REGISTERED_ON_LEDGER",
                     "uploaded_pdf_hash": uploaded_pdf_hash,
                     "filename": clean_name,
+                    "digital_signature": sig_info,
                 },
             )
             return False, {
                 "verified": False,
                 "status": "TAMPERED_OR_UNKNOWN",
+                "signature_status": "NOT_REGISTERED_ON_LEDGER",
                 "document_status": "DOCUMENT_MISMATCH",
-                "message": "The uploaded PDF does not match any registered AnswerChain marksheet.",
+                "visual_badge": {
+                    "type": "YELLOW_QUESTION",
+                    "icon": "?",
+                    "title": "Signature Not Verified",
+                    "subtitle": "This document could not be authenticated as an official AnswerChain certificate.",
+                    "color": "#d97706",
+                    "bg_color": "#fffbeb",
+                    "border_color": "#fcd34d",
+                },
+                "digital_signature": sig_info,
+                "message": "Signature Not Verified: Although a valid institutional signature is present, this document does not match any registered AnswerChain marksheet.",
+                "explanation": "The document is not registered in the immutable distributed ledger, or its issuance transaction is missing.",
                 "uploaded_pdf_hash": uploaded_pdf_hash,
             }, 404
 
-        # 5. Verified Response
+        # 9. Verified Original Certificate (Rule 1: Green Tick)
         tx_data = matching_tx.get("data", {})
         result_id = tx_data.get("result_id")
 
@@ -1014,6 +1138,7 @@ class AcademicApplicationService:
                 "pdf_hash": uploaded_pdf_hash,
                 "marksheet_id": marksheet_id,
                 "block_number": block_idx,
+                "digital_signature": sig_info,
             },
         )
 
@@ -1021,7 +1146,17 @@ class AcademicApplicationService:
             "verified": True,
             "status": "VERIFIED",
             "document_status": "DOCUMENT_MATCH",
-            "message": "Marksheet is authentic and matches the registered AnswerChain document.",
+            "visual_badge": {
+                "type": "GREEN_TICK",
+                "icon": "✓",
+                "title": "Verified Original Certificate",
+                "subtitle": "Digitally signed by AnswerChain Authorized Institution.",
+                "color": "#16a34a",
+                "bg_color": "#f0fdf4",
+                "border_color": "#86efac",
+            },
+            "digital_signature": sig_info,
+            "message": "Verified Original Certificate: Digitally signed by AnswerChain Authorized Institution with verified cryptographic integrity and registered on the blockchain.",
             "marksheet_id": marksheet_id,
             "student_name": tx_data.get("student_name", "—"),
             "university": tx_data.get("university", "TINT"),

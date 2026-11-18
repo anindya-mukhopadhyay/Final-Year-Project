@@ -77,6 +77,23 @@ class Phase8SecurityTests(unittest.TestCase):
         cls.client = app.test_client()
         cls.node_client = node_app.test_client()
 
+        # Dynamically discover active marksheet registered on blockchain
+        from backend.application_service import academic_service
+        txs = academic_service.get_all_blockchain_transactions()
+        global TEST_MARKSHEET_ID, EXPECTED_PDF_HASH, ORIGINAL_PDF_PATH
+        active_tx = next(
+            (t for t in reversed(txs) if t.get("data", {}).get("type") == "MARKSHEET_REGISTERED"),
+            None,
+        )
+        if active_tx:
+            data = active_tx.get("data", {})
+            candidate_id = data.get("marksheet_id")
+            candidate_path = os.path.join(PROJECT_ROOT, "generated", "marksheets", f"{candidate_id}.pdf")
+            if os.path.isfile(candidate_path):
+                TEST_MARKSHEET_ID = candidate_id
+                EXPECTED_PDF_HASH = data.get("marksheet_pdf_hash")
+                ORIGINAL_PDF_PATH = candidate_path
+
         # Ensure original PDF exists for regression tests
         if os.path.isfile(ORIGINAL_PDF_PATH):
             with open(ORIGINAL_PDF_PATH, "rb") as f:

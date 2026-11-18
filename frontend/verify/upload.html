@@ -64,6 +64,88 @@
         .hash-row:last-child {
             margin-bottom: 0;
         }
+        .aadhaar-badge {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 2px solid;
+            transition: all 0.2s ease;
+        }
+        .aadhaar-badge-green {
+            background: #f0fdf4;
+            border-color: #86efac;
+            color: #166534;
+        }
+        .aadhaar-badge-yellow {
+            background: #fffbeb;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+        .aadhaar-badge-red {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+        .aadhaar-badge-icon {
+            width: 48px;
+            height: 48px;
+            min-width: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 900;
+            color: white;
+        }
+        .aadhaar-badge-green .aadhaar-badge-icon {
+            background: #16a34a;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        }
+        .aadhaar-badge-yellow .aadhaar-badge-icon {
+            background: #d97706;
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+        .aadhaar-badge-red .aadhaar-badge-icon {
+            background: #dc2626;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+        .aadhaar-badge-title {
+            font-size: 19px;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            line-height: 1.2;
+        }
+        .aadhaar-badge-green .aadhaar-badge-title { color: #15803d; }
+        .aadhaar-badge-yellow .aadhaar-badge-title { color: #b45309; }
+        .aadhaar-badge-red .aadhaar-badge-title { color: #b91c1c; }
+        .aadhaar-badge-sub {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 10px 0;
+            opacity: 0.95;
+        }
+        .aadhaar-badge-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 12px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(0,0,0,0.15);
+            margin-top: 6px;
+        }
+        .aadhaar-badge-reason {
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.7);
+            margin-top: 8px;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
     </style>
 </head>
 <body style="background: #f8fafc; min-height: 100vh;">
@@ -185,13 +267,19 @@
                 </div>
             </div>
 
-            <!-- STATE: VERIFIED -->
+            <!-- STATE: VERIFIED (GREEN TICK AADHAAR-STYLE) -->
             <div id="verified-state" style="display: none;">
-                <div class="verification-status-banner status-banner-verified">
-                    <div style="font-size: 36px;">✓</div>
-                    <div>
-                        <h3 style="font-size: 20px; font-weight: 800; color: #166534;">MARKSHEET VERIFIED</h3>
-                        <p style="font-size: 13px; margin: 2px 0 0 0;">Document integrity verified against the AnswerChain blockchain.</p>
+                <div class="aadhaar-badge aadhaar-badge-green">
+                    <div class="aadhaar-badge-icon">✓</div>
+                    <div class="aadhaar-badge-content" style="flex: 1;">
+                        <h3 class="aadhaar-badge-title">Verified Original Certificate</h3>
+                        <p class="aadhaar-badge-sub">Digitally signed by AnswerChain Authorized Institution.</p>
+                        <div class="aadhaar-badge-meta">
+                            <div><strong>Institutional Signer:</strong> <span id="res-signer-name">AnswerChain Examination Authority</span></div>
+                            <div><strong>Issuing Authority:</strong> <span id="res-issuer-name">AnswerChain Root Certificate Authority</span></div>
+                            <div><strong>Signing Timestamp:</strong> <span id="res-signing-time">—</span></div>
+                            <div><strong>Cryptographic Integrity:</strong> <span style="color: #15803d; font-weight: 700;">✓ PAdES Digital Signature Intact &amp; Verified</span></div>
+                        </div>
                     </div>
                 </div>
 
@@ -263,29 +351,66 @@
                 </div>
             </div>
 
-            <!-- STATE: TAMPERED_OR_UNKNOWN -->
-            <div id="tampered-state" style="display: none;">
-                <div class="verification-status-banner status-banner-tampered">
-                    <div style="font-size: 36px;">✕</div>
-                    <div>
-                        <h3 style="font-size: 20px; font-weight: 800; color: #991b1b;">DOCUMENT NOT VERIFIED</h3>
-                        <div style="margin-top: 4px;">
-                            <span class="badge badge-tampered" style="font-size: 12px; padding: 4px 10px;">TAMPERED_OR_UNKNOWN</span>
+            <!-- STATE: UNVERIFIED (YELLOW QUESTION MARK AADHAAR-STYLE) -->
+            <div id="unverified-state" style="display: none;">
+                <div class="aadhaar-badge aadhaar-badge-yellow">
+                    <div class="aadhaar-badge-icon">?</div>
+                    <div class="aadhaar-badge-content" style="flex: 1;">
+                        <h3 class="aadhaar-badge-title">Signature Not Verified</h3>
+                        <p class="aadhaar-badge-sub">This document could not be authenticated as an official AnswerChain certificate.</p>
+                        <div class="aadhaar-badge-reason" id="res-unverified-reason">
+                            The PDF has no valid trusted digital signature. It is an unsigned copy or obtained from an unverified source.
+                        </div>
+                        <div class="aadhaar-badge-meta" id="res-unverified-meta" style="display: none;">
+                            <div><strong>Signing Signer:</strong> <span id="res-untrusted-signer">—</span></div>
+                            <div><strong>Signing Issuer:</strong> <span id="res-untrusted-issuer">—</span></div>
+                            <div><strong>Reason:</strong> <span id="res-untrusted-reason">—</span></div>
                         </div>
                     </div>
-                </div>
-
-                <div style="padding: 16px 20px; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 10px; font-size: 13px; color: #742a2a; margin-bottom: 20px; line-height: 1.5;">
-                    <p style="margin: 0 0 8px 0; font-weight: 600;">The uploaded PDF does not match any registered AnswerChain marksheet.</p>
-                    <p style="margin: 0; font-size: 12px; color: #9b2c2c;">
-                        A mismatch means the uploaded PDF has either been altered after issuance, or this document was never registered on the distributed ledger.
-                    </p>
                 </div>
 
                 <div class="hash-match-box">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted);">Uploaded Document Fingerprint</h4>
-                        <span class="badge badge-tampered">No Ledger Match</span>
+                        <span class="badge" style="background: #fef3c7; color: #92400e;">Signature Not Verified</span>
+                    </div>
+                    <div class="hash-row">
+                        <span style="font-size: 11px; color: var(--muted);">Calculated SHA-256:</span>
+                        <span class="hash-display" id="res-unverified-hash">—</span>
+                    </div>
+                </div>
+
+                <!-- BUTTONS -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border);">
+                    <button type="button" class="btn btn-outline" onclick="copyUnverifiedHash()">
+                        <span>📋</span> Copy SHA-256
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="resetUploadState()">
+                        Try Another Document
+                    </button>
+                    <a href="/verify/index.html" class="btn btn-secondary">
+                        Verify by Marksheet ID
+                    </a>
+                </div>
+            </div>
+
+            <!-- STATE: TAMPERED (RED CROSS AADHAAR-STYLE) -->
+            <div id="tampered-state" style="display: none;">
+                <div class="aadhaar-badge aadhaar-badge-red">
+                    <div class="aadhaar-badge-icon">✕</div>
+                    <div class="aadhaar-badge-content" style="flex: 1;">
+                        <h3 class="aadhaar-badge-title">Document Tampered / Invalid</h3>
+                        <p class="aadhaar-badge-sub">Cryptographic integrity failed: PDF was modified after digital signing.</p>
+                        <div class="aadhaar-badge-reason" id="res-tampered-reason">
+                            The document was digitally signed, but its byte content was subsequently altered. The mathematical signature does not match the modified file.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hash-match-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted);">Uploaded Document Fingerprint</h4>
+                        <span class="badge badge-tampered">Integrity Check Failed</span>
                     </div>
                     <div class="hash-row">
                         <span style="font-size: 11px; color: var(--muted);">Calculated SHA-256:</span>
@@ -343,7 +468,7 @@
             if (!files || files.length === 0) return;
 
             const file = files[0];
-            if (!file.name.toLowerCase().endswith && !file.name.toLowerCase().endsWith('.pdf')) {
+            if (!file.name.toLowerCase().endsWith || !file.name.toLowerCase().endsWith('.pdf')) {
                 showError('Invalid file format. Please select an official PDF marksheet (.pdf).');
                 return;
             }
@@ -375,6 +500,7 @@
             document.getElementById('dropzone-state').style.display = 'block';
             document.getElementById('verifying-state').style.display = 'none';
             document.getElementById('verified-state').style.display = 'none';
+            document.getElementById('unverified-state').style.display = 'none';
             document.getElementById('tampered-state').style.display = 'none';
             hideError();
         }
@@ -386,14 +512,15 @@
             document.getElementById('dropzone-state').style.display = 'none';
             document.getElementById('verifying-state').style.display = 'block';
             document.getElementById('verified-state').style.display = 'none';
+            document.getElementById('unverified-state').style.display = 'none';
             document.getElementById('tampered-state').style.display = 'none';
 
             // Animated step feedback
             setStep(1, 'active');
-            await new Promise(r => setTimeout(r, 250));
+            await new Promise(r => setTimeout(r, 200));
             setStep(1, 'done');
             setStep(2, 'active');
-            await new Promise(r => setTimeout(r, 250));
+            await new Promise(r => setTimeout(r, 200));
             setStep(2, 'done');
             setStep(3, 'active');
 
@@ -409,14 +536,20 @@
                 setStep(3, 'done');
                 const data = await response.json();
 
-                if (response.ok && data.verified) {
+                if (data.visual_badge && data.visual_badge.type === 'GREEN_TICK') {
                     showVerifiedUI(data);
-                } else if (response.status === 404 || data.status === 'TAMPERED_OR_UNKNOWN') {
+                } else if (data.visual_badge && data.visual_badge.type === 'YELLOW_QUESTION') {
+                    showUnverifiedUI(data);
+                } else if (data.visual_badge && data.visual_badge.type === 'RED_TAMPERED') {
                     showTamperedUI(data);
+                } else if (response.ok && data.verified) {
+                    showVerifiedUI(data);
+                } else if (data.status === 'TAMPERED_INVALID') {
+                    showTamperedUI(data);
+                } else if (data.status === 'UNSIGNED_COPY' || data.status === 'UNTRUSTED_ISSUER') {
+                    showUnverifiedUI(data);
                 } else {
-                    showError(data.message || data.error || 'Verification request failed.');
-                    document.getElementById('dropzone-state').style.display = 'block';
-                    document.getElementById('verifying-state').style.display = 'none';
+                    showUnverifiedUI(data);
                 }
             } catch (err) {
                 console.error(err);
@@ -450,9 +583,40 @@
             document.getElementById('res-block').textContent = `Block #${data.block_number !== undefined ? data.block_number : data.block_index}`;
             document.getElementById('res-tx-id').textContent = data.transaction_id || '—';
 
+            if (data.digital_signature) {
+                document.getElementById('res-signer-name').textContent = data.digital_signature.signer_name || 'AnswerChain Examination Authority';
+                document.getElementById('res-issuer-name').textContent = data.digital_signature.issuer_name || 'AnswerChain Root Certificate Authority';
+                document.getElementById('res-signing-time').textContent = data.digital_signature.signing_time || new Date().toISOString();
+            }
+
             lastCalculatedHash = data.pdf_hash || '';
             document.getElementById('res-uploaded-hash').textContent = data.pdf_hash || '—';
             document.getElementById('res-blockchain-hash').textContent = data.pdf_hash || '—';
+        }
+
+        function showUnverifiedUI(data) {
+            document.getElementById('verifying-state').style.display = 'none';
+            document.getElementById('unverified-state').style.display = 'block';
+
+            lastCalculatedHash = data.uploaded_pdf_hash || '';
+            document.getElementById('res-unverified-hash').textContent = data.uploaded_pdf_hash || '—';
+
+            const reasonEl = document.getElementById('res-unverified-reason');
+            if (data.explanation) {
+                reasonEl.textContent = data.explanation;
+            } else if (data.message) {
+                reasonEl.textContent = data.message;
+            }
+
+            const metaEl = document.getElementById('res-unverified-meta');
+            if (data.digital_signature && data.digital_signature.has_signature) {
+                metaEl.style.display = 'flex';
+                document.getElementById('res-untrusted-signer').textContent = data.digital_signature.signer_name || 'Unknown';
+                document.getElementById('res-untrusted-issuer').textContent = data.digital_signature.issuer_name || 'Unknown';
+                document.getElementById('res-untrusted-reason').textContent = data.digital_signature.explanation || 'Untrusted Authority';
+            } else {
+                metaEl.style.display = 'none';
+            }
         }
 
         function showTamperedUI(data) {
@@ -461,6 +625,12 @@
 
             lastCalculatedHash = data.uploaded_pdf_hash || '';
             document.getElementById('res-tampered-hash').textContent = data.uploaded_pdf_hash || '—';
+
+            if (data.explanation) {
+                document.getElementById('res-tampered-reason').textContent = data.explanation;
+            } else if (data.message) {
+                document.getElementById('res-tampered-reason').textContent = data.message;
+            }
         }
 
         function showError(msg) {
@@ -477,6 +647,13 @@
             if (lastCalculatedHash) {
                 navigator.clipboard.writeText(lastCalculatedHash);
                 showToast('SHA-256 hash copied to clipboard!', 'success');
+            }
+        }
+
+        function copyUnverifiedHash() {
+            if (lastCalculatedHash) {
+                navigator.clipboard.writeText(lastCalculatedHash);
+                showToast('Calculated SHA-256 hash copied to clipboard!', 'info');
             }
         }
 

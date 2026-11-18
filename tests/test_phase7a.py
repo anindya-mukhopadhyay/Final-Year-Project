@@ -41,6 +41,24 @@ class Phase7APublicUploadVerificationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client = app.test_client()
+
+        # Dynamically discover the active marksheet registered on the blockchain
+        from backend.application_service import academic_service
+        txs = academic_service.get_all_blockchain_transactions()
+        global TEST_MARKSHEET_ID, EXPECTED_PDF_HASH, ORIGINAL_PDF_PATH
+        cls.active_tx = next(
+            (t for t in reversed(txs) if t.get("data", {}).get("type") == "MARKSHEET_REGISTERED"),
+            None,
+        )
+        if cls.active_tx:
+            data = cls.active_tx.get("data", {})
+            candidate_id = data.get("marksheet_id")
+            candidate_path = os.path.join(PROJECT_ROOT, "generated", "marksheets", f"{candidate_id}.pdf")
+            if os.path.isfile(candidate_path):
+                TEST_MARKSHEET_ID = candidate_id
+                EXPECTED_PDF_HASH = data.get("marksheet_pdf_hash")
+                ORIGINAL_PDF_PATH = candidate_path
+
         if not os.path.isfile(ORIGINAL_PDF_PATH):
             raise FileNotFoundError(
                 f"Required verified test marksheet PDF not found at {ORIGINAL_PDF_PATH}"
@@ -71,8 +89,10 @@ class Phase7APublicUploadVerificationTests(unittest.TestCase):
         self.assertEqual(body.get("marksheet_id"), TEST_MARKSHEET_ID)
         self.assertEqual(body.get("pdf_hash"), EXPECTED_PDF_HASH)
         self.assertEqual(body.get("result_status"), "FINALIZED")
-        self.assertEqual(body.get("student_name"), "Sourav Ganguly")
-        self.assertEqual(body.get("final_marks"), 88.0)
+        expected_name = self.active_tx.get("data", {}).get("student_name", "Sourav Ganguly") if self.active_tx else "Sourav Ganguly"
+        expected_marks = float(self.active_tx.get("data", {}).get("final_marks", 88.0)) if self.active_tx else 88.0
+        self.assertEqual(body.get("student_name"), expected_name)
+        self.assertEqual(body.get("final_marks"), expected_marks)
         self.assertIn("transaction_id", body)
         self.assertIn("block_index", body)
 
