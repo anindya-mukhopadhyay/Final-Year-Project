@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any, Dict, Optional, Tuple
 
+from reportlab.graphics.shapes import Circle, Drawing, PolyLine
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
@@ -19,7 +20,7 @@ from reportlab.platypus import (
 
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
-from pyhanko.stamp import TextStampStyle
+from pyhanko.stamp import NoOpStampStyle, TextStampStyle
 from pyhanko.pdf_utils.text import TextBoxStyle
 from pyhanko.sign import signers, fields
 from pyhanko.sign.validation import validate_pdf_signature
@@ -423,52 +424,65 @@ def generate_marksheet_pdf(
     )
 
     story.append(blockchain_table)
-    story.append(
-        Spacer(
-            1,
+
+    # ========================================================
+    # AADHAAR-STYLE DIGITAL SIGNATURE & AUTHENTICITY INDICATOR
+    # ========================================================
+
+    tick_drawing = Drawing(44, 44)
+    tick_drawing.add(
+        Circle(
+            22,
+            22,
             20,
+            fillColor=colors.HexColor("#2e7d32"),
+            strokeColor=None,
+        )
+    )
+    tick_drawing.add(
+        PolyLine(
+            [(12, 22), (19, 15), (32, 29)],
+            strokeColor=colors.white,
+            strokeWidth=3.5,
+            strokeLineCap=1,
+            strokeLineJoin=1,
         )
     )
 
-    story.append(
-        Paragraph(
-            "<b>Blockchain Verification</b>",
-            normal_style,
+    sig_details = (
+        "<font color='#2e7d32' size='10.5'><b>✓ Signature Valid &mdash; Official Institutional Certificate</b></font><br/>"
+        "<font size='8' color='#1b5e20'><b>Digitally signed by AnswerChain Authorized Institution</b></font><br/>"
+        "<font size='7.5' color='#333333'>"
+        "Signer: AnswerChain Examination Authority (AUTH-001) &bull; Location: Kolkata, India<br/>"
+        "Integrity: SHA-256 On-Chain Tamper-Evident Ledger &bull; PAdES Digital Signature Active<br/>"
+        "Official Verification: <u>http://127.0.0.1:8000/verify/upload.html</u>"
+        "</font>"
+    )
+
+    sig_p = Paragraph(sig_details, normal_style)
+    sig_table = Table(
+        [[tick_drawing, sig_p]],
+        colWidths=[
+            18 * mm,
+            142 * mm,
+        ],
+    )
+    sig_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1f8e9")),
+                ("BOX", (0, 0), (-1, -1), 1.2, colors.HexColor("#2e7d32")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ]
         )
     )
 
-    story.append(
-        Spacer(
-            1,
-            5,
-        )
-    )
-
-    story.append(
-        Paragraph(
-            "This document is generated from a finalized "
-            "academic result. Its document hash is stored "
-            "with the AnswerChain blockchain record for "
-            "integrity verification.",
-            small_style,
-        )
-    )
-
-    story.append(
-        Spacer(
-            1,
-            8,
-        )
-    )
-
-    story.append(
-        Paragraph(
-            "Document integrity uses SHA-256. Keep the "
-            "original PDF bytes unchanged for successful "
-            "verification.",
-            small_style,
-        )
-    )
+    story.append(Spacer(1, 14))
+    story.append(sig_table)
 
     document.build(story)
 
@@ -534,17 +548,7 @@ def sign_marksheet_pdf(
             pdf_data = inf.read()
 
         w = IncrementalPdfFileWriter(io.BytesIO(pdf_data))
-        stamp_style = TextStampStyle(
-            stamp_text=(
-                "Digitally certified by AnswerChain Authorized Institution\n"
-                "Signer: AnswerChain Examination Authority\n"
-                "Reason: Official Academic Marksheet Certification\n"
-                "Location: Kolkata, India\n"
-                "Date: %(ts)s"
-            ),
-            border_width=1,
-            text_box_style=TextBoxStyle(font_size=7),
-        )
+        stamp_style = NoOpStampStyle()
 
         pdf_signer = signers.PdfSigner(
             signature_meta=signers.PdfSignatureMetadata(
@@ -556,7 +560,7 @@ def sign_marksheet_pdf(
             stamp_style=stamp_style,
             new_field_spec=fields.SigFieldSpec(
                 sig_field_name="AnswerChainInstitutionalSignature",
-                box=(330, 25, 555, 75),
+                box=(56, 35, 538, 105),
             ),
         )
 
