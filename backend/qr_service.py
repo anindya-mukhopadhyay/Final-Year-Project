@@ -16,14 +16,43 @@ from qrcode.image.pil import PilImage
 # Default public verification base URL
 PUBLIC_VERIFY_BASE_URL = os.environ.get(
     "PUBLIC_VERIFY_BASE_URL",
-    "http://127.0.0.1:8000/verify",
+    "",
 )
+
+
+def get_local_ip() -> str:
+    """Detect LAN IP address so QR codes work when scanned by mobile phones."""
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
 
 
 def get_verification_url(marksheet_id: str) -> str:
     """Build the clean public verification endpoint URL."""
     clean_id = marksheet_id.strip()
-    return f"{PUBLIC_VERIFY_BASE_URL}/{clean_id}"
+
+    # If inside an active Flask HTTP request, use the request host (e.g. 192.168.29.37:8000 or custom host)
+    try:
+        from flask import has_request_context, request
+        if has_request_context():
+            host = request.host
+            scheme = request.scheme
+            return f"{scheme}://{host}/verify/{clean_id}"
+    except Exception:
+        pass
+
+    if PUBLIC_VERIFY_BASE_URL:
+        base = PUBLIC_VERIFY_BASE_URL.rstrip("/")
+        return f"{base}/{clean_id}"
+
+    local_ip = get_local_ip()
+    return f"http://{local_ip}:8000/verify/{clean_id}"
 
 
 def generate_qr_png_bytes(marksheet_id: str) -> bytes:

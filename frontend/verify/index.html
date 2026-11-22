@@ -276,7 +276,7 @@
             <a href="/verify/index.html" class="v-tab active" id="tab-id-verify">
                 <span>🔍</span> Verify by Marksheet ID
             </a>
-            <button type="button" class="v-tab" id="tab-camera-scan" onclick="startCameraScanner()">
+            <button type="button" class="v-tab" id="tab-camera-scan" onclick="onScanButtonClick()">
                 <span>📷</span> Scan Printed Marksheet with Camera
             </button>
         </div>
@@ -297,10 +297,14 @@
                     <p style="margin: 0; font-size: 13px; color: #94a3b8;">Scan the AnswerChain QR code on your printed paper certificate using your phone or webcam for instant ledger authentication.</p>
                 </div>
             </div>
-            <button type="button" class="btn btn-primary" onclick="startCameraScanner()" style="background: #2563eb; padding: 10px 20px; font-weight: 700; font-size: 13px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);">
+            <button type="button" class="btn btn-primary" onclick="onScanButtonClick()" style="background: #2563eb; padding: 10px 20px; font-weight: 700; font-size: 13px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);">
                 <span>📷</span> Scan Marksheet with Camera
             </button>
         </div>
+
+        <!-- HIDDEN NATIVE CAMERA CAPTURE INPUT FOR MOBILE -->
+        <input type="file" id="native-camera-input" accept="image/*" capture="environment" style="display: none;" onchange="handleQrImageUpload(event)">
+        <input type="file" id="gallery-photo-input" accept="image/*" style="display: none;" onchange="handleQrImageUpload(event)">
 
         <!-- SEARCH INPUT BOX -->
         <div class="verify-card" style="margin-bottom: 24px; padding: 24px;">
@@ -459,17 +463,42 @@
                 <div id="scanner-loading-text" style="position: absolute; color: white; font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px;">
                     Starting Camera...
                 </div>
+
+                <!-- FRIENDLY FALLBACK CARD WHEN CAMERA IS BLOCKED OR NO WEBCAM -->
+                <div id="scanner-fallback-card" style="display: none; position: absolute; inset: 0; background: #0f172a; padding: 24px; text-align: center; flex-direction: column; align-items: center; justify-content: center; z-index: 10;">
+                    <div style="font-size: 38px; margin-bottom: 8px;">📷 ➔ 📁</div>
+                    <h4 style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 6px;">Camera Access Blocked or No Webcam</h4>
+                    <p style="font-size: 12px; color: #94a3b8; max-width: 340px; line-height: 1.4; margin-bottom: 18px;">
+                        Live streaming requires HTTPS on mobile browsers. Use your device's native camera or upload a photo of the QR code below.
+                    </p>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px;">
+                        <button type="button" class="btn btn-primary" onclick="openNativeCamera()" style="font-size: 13px; font-weight: 600; cursor: pointer; padding: 10px 18px; background: #2563eb; display: inline-flex; align-items: center; gap: 6px;">
+                            📸 Take QR Photo
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="openPhotoGallery()" style="color: white; border-color: rgba(255,255,255,0.4); font-size: 12px; padding: 10px 16px; display: inline-flex; align-items: center; gap: 6px;">
+                            📁 Choose Photo
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="retryCameraPermission()" style="color: white; border-color: rgba(255,255,255,0.4); font-size: 12px; padding: 10px 16px; display: inline-flex; align-items: center; gap: 6px;">
+                            🔄 Retry Stream
+                        </button>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; line-height: 1.4;">
+                        To enable webcam: Click the <strong>🔒 lock / tune icon</strong> in your browser address bar &gt; set <strong>Camera</strong> to <strong>"Allow"</strong> &gt; click Retry.
+                    </div>
+                </div>
             </div>
 
             <div class="scanner-footer">
-                <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="openNativeCamera()" style="color: white; border-color: rgba(255,255,255,0.3); font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                        📸 Snap Photo
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="openPhotoGallery()" style="color: white; border-color: rgba(255,255,255,0.3); font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+                        📁 Upload Photo
+                    </button>
                     <button type="button" class="btn btn-sm btn-outline" id="btn-switch-camera" onclick="switchCamera()" style="color: white; border-color: rgba(255,255,255,0.3); font-size: 11px; display: none;">
                         🔄 Switch Camera
                     </button>
-                    <label class="btn btn-sm btn-outline" style="color: white; border-color: rgba(255,255,255,0.3); font-size: 11px; cursor: pointer; margin: 0;">
-                        📁 Upload Photo
-                        <input type="file" accept="image/*" style="display: none;" onchange="handleQrImageUpload(event)">
-                    </label>
                 </div>
                 <button type="button" class="btn btn-sm btn-secondary" onclick="stopCameraScanner()" style="font-size: 11px;">
                     Cancel
@@ -598,7 +627,7 @@
         }
 
         // ==========================================
-        // LIVE CAMERA QR SCANNER ENGINE
+        // LIVE CAMERA QR SCANNER & MOBILE CAMERA ENGINE
         // ==========================================
 
         let cameraStream = null;
@@ -607,15 +636,61 @@
         let availableVideoDevices = [];
         let currentDeviceIndex = 0;
 
+        function openNativeCamera() {
+            const input = document.getElementById('native-camera-input');
+            if (input) {
+                input.value = '';
+                input.click();
+            }
+        }
+
+        function openPhotoGallery() {
+            const input = document.getElementById('gallery-photo-input');
+            if (input) {
+                input.value = '';
+                input.click();
+            }
+        }
+
+        function onScanButtonClick() {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+            // On mobile devices where live WebRTC getUserMedia is blocked by browser security (HTTP context over LAN),
+            // invoke the phone's native camera immediately via HTML5 capture="environment"
+            if (isMobile && !hasMedia) {
+                openNativeCamera();
+                return;
+            }
+
+            // Otherwise launch the live camera reticle scanner modal
+            startCameraScanner();
+        }
+
         async function startCameraScanner() {
             const modal = document.getElementById('camera-modal');
             const loadingText = document.getElementById('scanner-loading-text');
+            const fallbackCard = document.getElementById('scanner-fallback-card');
+            const reticle = document.getElementById('scanner-reticle');
+
             modal.classList.add('open');
+            fallbackCard.style.display = 'none';
+            reticle.style.display = 'flex';
             loadingText.style.display = 'block';
             loadingText.textContent = 'Requesting camera access...';
 
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn("navigator.mediaDevices.getUserMedia is not available in this context.");
+                loadingText.style.display = 'none';
+                reticle.style.display = 'none';
+                fallbackCard.style.display = 'flex';
+                return;
+            }
+
             try {
-                // Enumerate video devices to allow switching front/back if multiple exist
+                await initCameraStream();
+
+                // If stream started successfully, check for multiple cameras
                 if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
                     const devices = await navigator.mediaDevices.enumerateDevices();
                     availableVideoDevices = devices.filter(d => d.kind === 'videoinput');
@@ -624,37 +699,78 @@
                         switchBtn.style.display = 'inline-flex';
                     }
                 }
-
-                await initCameraStream();
             } catch (err) {
                 console.error("Camera Init Error:", err);
-                loadingText.innerHTML = `<span style="color:#ef4444;">Camera permission denied or unavailable. Use the photo upload button below.</span>`;
+                loadingText.style.display = 'none';
+                reticle.style.display = 'none';
+                fallbackCard.style.display = 'flex';
             }
         }
 
         async function initCameraStream() {
             if (cameraStream) {
                 cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
             }
 
             const video = document.getElementById('camera-video');
             const loadingText = document.getElementById('scanner-loading-text');
+            const fallbackCard = document.getElementById('scanner-fallback-card');
+            const reticle = document.getElementById('scanner-reticle');
 
-            let constraints = {
-                video: {
-                    facingMode: currentFacingMode,
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            };
+            fallbackCard.style.display = 'none';
+            reticle.style.display = 'flex';
+            loadingText.style.display = 'block';
+            loadingText.textContent = 'Connecting to camera...';
 
-            if (availableVideoDevices.length > 0 && availableVideoDevices[currentDeviceIndex]) {
-                constraints = {
-                    video: { deviceId: { exact: availableVideoDevices[currentDeviceIndex].deviceId } }
+            let stream = null;
+            let lastErr = null;
+
+            // Tier 1: Try requested device or ideal facingMode
+            try {
+                let c = {
+                    video: {
+                        facingMode: { ideal: currentFacingMode },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
                 };
+                if (availableVideoDevices.length > 0 && availableVideoDevices[currentDeviceIndex]) {
+                    c.video = { deviceId: { exact: availableVideoDevices[currentDeviceIndex].deviceId } };
+                }
+                stream = await navigator.mediaDevices.getUserMedia(c);
+            } catch (e1) {
+                lastErr = e1;
+                console.warn("Tier 1 camera constraints failed, attempting Tier 2 (user/front facing)...", e1);
             }
 
-            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            // Tier 2: Try front-facing camera (e.g. MacBook FaceTime Camera or laptop webcam)
+            if (!stream) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: 'user' } }
+                    });
+                } catch (e2) {
+                    lastErr = e2;
+                    console.warn("Tier 2 camera constraints failed, attempting Tier 3 (generic video)...", e2);
+                }
+            }
+
+            // Tier 3: Try generic video (works on any webcam or virtual cam)
+            if (!stream) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                } catch (e3) {
+                    lastErr = e3;
+                    console.error("All camera tiers failed:", e3);
+                }
+            }
+
+            if (!stream) {
+                throw (lastErr || new Error("Camera not accessible"));
+            }
+
+            cameraStream = stream;
             video.srcObject = cameraStream;
             video.setAttribute("playsinline", true);
 
@@ -663,6 +779,10 @@
                 loadingText.style.display = 'none';
                 scanFrameLoop();
             };
+        }
+
+        async function retryCameraPermission() {
+            startCameraScanner();
         }
 
         function switchCamera() {
@@ -777,8 +897,10 @@
 
         // Image file upload fallback (e.g. photo taken or saved image)
         function handleQrImageUpload(event) {
-            const file = event.target.files[0];
+            const file = event.target.files && event.target.files[0];
             if (!file) return;
+
+            showToast("Processing marksheet QR photo...", "info");
 
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -786,7 +908,7 @@
                 img.onload = async () => {
                     let detectedText = null;
 
-                    // Native BarcodeDetector
+                    // Native BarcodeDetector (fastest, hardware accelerated)
                     if ('BarcodeDetector' in window) {
                         try {
                             const detector = new BarcodeDetector({ formats: ['qr_code'] });
@@ -794,18 +916,35 @@
                             if (barcodes.length > 0 && barcodes[0].rawValue) {
                                 detectedText = barcodes[0].rawValue;
                             }
-                        } catch (err) {}
+                        } catch (err) {
+                            console.warn("BarcodeDetector fallback:", err);
+                        }
                     }
 
-                    // jsQR fallback
+                    // jsQR fallback with auto-downscaling to max 1200px for speed & low memory
                     if (!detectedText && window.jsQR) {
+                        const maxDim = 1200;
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > maxDim || h > maxDim) {
+                            if (w > h) {
+                                h = Math.round((h * maxDim) / w);
+                                w = maxDim;
+                            } else {
+                                w = Math.round((w * maxDim) / h);
+                                h = maxDim;
+                            }
+                        }
+
                         const canvas = document.createElement('canvas');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
+                        canvas.width = w;
+                        canvas.height = h;
                         const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
-                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const imageData = ctx.getImageData(0, 0, w, h);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                            inversionAttempts: "attemptBoth"
+                        });
                         if (code && code.data) {
                             detectedText = code.data;
                         }
@@ -823,7 +962,7 @@
                         }
                     }
 
-                    showToast("No AnswerChain QR code detected in the selected image.", "error");
+                    showToast("No AnswerChain QR code detected. Please ensure the QR is clear and in focus.", "error");
                 };
                 img.src = e.target.result;
             };

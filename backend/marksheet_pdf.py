@@ -11,6 +11,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -449,24 +450,45 @@ def generate_marksheet_pdf(
         )
     )
 
+    # Dynamic QR code and verification host resolution
+    try:
+        from backend.qr_service import generate_qr_png_bytes, get_local_ip
+        local_host = f"http://{get_local_ip()}:8000"
+        qr_bytes = generate_qr_png_bytes(marksheet_id)
+        qr_flowable = Image(io.BytesIO(qr_bytes), width=23 * mm, height=23 * mm)
+    except Exception as e:
+        logger.warning(f"Could not generate QR code for marksheet PDF: {e}")
+        local_host = "http://127.0.0.1:8000"
+        qr_flowable = None
+
     sig_details = (
         "<font color='#2e7d32' size='10.5'><b>✓ Signature Valid &mdash; Official Institutional Certificate</b></font><br/>"
         "<font size='8' color='#1b5e20'><b>Digitally signed by AnswerChain Authorized Institution</b></font><br/>"
         "<font size='7.5' color='#333333'>"
         "Signer: AnswerChain Examination Authority (AUTH-001) &bull; Location: Kolkata, India<br/>"
         "Integrity: SHA-256 On-Chain Tamper-Evident Ledger &bull; PAdES Digital Signature Active<br/>"
-        "Official Verification: <u>http://127.0.0.1:8000/verify/upload.html</u>"
+        f"Official Verification: <u>{local_host}/verify/upload.html</u>"
         "</font>"
     )
 
     sig_p = Paragraph(sig_details, normal_style)
-    sig_table = Table(
-        [[tick_drawing, sig_p]],
-        colWidths=[
-            18 * mm,
-            142 * mm,
-        ],
-    )
+    if qr_flowable:
+        sig_table = Table(
+            [[tick_drawing, sig_p, qr_flowable]],
+            colWidths=[
+                18 * mm,
+                116 * mm,
+                26 * mm,
+            ],
+        )
+    else:
+        sig_table = Table(
+            [[tick_drawing, sig_p]],
+            colWidths=[
+                18 * mm,
+                142 * mm,
+            ],
+        )
     sig_table.setStyle(
         TableStyle(
             [
