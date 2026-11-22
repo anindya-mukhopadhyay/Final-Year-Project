@@ -1383,6 +1383,7 @@ class AcademicApplicationService:
             "marksheet_data_hash": ms_data.get("marksheet_data_hash"),
             "marksheet_pdf_hash": ms_data.get("marksheet_pdf_hash"),
             "pdf_filename": ms_data.get("pdf_filename"),
+            "transaction_id": verify_resp.get("data", {}).get("blockchain_transaction", {}).get("transaction_id") or ms_data.get("transaction_id"),
             "logical_verified": True,
             "pdf_verified": True,
         }

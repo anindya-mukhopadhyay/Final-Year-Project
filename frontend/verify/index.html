@@ -6,6 +6,8 @@
     <title>Public Credential Verification | AnswerChain</title>
     <link rel="stylesheet" href="/style.css">
     <script src="/api.js"></script>
+    <!-- Self-contained QR Code reader -->
+    <script src="/vendor/jsqr/jsQR.min.js"></script>
     <style>
         .verification-nav-tabs {
             display: flex;
@@ -13,6 +15,7 @@
             margin-bottom: 24px;
             border-bottom: 1px solid var(--border);
             padding-bottom: 12px;
+            flex-wrap: wrap;
         }
         .v-tab {
             padding: 8px 16px;
@@ -22,7 +25,12 @@
             text-decoration: none;
             color: var(--muted);
             background: transparent;
+            border: none;
+            cursor: pointer;
             transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
         .v-tab:hover {
             background: var(--surface-soft);
@@ -31,6 +39,212 @@
         .v-tab.active {
             background: var(--primary-soft);
             color: var(--primary);
+        }
+
+        /* CAMERA SCANNER HERO CARD */
+        .camera-hero-card {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* CAMERA SCANNER OVERLAY / VIEWPORT */
+        .camera-scanner-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .camera-scanner-modal.open {
+            display: flex;
+        }
+
+        .scanner-card {
+            background: #1e293b;
+            border-radius: 16px;
+            max-width: 480px;
+            width: 100%;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            flex-direction: column;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+
+        .scanner-header {
+            padding: 14px 18px;
+            background: #0f172a;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .scanner-viewport-wrapper {
+            position: relative;
+            width: 100%;
+            height: 360px;
+            background: #000000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #camera-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* VIEWFINDER TARGET FRAME */
+        .scanner-reticle {
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.55);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* CORNER BRACKETS */
+        .reticle-corner {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-color: #38bdf8;
+            border-style: solid;
+        }
+        .reticle-corner.tl { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 12px; }
+        .reticle-corner.tr { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-top-right-radius: 12px; }
+        .reticle-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-bottom-left-radius: 12px; }
+        .reticle-corner.br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-bottom-right-radius: 12px; }
+
+        /* ANIMATED SCANNING LASER */
+        .scanner-laser {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #22c55e, #4ade80, transparent);
+            box-shadow: 0 0 14px #22c55e;
+            animation: scanLaser 2s infinite ease-in-out;
+        }
+
+        @keyframes scanLaser {
+            0% { top: 10%; opacity: 0.8; }
+            50% { top: 88%; opacity: 1; }
+            100% { top: 10%; opacity: 0.8; }
+        }
+
+        .scanner-footer {
+            padding: 14px 18px;
+            background: #0f172a;
+            color: #94a3b8;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* AADHAAR-STYLE VERIFICATION BADGES */
+        .aadhaar-badge {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 2px solid;
+            transition: all 0.2s ease;
+        }
+        .aadhaar-badge-green {
+            background: #f0fdf4;
+            border-color: #86efac;
+            color: #166534;
+        }
+        .aadhaar-badge-yellow {
+            background: #fffbeb;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+        .aadhaar-badge-red {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+        .aadhaar-badge-icon {
+            width: 48px;
+            height: 48px;
+            min-width: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 900;
+            color: white;
+        }
+        .aadhaar-badge-green .aadhaar-badge-icon {
+            background: #16a34a;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+        }
+        .aadhaar-badge-yellow .aadhaar-badge-icon {
+            background: #d97706;
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+        }
+        .aadhaar-badge-red .aadhaar-badge-icon {
+            background: #dc2626;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+        }
+        .aadhaar-badge-title {
+            font-size: 19px;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            line-height: 1.2;
+        }
+        .aadhaar-badge-green .aadhaar-badge-title { color: #15803d; }
+        .aadhaar-badge-yellow .aadhaar-badge-title { color: #b45309; }
+        .aadhaar-badge-red .aadhaar-badge-title { color: #b91c1c; }
+        .aadhaar-badge-sub {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 10px 0;
+            opacity: 0.95;
+        }
+        .aadhaar-badge-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 12px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(0,0,0,0.15);
+            margin-top: 6px;
         }
     </style>
 </head>
@@ -59,9 +273,12 @@
             <a href="/verify/upload" class="v-tab">
                 <span>📄</span> Verify by Uploading PDF
             </a>
-            <a href="/verify/index.html" class="v-tab active">
+            <a href="/verify/index.html" class="v-tab active" id="tab-id-verify">
                 <span>🔍</span> Verify by Marksheet ID
             </a>
+            <button type="button" class="v-tab" id="tab-camera-scan" onclick="startCameraScanner()">
+                <span>📷</span> Scan Printed Marksheet with Camera
+            </button>
         </div>
 
         <div class="verify-header">
@@ -69,18 +286,20 @@
             <p style="color: var(--muted); font-size: 14px;">Instant, tamper-evident cryptographic validation backed by distributed blockchain consensus</p>
         </div>
 
-        <!-- PROMINENT VERIFY BY UPLOADING PDF OPTION -->
-        <div style="background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 24px;">📄</span>
+        <!-- CAMERA SCANNER HERO CARD -->
+        <div class="camera-hero-card">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="width: 50px; height: 50px; border-radius: 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); display: grid; place-items: center; font-size: 26px;">
+                    📷
+                </div>
                 <div>
-                    <strong style="font-size: 14px; color: var(--text); display: block;">Have a Marksheet PDF document?</strong>
-                    <span style="font-size: 12px; color: var(--muted);">Check authenticity directly against the blockchain without entering an ID.</span>
+                    <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 4px 0; color: #ffffff;">Have a Physical Printed Marksheet?</h3>
+                    <p style="margin: 0; font-size: 13px; color: #94a3b8;">Scan the AnswerChain QR code on your printed paper certificate using your phone or webcam for instant ledger authentication.</p>
                 </div>
             </div>
-            <a href="/verify/upload" class="btn btn-primary btn-sm" style="font-weight: 600; padding: 8px 16px;">
-                Verify by Uploading PDF →
-            </a>
+            <button type="button" class="btn btn-primary" onclick="startCameraScanner()" style="background: #2563eb; padding: 10px 20px; font-weight: 700; font-size: 13px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);">
+                <span>📷</span> Scan Marksheet with Camera
+            </button>
         </div>
 
         <!-- SEARCH INPUT BOX -->
@@ -102,17 +321,48 @@
 
         <!-- VERIFICATION RESULTS CONTAINER -->
         <div id="result-box" style="display: none;" class="verify-card">
-            <!-- STATUS BANNER -->
-            <div id="status-banner" class="verification-status-banner">
-                <div id="status-icon" style="font-size: 32px;">✓</div>
-                <div>
-                    <h3 id="status-heading" style="font-size: 20px; font-weight: 800;">VERIFIED</h3>
-                    <p id="status-message" style="font-size: 13px;">All cryptographic hashes match distributed blockchain ledger.</p>
+            
+            <!-- AADHAAR STYLE BADGE STATES -->
+            <!-- 1. VERIFIED (GREEN TICK) -->
+            <div id="badge-verified" class="aadhaar-badge aadhaar-badge-green" style="display: none;">
+                <div class="aadhaar-badge-icon">✓</div>
+                <div class="aadhaar-badge-content" style="flex: 1;">
+                    <h3 class="aadhaar-badge-title">Verified Original Certificate</h3>
+                    <p class="aadhaar-badge-sub">Digitally signed by AnswerChain Authorized Institution.</p>
+                    <div class="aadhaar-badge-meta">
+                        <div><strong>Issuing Institution:</strong> <span id="badge-green-inst">AnswerChain Examination Authority</span></div>
+                        <div><strong>Blockchain Consensus:</strong> <span style="color: #15803d; font-weight: 700;">✓ Cryptographically Committed &amp; Verified</span></div>
+                        <div><strong>Immutable Transaction:</strong> <span id="badge-green-tx" class="hash-display" style="font-size: 11px;">—</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. TAMPERED (RED CROSS) -->
+            <div id="badge-tampered" class="aadhaar-badge aadhaar-badge-red" style="display: none;">
+                <div class="aadhaar-badge-icon">✕</div>
+                <div class="aadhaar-badge-content" style="flex: 1;">
+                    <h3 class="aadhaar-badge-title">Document Tampered / Invalid</h3>
+                    <p class="aadhaar-badge-sub">Cryptographic integrity failed: Hash mismatch against the distributed blockchain ledger.</p>
+                    <div id="badge-tampered-reason" style="font-size: 12px; margin-top: 8px; opacity: 0.95;">
+                        Warning: The academic record has been altered. The cryptographic fingerprint does not match the ledger consensus block.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. NOT FOUND (YELLOW QUESTION MARK) -->
+            <div id="badge-notfound" class="aadhaar-badge aadhaar-badge-yellow" style="display: none;">
+                <div class="aadhaar-badge-icon">?</div>
+                <div class="aadhaar-badge-content" style="flex: 1;">
+                    <h3 class="aadhaar-badge-title">Signature / Record Not Verified</h3>
+                    <p class="aadhaar-badge-sub">This document could not be authenticated as an official AnswerChain certificate.</p>
+                    <div id="badge-notfound-reason" style="font-size: 12px; margin-top: 8px;">
+                        No matching marksheet ID exists on the distributed ledger. It may be an unverified copy or an invalid reference.
+                    </div>
                 </div>
             </div>
 
             <!-- CREDENTIAL METADATA GRID -->
-            <div id="details-section" style="display: grid; grid-template-columns: 1fr 220px; gap: 28px; align-items: start;">
+            <div id="details-section" style="display: none; grid-template-columns: 1fr 220px; gap: 28px; align-items: start;">
                 <div style="display: flex; flex-direction: column; gap: 16px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--surface-soft); padding: 18px; border-radius: 12px; border: 1px solid var(--border);">
                         <div>
@@ -182,6 +432,52 @@
         </div>
     </div>
 
+    <!-- LIVE CAMERA QR SCANNER MODAL -->
+    <div class="camera-scanner-modal" id="camera-modal">
+        <div class="scanner-card">
+            <div class="scanner-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">📷</span>
+                    <strong style="font-size: 14px;">Scan Printed Marksheet QR</strong>
+                </div>
+                <button type="button" onclick="stopCameraScanner()" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 4px;">✕</button>
+            </div>
+
+            <div class="scanner-viewport-wrapper">
+                <video id="camera-video" playsinline autoplay muted></video>
+                <canvas id="camera-canvas" style="display: none;"></canvas>
+
+                <!-- TARGET VIEWFINDER RETICLE -->
+                <div class="scanner-reticle" id="scanner-reticle">
+                    <div class="reticle-corner tl"></div>
+                    <div class="reticle-corner tr"></div>
+                    <div class="reticle-corner bl"></div>
+                    <div class="reticle-corner br"></div>
+                    <div class="scanner-laser"></div>
+                </div>
+
+                <div id="scanner-loading-text" style="position: absolute; color: white; font-size: 13px; font-weight: 600; background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px;">
+                    Starting Camera...
+                </div>
+            </div>
+
+            <div class="scanner-footer">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" class="btn btn-sm btn-outline" id="btn-switch-camera" onclick="switchCamera()" style="color: white; border-color: rgba(255,255,255,0.3); font-size: 11px; display: none;">
+                        🔄 Switch Camera
+                    </button>
+                    <label class="btn btn-sm btn-outline" style="color: white; border-color: rgba(255,255,255,0.3); font-size: 11px; cursor: pointer; margin: 0;">
+                        📁 Upload Photo
+                        <input type="file" accept="image/*" style="display: none;" onchange="handleQrImageUpload(event)">
+                    </label>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="stopCameraScanner()" style="font-size: 11px;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Check URL path or query params: /verify/<id> or /verify/index.html?id=<id>
         const urlParams = new URLSearchParams(window.location.search);
@@ -216,22 +512,27 @@
             const resultBox = document.getElementById('result-box');
             resultBox.style.display = 'block';
 
-            const banner = document.getElementById('status-banner');
-            const icon = document.getElementById('status-icon');
-            const heading = document.getElementById('status-heading');
-            const message = document.getElementById('status-message');
+            const badgeVerified = document.getElementById('badge-verified');
+            const badgeTampered = document.getElementById('badge-tampered');
+            const badgeNotFound = document.getElementById('badge-notfound');
             const detailsSection = document.getElementById('details-section');
+
+            // Hide all initially
+            badgeVerified.style.display = 'none';
+            badgeTampered.style.display = 'none';
+            badgeNotFound.style.display = 'none';
+            detailsSection.style.display = 'none';
 
             try {
                 const res = await authFetch(`/api/verify/${marksheetId}`);
                 const data = res.data;
 
                 if (data.status === 'VERIFIED') {
-                    banner.className = 'verification-status-banner status-banner-verified';
-                    icon.textContent = '✓';
-                    heading.textContent = 'CREDENTIAL VERIFIED';
-                    message.textContent = 'Cryptographic hashes match the distributed blockchain ledger. Certificate is authentic and untampered.';
+                    badgeVerified.style.display = 'flex';
                     detailsSection.style.display = 'grid';
+
+                    document.getElementById('badge-green-inst').textContent = data.university || 'AnswerChain Authorized University';
+                    document.getElementById('badge-green-tx').textContent = data.transaction_id || 'Committed on Distributed Block';
 
                     document.getElementById('res-student-name').textContent = data.student_name || '—';
                     document.getElementById('res-student-id').textContent = data.student_id || '—';
@@ -250,42 +551,23 @@
                         document.getElementById('res-qr-img').src = `/api/qr/${data.marksheet_id}`;
                     }
 
-                } else if (data.status === 'TAMPERED') {
-                    banner.className = 'verification-status-banner status-banner-tampered';
-                    icon.textContent = '⚠️';
-                    heading.textContent = 'TAMPERED CREDENTIAL';
-                    message.textContent = 'Warning: Blockchain verification failed. The academic data or logical hash has been modified!';
-                    detailsSection.style.display = 'none';
-
-                } else if (data.status === 'PDF_INTEGRITY_FAILED') {
-                    banner.className = 'verification-status-banner status-banner-tampered';
-                    icon.textContent = '⚠️';
-                    heading.textContent = 'PDF INTEGRITY FAILED';
-                    message.textContent = 'Warning: The physical PDF hash does not match the on-chain SHA-256 fingerprint!';
-                    detailsSection.style.display = 'none';
+                } else if (data.status === 'TAMPERED' || data.status === 'PDF_INTEGRITY_FAILED') {
+                    badgeTampered.style.display = 'flex';
+                    document.getElementById('badge-tampered-reason').textContent = data.message || 'Warning: Cryptographic integrity failed. The PDF or logical data has been modified!';
 
                 } else if (data.status === 'INVALID_RESULT') {
-                    banner.className = 'verification-status-banner status-banner-tampered';
-                    icon.textContent = '⚠️';
-                    heading.textContent = 'INVALID ACADEMIC RECORD';
-                    message.textContent = 'The referenced examination result is invalid or has not been certified by the Authority.';
-                    detailsSection.style.display = 'none';
+                    badgeTampered.style.display = 'flex';
+                    document.getElementById('badge-tampered-reason').textContent = 'The referenced academic result is uncertified or invalid on the distributed ledger.';
 
                 } else {
-                    banner.className = 'verification-status-banner status-banner-notfound';
-                    icon.textContent = '✕';
-                    heading.textContent = 'NOT FOUND ON BLOCKCHAIN';
-                    message.textContent = `No marksheet record with ID "${marksheetId}" exists on the distributed ledger.`;
-                    detailsSection.style.display = 'none';
+                    badgeNotFound.style.display = 'flex';
+                    document.getElementById('badge-notfound-reason').textContent = `No marksheet record with ID "${marksheetId}" exists on the distributed ledger.`;
                 }
 
             } catch (err) {
                 console.error(err);
-                banner.className = 'verification-status-banner status-banner-tampered';
-                icon.textContent = '✕';
-                heading.textContent = 'VERIFICATION ERROR';
-                message.textContent = 'Could not contact the blockchain verification nodes.';
-                detailsSection.style.display = 'none';
+                badgeTampered.style.display = 'flex';
+                document.getElementById('badge-tampered-reason').textContent = 'Could not contact the blockchain verification nodes.';
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Verify Credential';
@@ -313,6 +595,239 @@
             const url = `${window.location.origin}/verify/index.html?id=${id}`;
             navigator.clipboard.writeText(url);
             showToast('Verification URL copied to clipboard!', 'success');
+        }
+
+        // ==========================================
+        // LIVE CAMERA QR SCANNER ENGINE
+        // ==========================================
+
+        let cameraStream = null;
+        let scanAnimationId = null;
+        let currentFacingMode = 'environment';
+        let availableVideoDevices = [];
+        let currentDeviceIndex = 0;
+
+        async function startCameraScanner() {
+            const modal = document.getElementById('camera-modal');
+            const loadingText = document.getElementById('scanner-loading-text');
+            modal.classList.add('open');
+            loadingText.style.display = 'block';
+            loadingText.textContent = 'Requesting camera access...';
+
+            try {
+                // Enumerate video devices to allow switching front/back if multiple exist
+                if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    availableVideoDevices = devices.filter(d => d.kind === 'videoinput');
+                    const switchBtn = document.getElementById('btn-switch-camera');
+                    if (availableVideoDevices.length > 1) {
+                        switchBtn.style.display = 'inline-flex';
+                    }
+                }
+
+                await initCameraStream();
+            } catch (err) {
+                console.error("Camera Init Error:", err);
+                loadingText.innerHTML = `<span style="color:#ef4444;">Camera permission denied or unavailable. Use the photo upload button below.</span>`;
+            }
+        }
+
+        async function initCameraStream() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+            }
+
+            const video = document.getElementById('camera-video');
+            const loadingText = document.getElementById('scanner-loading-text');
+
+            let constraints = {
+                video: {
+                    facingMode: currentFacingMode,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+
+            if (availableVideoDevices.length > 0 && availableVideoDevices[currentDeviceIndex]) {
+                constraints = {
+                    video: { deviceId: { exact: availableVideoDevices[currentDeviceIndex].deviceId } }
+                };
+            }
+
+            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = cameraStream;
+            video.setAttribute("playsinline", true);
+
+            video.onloadedmetadata = () => {
+                video.play();
+                loadingText.style.display = 'none';
+                scanFrameLoop();
+            };
+        }
+
+        function switchCamera() {
+            if (availableVideoDevices.length > 1) {
+                currentDeviceIndex = (currentDeviceIndex + 1) % availableVideoDevices.length;
+                initCameraStream();
+            } else {
+                currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+                initCameraStream();
+            }
+        }
+
+        function stopCameraScanner() {
+            const modal = document.getElementById('camera-modal');
+            modal.classList.remove('open');
+
+            if (scanAnimationId) {
+                cancelAnimationFrame(scanAnimationId);
+                scanAnimationId = null;
+            }
+
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
+            }
+        }
+
+        // Audio chime when QR code is scanned
+        function playScanSuccessChime() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+                osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.12); // E6
+                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } catch (e) {
+                // AudioContext blocked or unsupported, ignore
+            }
+        }
+
+        function extractMarksheetId(rawText) {
+            if (!rawText) return null;
+            // Match MARKSHEET-[A-Fa-f0-9-]+
+            const match = rawText.match(/MARKSHEET-[A-Za-z0-9_-]+/i);
+            if (match) {
+                return match[0].toUpperCase();
+            }
+            return null;
+        }
+
+        async function scanFrameLoop() {
+            const video = document.getElementById('camera-video');
+            const canvas = document.getElementById('camera-canvas');
+
+            if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+                scanAnimationId = requestAnimationFrame(scanFrameLoop);
+                return;
+            }
+
+            let detectedText = null;
+
+            // Strategy 1: Native BarcodeDetector API (fastest, hardware accelerated)
+            if ('BarcodeDetector' in window) {
+                try {
+                    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+                    const barcodes = await detector.detect(video);
+                    if (barcodes.length > 0 && barcodes[0].rawValue) {
+                        detectedText = barcodes[0].rawValue;
+                    }
+                } catch (e) {
+                    // Fall back to jsQR
+                }
+            }
+
+            // Strategy 2: jsQR fallback
+            if (!detectedText && window.jsQR) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert"
+                });
+                if (code && code.data) {
+                    detectedText = code.data;
+                }
+            }
+
+            if (detectedText) {
+                const marksheetId = extractMarksheetId(detectedText);
+                if (marksheetId) {
+                    playScanSuccessChime();
+                    stopCameraScanner();
+
+                    showToast(`Scanned Marksheet ID: ${marksheetId}`, 'success');
+                    document.getElementById('verify-input').value = marksheetId;
+                    runVerification(marksheetId);
+                    return;
+                }
+            }
+
+            scanAnimationId = requestAnimationFrame(scanFrameLoop);
+        }
+
+        // Image file upload fallback (e.g. photo taken or saved image)
+        function handleQrImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = async () => {
+                    let detectedText = null;
+
+                    // Native BarcodeDetector
+                    if ('BarcodeDetector' in window) {
+                        try {
+                            const detector = new BarcodeDetector({ formats: ['qr_code'] });
+                            const barcodes = await detector.detect(img);
+                            if (barcodes.length > 0 && barcodes[0].rawValue) {
+                                detectedText = barcodes[0].rawValue;
+                            }
+                        } catch (err) {}
+                    }
+
+                    // jsQR fallback
+                    if (!detectedText && window.jsQR) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        if (code && code.data) {
+                            detectedText = code.data;
+                        }
+                    }
+
+                    if (detectedText) {
+                        const marksheetId = extractMarksheetId(detectedText);
+                        if (marksheetId) {
+                            playScanSuccessChime();
+                            stopCameraScanner();
+                            showToast(`Detected QR: ${marksheetId}`, 'success');
+                            document.getElementById('verify-input').value = marksheetId;
+                            runVerification(marksheetId);
+                            return;
+                        }
+                    }
+
+                    showToast("No AnswerChain QR code detected in the selected image.", "error");
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         }
     </script>
 </body>
