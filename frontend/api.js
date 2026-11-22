@@ -2,7 +2,7 @@
  * AnswerChain Enterprise Client SDK & Shared Helpers
  */
 
-const API_BASE = `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:8000`;
+const API_BASE = window.location.origin || `${window.location.protocol}//${window.location.hostname || "127.0.0.1"}:8000`;
 
 function getApiBase() {
     return API_BASE;
