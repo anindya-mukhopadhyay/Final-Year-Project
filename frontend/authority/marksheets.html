@@ -68,6 +68,7 @@
                     <table class="custom-table">
                         <thead>
                             <tr>
+                                <th style="width: 70px; text-align: center;">QR Code</th>
                                 <th>Marksheet ID</th>
                                 <th>Student</th>
                                 <th>Examination</th>
@@ -79,7 +80,7 @@
                         </thead>
                         <tbody id="ms-tbody">
                             <tr>
-                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 30px;">
+                                <td colspan="8" style="text-align: center; color: var(--muted); padding: 30px;">
                                     Loading marksheet records...
                                 </td>
                             </tr>
@@ -133,6 +134,9 @@
                     const dataHashSnippet = m.marksheet_data_hash ? m.marksheet_data_hash.substring(0, 14) + '...' : '—';
 
                     tr.innerHTML = `
+                        <td style="text-align: center; vertical-align: middle;">
+                            <img src="/api/qr/${msId}" alt="QR" style="width: 48px; height: 48px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; padding: 2px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: transform 0.15s ease;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'" onclick="showQrModal('${msId}')" title="Click to view full size QR code">
+                        </td>
                         <td><strong>${msId}</strong><br><small style="color:var(--muted)">Script: ${m.answer_script_id}</small></td>
                         <td>${m.student_name}<br><small style="color:var(--muted)">${m.student_id}</small></td>
                         <td>${m.exam_name}</td>

@@ -473,12 +473,25 @@ def generate_marksheet_pdf(
 
     sig_p = Paragraph(sig_details, normal_style)
     if qr_flowable:
+        caption_p = Paragraph(
+            "<font size='6' color='#1b5e20'><b>SCAN TO VERIFY</b></font>",
+            ParagraphStyle('QRCap', parent=normal_style, alignment=TA_CENTER, leading=7)
+        )
+        qr_box = Table([[qr_flowable], [caption_p]], colWidths=[26 * mm])
+        qr_box.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
         sig_table = Table(
-            [[tick_drawing, sig_p, qr_flowable]],
+            [[tick_drawing, sig_p, qr_box]],
             colWidths=[
                 18 * mm,
-                116 * mm,
-                26 * mm,
+                114 * mm,
+                28 * mm,
             ],
         )
     else:
