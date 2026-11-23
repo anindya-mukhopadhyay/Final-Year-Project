@@ -6,6 +6,7 @@
     <title>Public Credential Verification | AnswerChain</title>
     <link rel="stylesheet" href="/style.css">
     <script src="/api.js"></script>
+    <script src="/offline-verifier.js"></script>
     <!-- Self-contained QR Code reader -->
     <script src="/vendor/jsqr/jsQR.min.js"></script>
     <style>
@@ -198,6 +199,24 @@
             border-color: #fca5a5;
             color: #991b1b;
         }
+        .aadhaar-badge-offline {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-color: #7dd3fc;
+            color: #075985;
+        }
+        .offline-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #0284c7;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+        }
         .aadhaar-badge-icon {
             width: 48px;
             height: 48px;
@@ -279,6 +298,15 @@
             <button type="button" class="v-tab" id="tab-camera-scan" onclick="onScanButtonClick()">
                 <span>📷</span> Scan Printed Marksheet with Camera
             </button>
+            <a href="/verify/portable-offline-verifier.html" class="v-tab" title="Standalone offline verifier for airplane mode or air-gapped devices">
+                <span>📴</span> Portable Offline Verifier
+            </a>
+        </div>
+
+        <!-- DYNAMIC OFFLINE BANNER -->
+        <div id="offline-network-banner" style="display: none; background: #e0f2fe; border: 1px solid #7dd3fc; color: #0369a1; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 13px; font-weight: 600; align-items: center; gap: 8px;">
+            <span style="font-size: 18px;">📴</span>
+            <span><b>Offline Mode Active (Airplane Mode)</b> &mdash; On-device cryptographic verification active using WebCrypto. No server connection required.</span>
         </div>
 
         <div class="verify-header">
@@ -361,6 +389,43 @@
                     <p class="aadhaar-badge-sub">This document could not be authenticated as an official AnswerChain certificate.</p>
                     <div id="badge-notfound-reason" style="font-size: 12px; margin-top: 8px;">
                         No matching marksheet ID exists on the distributed ledger. It may be an unverified copy or an invalid reference.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. OFFLINE VERIFIED (AADHAAR STYLE CRYPTOGRAPHIC VERIFICATION) -->
+            <div id="badge-offline-verified" class="aadhaar-badge aadhaar-badge-offline" style="display: none;">
+                <div class="aadhaar-badge-icon" style="background: linear-gradient(135deg, #0284c7, #0369a1); box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);">🛡️</div>
+                <div class="aadhaar-badge-content" style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <h3 class="aadhaar-badge-title" style="color: #0369a1;">Offline Cryptographically Verified</h3>
+                            <p class="aadhaar-badge-sub">Authenticated on-device with ZERO internet connection via Authority ECDSA P-256 Root Key.</p>
+                        </div>
+                        <span class="offline-pill">📴 100% OFFLINE VERIFIED</span>
+                    </div>
+                    <div class="aadhaar-badge-meta">
+                        <div><strong>Issuing Authority:</strong> <span id="badge-offline-auth">AnswerChain Central Authority (AUTH-001)</span></div>
+                        <div><strong>Cryptographic Engine:</strong> <span style="color: #0284c7; font-weight: 700;">✓ Native W3C WebCrypto API (NIST P-256 / SHA-256)</span></div>
+                        <div><strong>Verification Latency:</strong> <span id="badge-offline-latency" style="font-weight: 600;">—</span></div>
+                        <div><strong>Document Status:</strong> <span style="color: #15803d; font-weight: 700;">✓ Authentic &amp; Tamper-Free</span></div>
+                    </div>
+                    <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm btn-secondary" id="btn-crosscheck-online" onclick="crossCheckOnline()" style="font-size: 11px; padding: 5px 12px;">
+                            🌐 Cross-check Live Blockchain Node
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. OFFLINE FORGERY DETECTED (RED BADGE) -->
+            <div id="badge-offline-tampered" class="aadhaar-badge aadhaar-badge-red" style="display: none;">
+                <div class="aadhaar-badge-icon" style="background: #dc2626; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);">🚨</div>
+                <div class="aadhaar-badge-content" style="flex: 1;">
+                    <h3 class="aadhaar-badge-title">Offline Signature Forgery Detected</h3>
+                    <p class="aadhaar-badge-sub">Cryptographic signature verification failed: The student name, marks, or certificate data have been altered from the original Authority issuance!</p>
+                    <div id="badge-offline-tampered-reason" style="font-size: 12px; margin-top: 8px; opacity: 0.95;">
+                        ECDSA P-256 signature mismatch against Central Authority root key.
                     </div>
                 </div>
             </div>
@@ -508,7 +573,80 @@
     </div>
 
     <script>
-        // Check URL path or query params: /verify/<id> or /verify/index.html?id=<id>
+        let currentOfflineDoc = null;
+
+        function crossCheckOnline() {
+            if (currentOfflineDoc && currentOfflineDoc.id) {
+                showToast(`Querying distributed blockchain ledger for ${currentOfflineDoc.id}...`, 'info');
+                runVerification(currentOfflineDoc.id);
+            }
+        }
+
+        async function runOfflineVerification(token) {
+            const btn = document.getElementById('verify-btn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying Offline Cryptographic Signature...';
+
+            const resultBox = document.getElementById('result-box');
+            resultBox.style.display = 'block';
+
+            const badgeVerified = document.getElementById('badge-verified');
+            const badgeTampered = document.getElementById('badge-tampered');
+            const badgeNotFound = document.getElementById('badge-notfound');
+            const badgeOfflineVerified = document.getElementById('badge-offline-verified');
+            const badgeOfflineTampered = document.getElementById('badge-offline-tampered');
+            const detailsSection = document.getElementById('details-section');
+
+            badgeVerified.style.display = 'none';
+            badgeTampered.style.display = 'none';
+            badgeNotFound.style.display = 'none';
+            badgeOfflineVerified.style.display = 'none';
+            badgeOfflineTampered.style.display = 'none';
+            detailsSection.style.display = 'none';
+
+            const res = await OfflineVerifier.verifyOfflineToken(token);
+            btn.disabled = false;
+            btn.textContent = 'Verify Credential';
+
+            if (res.document) {
+                currentOfflineDoc = res.document;
+                const doc = res.document;
+
+                // Always display details section when document payload is decoded
+                detailsSection.style.display = 'grid';
+
+                document.getElementById('badge-offline-auth').textContent = `${doc.univ || 'AnswerChain University'} (Authority: ${doc.auth || 'AUTH-001'})`;
+                document.getElementById('badge-offline-latency').textContent = `${res.latencyMs} ms (${res.engine || 'Instant WebCrypto'})`;
+
+                document.getElementById('res-student-name').textContent = doc.std || '—';
+                document.getElementById('res-student-id').textContent = doc.roll || '—';
+                document.getElementById('res-exam-name').textContent = doc.exam || '—';
+                document.getElementById('res-university').textContent = doc.univ || 'AnswerChain Institution';
+                document.getElementById('res-score').textContent = `${doc.scr} (${doc.grd})`;
+
+                document.getElementById('res-marksheet-id').textContent = doc.id;
+                document.getElementById('res-data-hash').textContent = doc.hsh ? `Prefix: ${doc.hsh}` : 'Cryptographically Signed';
+                document.getElementById('res-pdf-hash').textContent = doc.hsh ? `Prefix: ${doc.hsh}` : 'ECDSA P-256 Verified';
+
+                document.getElementById('download-pdf-btn').href = `/api/marksheets/${doc.id}/pdf`;
+                document.getElementById('verify-input').value = doc.id;
+
+                if (res.verified) {
+                    badgeOfflineVerified.style.display = 'flex';
+                    showToast(`Cryptographic Signature Verified in ${res.latencyMs}ms!`, 'success');
+                } else {
+                    badgeOfflineTampered.style.display = 'flex';
+                    document.getElementById('badge-offline-tampered-reason').textContent = res.error || 'Cryptographic signature mismatch! Data was modified.';
+                    showToast("Signature Invalid: Document data altered!", "error");
+                }
+            } else {
+                badgeOfflineTampered.style.display = 'flex';
+                document.getElementById('badge-offline-tampered-reason').textContent = res.error || 'Malformed offline token.';
+                showToast("Invalid QR code or token", "error");
+            }
+        }
+
+        // Check URL path, query params, and offline hash fragment
         const urlParams = new URLSearchParams(window.location.search);
         let marksheetIdFromUrl = urlParams.get('id');
 
@@ -520,16 +658,23 @@
             }
         }
 
-        if (marksheetIdFromUrl) {
+        // Check for offline hash fragment (#offline=...) or query parameter (?offline=...)
+        const offlineTokenFromUrl = OfflineVerifier.extractOfflineToken(window.location.hash) || OfflineVerifier.extractOfflineToken(window.location.search);
+        if (offlineTokenFromUrl) {
+            runOfflineVerification(offlineTokenFromUrl);
+        } else if (marksheetIdFromUrl) {
             document.getElementById('verify-input').value = marksheetIdFromUrl;
             runVerification(marksheetIdFromUrl);
         }
 
         document.getElementById('verify-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            const id = document.getElementById('verify-input').value.trim();
-            if (id) {
-                runVerification(id);
+            const inputVal = document.getElementById('verify-input').value.trim();
+            const offToken = OfflineVerifier.extractOfflineToken(inputVal);
+            if (offToken) {
+                runOfflineVerification(offToken);
+            } else if (inputVal) {
+                runVerification(inputVal);
             }
         });
 
@@ -544,12 +689,16 @@
             const badgeVerified = document.getElementById('badge-verified');
             const badgeTampered = document.getElementById('badge-tampered');
             const badgeNotFound = document.getElementById('badge-notfound');
+            const badgeOfflineVerified = document.getElementById('badge-offline-verified');
+            const badgeOfflineTampered = document.getElementById('badge-offline-tampered');
             const detailsSection = document.getElementById('details-section');
 
             // Hide all initially
             badgeVerified.style.display = 'none';
             badgeTampered.style.display = 'none';
             badgeNotFound.style.display = 'none';
+            badgeOfflineVerified.style.display = 'none';
+            badgeOfflineTampered.style.display = 'none';
             detailsSection.style.display = 'none';
 
             try {
@@ -880,6 +1029,15 @@
             }
 
             if (detectedText) {
+                const offToken = OfflineVerifier.extractOfflineToken(detectedText);
+                if (offToken) {
+                    playScanSuccessChime();
+                    stopCameraScanner();
+                    showToast("Offline Cryptographic QR Code Scanned!", "success");
+                    runOfflineVerification(offToken);
+                    return;
+                }
+
                 const marksheetId = extractMarksheetId(detectedText);
                 if (marksheetId) {
                     playScanSuccessChime();
@@ -951,6 +1109,15 @@
                     }
 
                     if (detectedText) {
+                        const offToken = OfflineVerifier.extractOfflineToken(detectedText);
+                        if (offToken) {
+                            playScanSuccessChime();
+                            stopCameraScanner();
+                            showToast("Detected Offline Cryptographic QR!", "success");
+                            runOfflineVerification(offToken);
+                            return;
+                        }
+
                         const marksheetId = extractMarksheetId(detectedText);
                         if (marksheetId) {
                             playScanSuccessChime();
@@ -967,6 +1134,25 @@
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
+        }
+
+        function updateNetworkBanner() {
+            const banner = document.getElementById('offline-network-banner');
+            if (banner) {
+                banner.style.display = (!navigator.onLine) ? 'flex' : 'none';
+            }
+        }
+        window.addEventListener('offline', updateNetworkBanner);
+        window.addEventListener('online', updateNetworkBanner);
+        updateNetworkBanner();
+
+        // Register Service Worker for 100% offline verification in Airplane Mode
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => {
+                    console.warn('Service Worker registration skipped:', err);
+                });
+            });
         }
     </script>
 </body>

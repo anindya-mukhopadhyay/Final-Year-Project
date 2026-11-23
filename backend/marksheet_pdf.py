@@ -62,6 +62,10 @@ def generate_marksheet_pdf(
     The PDF does NOT contain its own final PDF hash because
     that would create a circular hashing dependency.
     """
+    if not isinstance(marksheet, dict):
+        marksheet = dict(marksheet)
+    if "marksheet_id" not in marksheet:
+        marksheet["marksheet_id"] = marksheet_id
 
     filename = f"{marksheet_id}.pdf"
 
@@ -143,7 +147,7 @@ def generate_marksheet_pdf(
                     normal_style,
                 ),
                 str(
-                    marksheet["student_id"]
+                    marksheet.get("student_id", "N/A")
                 ),
             ],
             [
@@ -152,7 +156,7 @@ def generate_marksheet_pdf(
                     normal_style,
                 ),
                 str(
-                    marksheet["student_name"]
+                    marksheet.get("student_name", "N/A")
                 ),
             ],
             [
@@ -161,7 +165,7 @@ def generate_marksheet_pdf(
                     normal_style,
                 ),
                 str(
-                    marksheet["exam_name"]
+                    marksheet.get("exam_name", "N/A")
                 ),
             ],
             [
@@ -170,7 +174,7 @@ def generate_marksheet_pdf(
                     normal_style,
                 ),
                 str(
-                    marksheet["answer_script_id"]
+                    marksheet.get("answer_script_id", "N/A")
                 ),
             ],
         ],
@@ -260,12 +264,12 @@ def generate_marksheet_pdf(
             ],
             [
                 str(
-                    marksheet["final_marks"]
+                    marksheet.get("final_marks", marksheet.get("marks", 0))
                 ),
                 str(
-                    marksheet["max_marks"]
+                    marksheet.get("max_marks", 100)
                 ),
-                f'{marksheet["percentage"]}%',
+                f'{marksheet.get("percentage", marksheet.get("grade", 0))}%' if "%" not in str(marksheet.get("percentage", "")) else str(marksheet.get("percentage")),
             ],
         ],
         colWidths=[
@@ -348,7 +352,7 @@ def generate_marksheet_pdf(
                     normal_style,
                 ),
                 str(
-                    marksheet["result_id"]
+                    marksheet.get("result_id", "RES-001")
                 ),
             ],
             [
@@ -357,7 +361,7 @@ def generate_marksheet_pdf(
                     normal_style,
                 ),
                 str(
-                    marksheet["evaluation_id"]
+                    marksheet.get("evaluation_id", "EVAL-001")
                 ),
             ],
             [
@@ -450,12 +454,12 @@ def generate_marksheet_pdf(
         )
     )
 
-    # Dynamic QR code and verification host resolution
+    # Dynamic QR code and verification host resolution with Offline Cryptographic Token
     try:
-        from backend.qr_service import generate_qr_png_bytes, get_local_ip
-        local_host = f"http://{get_local_ip()}:8000"
-        qr_bytes = generate_qr_png_bytes(marksheet_id)
-        qr_flowable = Image(io.BytesIO(qr_bytes), width=23 * mm, height=23 * mm)
+        from backend.qr_service import generate_qr_png_bytes, get_verification_base_url
+        local_host = get_verification_base_url()
+        qr_bytes = generate_qr_png_bytes(marksheet_id, marksheet_data=marksheet)
+        qr_flowable = Image(io.BytesIO(qr_bytes), width=30 * mm, height=30 * mm)
     except Exception as e:
         logger.warning(f"Could not generate QR code for marksheet PDF: {e}")
         local_host = "http://127.0.0.1:8000"
@@ -466,18 +470,18 @@ def generate_marksheet_pdf(
         "<font size='8' color='#1b5e20'><b>Digitally signed by AnswerChain Authorized Institution</b></font><br/>"
         "<font size='7.5' color='#333333'>"
         "Signer: AnswerChain Examination Authority (AUTH-001) &bull; Location: Kolkata, India<br/>"
-        "Integrity: SHA-256 On-Chain Tamper-Evident Ledger &bull; PAdES Digital Signature Active<br/>"
-        f"Official Verification: <u>{local_host}/verify/upload.html</u>"
+        "Integrity: SHA-256 Blockchain Ledger &bull; Offline Cryptographic QR (ECDSA P-256)<br/>"
+        f"Verification: <u>{local_host}/verify/index.html</u> (Online / Offline WebCrypto)"
         "</font>"
     )
 
     sig_p = Paragraph(sig_details, normal_style)
     if qr_flowable:
         caption_p = Paragraph(
-            "<font size='6' color='#1b5e20'><b>SCAN TO VERIFY</b></font>",
-            ParagraphStyle('QRCap', parent=normal_style, alignment=TA_CENTER, leading=7)
+            "<font size='5.5' color='#1b5e20'><b>SCAN TO VERIFY<br/>ONLINE / OFFLINE</b></font>",
+            ParagraphStyle('QRCap', parent=normal_style, alignment=TA_CENTER, leading=6.5)
         )
-        qr_box = Table([[qr_flowable], [caption_p]], colWidths=[26 * mm])
+        qr_box = Table([[qr_flowable], [caption_p]], colWidths=[32 * mm])
         qr_box.setStyle(TableStyle([
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -490,8 +494,8 @@ def generate_marksheet_pdf(
             [[tick_drawing, sig_p, qr_box]],
             colWidths=[
                 18 * mm,
-                114 * mm,
-                28 * mm,
+                108 * mm,
+                34 * mm,
             ],
         )
     else:

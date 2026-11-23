@@ -630,16 +630,56 @@ def public_verify_api(marksheet_id: str):
     clean_id = marksheet_id.strip()
     result = academic_service.verify_marksheet_public(clean_id)
 
-    # Attach QR data URI and public verification link
-    result["verification_url"] = get_verification_url(clean_id)
+    # Attach QR data URI and public verification link with offline cryptographic token
+    ms_data = result.get("marksheet")
+    result["verification_url"] = get_verification_url(clean_id, marksheet_data=ms_data)
     try:
-        result["qr_data_uri"] = generate_qr_data_uri(clean_id)
+        result["qr_data_uri"] = generate_qr_data_uri(clean_id, marksheet_data=ms_data)
     except Exception as e:
         logger.warning("Could not generate QR data URI for %s: %s", clean_id, e)
         result["qr_data_uri"] = None
 
     status_code = 200 if result.get("verified") else (404 if result.get("status") == "NOT_FOUND" else 400)
     return jsonify(result), status_code
+
+
+@app.route("/api/authority/offline-public-key", methods=["GET"])
+def get_authority_offline_public_key():
+    """
+    GET /api/authority/offline-public-key
+    Public endpoint. Exposes the Central Authority's ECDSA P-256 public key
+    for client-side offline WebCrypto verification.
+    """
+    from backend.crypto_offline import (
+        DEFAULT_AUTHORITY_ID,
+        get_offline_authority_public_jwk,
+        get_offline_authority_public_key_raw_b64,
+    )
+    return jsonify({
+        "authority_id": DEFAULT_AUTHORITY_ID,
+        "algorithm": "ECDSA",
+        "named_curve": "P-256",
+        "hash": "SHA-256",
+        "raw_public_key_b64": get_offline_authority_public_key_raw_b64(),
+        "jwk": get_offline_authority_public_jwk(),
+    }), 200
+
+
+@app.route("/api/verify/offline", methods=["POST"])
+def verify_offline_api():
+    """
+    POST /api/verify/offline
+    Verifies an offline marksheet cryptographic token server-side.
+    """
+    from backend.crypto_offline import verify_offline_marksheet_token
+    body = request.get_json(silent=True) or {}
+    token = body.get("token", "").strip()
+    if not token:
+        return jsonify({"error": "Missing 'token' in request body"}), 400
+    valid, doc, err = verify_offline_marksheet_token(token)
+    if valid:
+        return jsonify({"verified": True, "document": doc}), 200
+    return jsonify({"verified": False, "error": err}), 400
 
 
 # ============================================================
@@ -708,7 +748,15 @@ def public_verify_upload_api():
 def public_qr_image(marksheet_id: str):
     """GET /api/qr/<marksheet_id> - returns raw PNG image of verification QR."""
     try:
-        png_bytes = generate_qr_png_bytes(marksheet_id)
+        ms_data = None
+        try:
+            from backend.blockchain_service import blockchain_service
+            resp = blockchain_service.verify_marksheet(marksheet_id=marksheet_id.strip())
+            if resp and resp.get("data") and resp["data"].get("marksheet"):
+                ms_data = resp["data"]["marksheet"]
+        except Exception:
+            pass
+        png_bytes = generate_qr_png_bytes(marksheet_id, marksheet_data=ms_data)
         return send_file(
             io.BytesIO(png_bytes),
             mimetype="image/png",

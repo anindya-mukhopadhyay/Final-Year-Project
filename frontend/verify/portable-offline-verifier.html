@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnswerChain Portable Offline Verifier (Aadhaar-Style Cryptographic)</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/vendor/jsqr/jsQR.min.js"></script>
+    <script src="/offline-verifier.js"></script>
+    <style>
+        body {
+            background: #f8fafc;
+            color: #1e293b;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 24px 30px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+        }
+        .badge-offline {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #0284c7;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .dropzone {
+            border: 2px dashed #94a3b8;
+            border-radius: 12px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8fafc;
+            transition: all 0.2s ease;
+        }
+        .dropzone:hover {
+            border-color: #0284c7;
+            background: #f0f9ff;
+        }
+        .result-box {
+            display: none;
+            margin-top: 24px;
+        }
+        .verified-card {
+            background: #f0fdf4;
+            border: 2px solid #86efac;
+            color: #166534;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        .tampered-card {
+            background: #fef2f2;
+            border: 2px solid #fca5a5;
+            color: #991b1b;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        .grid-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .detail-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .detail-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .btn:hover { background: #1d4ed8; }
+        .camera-video {
+            width: 100%;
+            max-height: 340px;
+            object-fit: cover;
+            border-radius: 10px;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="badge-offline">📴 100% OFFLINE VERIFICATION (AIRPLANE MODE)</div>
+            <h1 style="margin: 0 0 8px 0; font-size: 24px;">AnswerChain Portable Credential Verifier</h1>
+            <p style="margin: 0; color: #94a3b8; font-size: 14px;">Verify digitally signed marksheet QR codes on-device with zero internet connectivity or servers.</p>
+        </div>
+
+        <div class="card">
+            <h2 style="font-size: 17px; margin: 0 0 16px 0;">Select Verification Method</h2>
+
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button type="button" class="btn" onclick="startCamera()">📷 Scan with Camera</button>
+                <button type="button" class="btn" style="background: #475569;" onclick="document.getElementById('file-input').click()">📁 Select QR Image / Marksheet</button>
+                <input type="file" id="file-input" accept="image/*,application/pdf" style="display: none;" onchange="handleFileSelect(event)">
+            </div>
+
+            <div id="camera-section" style="display: none; margin-bottom: 20px; position: relative;">
+                <video id="webcam" class="camera-video" playsinline></video>
+                <canvas id="camera-canvas" style="display: none;"></canvas>
+                <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; color: #64748b;">Point camera at the printed marksheet QR code</span>
+                    <button type="button" class="btn" style="background: #dc2626; padding: 6px 14px; font-size: 12px;" onclick="stopCamera()">Stop Camera</button>
+                </div>
+            </div>
+
+            <div class="dropzone" id="drop-area" onclick="document.getElementById('file-input').click()">
+                <div style="font-size: 32px; margin-bottom: 8px;">📑</div>
+                <div style="font-weight: 600; font-size: 14px; color: #1e293b;">Click to upload or drag & drop marksheet QR image</div>
+                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Supports PNG, JPG, or Screenshots containing the AnswerChain QR code</div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <label style="display: block; font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">Or Paste Offline Token / URL</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="token-input" placeholder="Paste http://...#offline=... or token string" style="flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;">
+                    <button type="button" class="btn" onclick="verifyPastedToken()">Verify</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="result-box" class="card result-box">
+            <div id="verified-banner" class="verified-card" style="display: none;">
+                <div style="font-size: 36px;">🛡️</div>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 18px; color: #15803d;">100% Offline Cryptographic Verified</h3>
+                    <div style="font-size: 13px;">Digitally signed by AnswerChain Authority (AUTH-001) using ECDSA P-256. Verified in <span id="verify-latency">1</span> ms.</div>
+                </div>
+            </div>
+
+            <div id="tampered-banner" class="tampered-card" style="display: none;">
+                <div style="font-size: 36px;">⚠️</div>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 18px; color: #b91c1c;">Signature Mismatch / Data Altered</h3>
+                    <div id="tampered-reason" style="font-size: 13px;">The document details do not match the cryptographic signature.</div>
+                </div>
+            </div>
+
+            <h3 style="margin: 0 0 12px 0; font-size: 16px;">Student Credential Details</h3>
+            <div class="grid-details">
+                <div class="detail-item">
+                    <span class="detail-label">Student Name</span>
+                    <span class="detail-value" id="val-name">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Roll Number / ID</span>
+                    <span class="detail-value" id="val-roll">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Subject / Exam</span>
+                    <span class="detail-value" id="val-exam">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Score & Grade</span>
+                    <span class="detail-value" id="val-score" style="color: #2563eb; font-weight: 700;">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Marksheet ID</span>
+                    <span class="detail-value" id="val-id">—</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Issuing Authority</span>
+                    <span class="detail-value" id="val-auth">AUTH-001 (AnswerChain)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cameraStream = null;
+        let scanLoopId = null;
+
+        // Auto-check URL hash or query for offline token on load
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = OfflineVerifier.extractOfflineToken(window.location.hash) || OfflineVerifier.extractOfflineToken(window.location.search);
+            if (token) {
+                document.getElementById('token-input').value = token;
+                verifyToken(token);
+            }
+        });
+
+        async function verifyToken(token) {
+            const resultBox = document.getElementById('result-box');
+            const verifiedBanner = document.getElementById('verified-banner');
+            const tamperedBanner = document.getElementById('tampered-banner');
+
+            resultBox.style.display = 'block';
+            verifiedBanner.style.display = 'none';
+            tamperedBanner.style.display = 'none';
+
+            const res = await OfflineVerifier.verifyOfflineToken(token);
+
+            if (res.document) {
+                const doc = res.document;
+                document.getElementById('val-name').textContent = doc.std || '—';
+                document.getElementById('val-roll').textContent = doc.roll || '—';
+                document.getElementById('val-exam').textContent = doc.exam || '—';
+                document.getElementById('val-score').textContent = `${doc.scr} (${doc.grd})`;
+                document.getElementById('val-id').textContent = doc.id;
+                document.getElementById('val-auth').textContent = `${doc.univ || 'AnswerChain'} (${doc.auth || 'AUTH-001'})`;
+                document.getElementById('verify-latency').textContent = res.latencyMs;
+
+                if (res.verified) {
+                    verifiedBanner.style.display = 'flex';
+                } else {
+                    tamperedBanner.style.display = 'flex';
+                    document.getElementById('tampered-reason').textContent = res.error || 'Cryptographic signature mismatch! Data was modified.';
+                }
+            } else {
+                tamperedBanner.style.display = 'flex';
+                document.getElementById('tampered-reason').textContent = res.error || 'Invalid or malformed offline cryptographic token.';
+            }
+        }
+
+        function verifyPastedToken() {
+            const text = document.getElementById('token-input').value.trim();
+            const token = OfflineVerifier.extractOfflineToken(text) || text;
+            if (token) verifyToken(token);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    if (window.jsQR) {
+                        const code = jsQR(imgData.data, imgData.width, imgData.height);
+                        if (code && code.data) {
+                            const token = OfflineVerifier.extractOfflineToken(code.data) || code.data;
+                            verifyToken(token);
+                            return;
+                        }
+                    }
+                    alert('No QR code found in the image. Please try a clearer picture.');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function startCamera() {
+            const camSec = document.getElementById('camera-section');
+            const video = document.getElementById('webcam');
+            camSec.style.display = 'block';
+
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } }
+                });
+                video.srcObject = cameraStream;
+                video.setAttribute('playsinline', true);
+                video.play();
+                requestAnimationFrame(scanVideoLoop);
+            } catch (err) {
+                alert('Camera access denied or unavailable: ' + err.message);
+                camSec.style.display = 'none';
+            }
+        }
+
+        function stopCamera() {
+            const camSec = document.getElementById('camera-section');
+            camSec.style.display = 'none';
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
+            }
+            if (scanLoopId) {
+                cancelAnimationFrame(scanLoopId);
+                scanLoopId = null;
+            }
+        }
+
+        function scanVideoLoop() {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('camera-canvas');
+
+            if (video && video.readyState === video.HAVE_ENOUGH_DATA && window.jsQR) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imgData.data, imgData.width, imgData.height);
+                if (code && code.data) {
+                    const token = OfflineVerifier.extractOfflineToken(code.data);
+                    if (token) {
+                        stopCamera();
+                        verifyToken(token);
+                        return;
+                    }
+                }
+            }
+            scanLoopId = requestAnimationFrame(scanVideoLoop);
+        }
+    </script>
+</body>
+</html>

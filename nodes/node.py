@@ -7,7 +7,7 @@ from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 
 # ============================================================
@@ -1347,6 +1347,8 @@ def generate_marksheet_endpoint():
         ).hexdigest()[:12].upper()
     )
 
+    marksheet["marksheet_id"] = marksheet_id
+
     # Generate the physical PDF and calculate its hash
     pdf_info = generate_marksheet_pdf(
         marksheet=marksheet,
@@ -1627,6 +1629,69 @@ def get_blockchain():
         "role": NODE_ROLE,
         "blocks": blockchain.chain,
     })
+
+# ============================================================
+# PUBLIC VERIFICATION & OFFLINE ENDPOINTS (High Availability)
+# ============================================================
+
+FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
+
+@app.route("/verify/index.html", methods=["GET"])
+@app.route("/verify", methods=["GET"])
+def serve_node_verify_index():
+    return send_from_directory(os.path.join(FRONTEND_DIR, "verify"), "index.html")
+
+@app.route("/verify/<path:path>", methods=["GET"])
+def serve_node_verify_files(path):
+    return send_from_directory(os.path.join(FRONTEND_DIR, "verify"), path)
+
+@app.route("/offline-verifier.js", methods=["GET"])
+def serve_node_offline_verifier():
+    return send_from_directory(FRONTEND_DIR, "offline-verifier.js")
+
+@app.route("/sw.js", methods=["GET"])
+def serve_node_sw():
+    return send_from_directory(FRONTEND_DIR, "sw.js")
+
+@app.route("/style.css", methods=["GET"])
+def serve_node_css():
+    return send_from_directory(FRONTEND_DIR, "style.css")
+
+@app.route("/api.js", methods=["GET"])
+def serve_node_api_js():
+    return send_from_directory(FRONTEND_DIR, "api.js")
+
+@app.route("/vendor/<path:path>", methods=["GET"])
+def serve_node_vendor(path):
+    return send_from_directory(os.path.join(FRONTEND_DIR, "vendor"), path)
+
+@app.route("/api/authority/offline-public-key", methods=["GET"])
+def get_node_offline_public_key():
+    from backend.crypto_offline import (
+        get_offline_authority_public_jwk,
+        get_offline_authority_public_key_raw_b64,
+    )
+    return jsonify({
+        "status": "SUCCESS",
+        "key_id": "AUTH-001",
+        "algorithm": "ECDSA",
+        "curve": "P-256",
+        "format": "raw_uncompressed_point_base64",
+        "raw_public_key_b64": get_offline_authority_public_key_raw_b64(),
+        "jwk": get_offline_authority_public_jwk(),
+    }), 200
+
+@app.route("/api/verify/offline", methods=["POST"])
+def verify_node_offline_token():
+    from backend.crypto_offline import verify_offline_marksheet_token
+    payload = request.get_json(silent=True) or {}
+    token = payload.get("token") or ""
+    valid, doc, err = verify_offline_marksheet_token(token)
+    return jsonify({
+        "verified": valid,
+        "document": doc,
+        "error": err,
+    }), (200 if valid else 400)
 
 # ============================================================
 # RUN NODE

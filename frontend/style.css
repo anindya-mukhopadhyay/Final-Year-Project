@@ -23,8 +23,7 @@
     --sidebar: #111827;
 
     --shadow:
-        0 10px 30px
-        rgba(15, 23, 42, 0.06);
+        0 10px 30px rgba(15, 23, 42, 0.06);
 
     font-family:
         Inter,
@@ -149,7 +148,7 @@ a {
 
 .nav-item:hover,
 .nav-item.active {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.08);
     color: white;
 }
 
@@ -183,7 +182,7 @@ a {
 
     padding: 12px;
 
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
 
     border-radius: 12px;
 }
@@ -218,8 +217,7 @@ a {
     background: #1fc47b;
 
     box-shadow:
-        0 0 0 4px
-        rgba(31,196,123,0.12);
+        0 0 0 4px rgba(31, 196, 123, 0.12);
 }
 
 
@@ -227,8 +225,7 @@ a {
     background: #ef4444;
 
     box-shadow:
-        0 0 0 4px
-        rgba(239, 68, 68, 0.12);
+        0 0 0 4px rgba(239, 68, 68, 0.12);
 }
 
 
@@ -462,8 +459,7 @@ a {
     display: grid;
 
     grid-template-columns:
-        minmax(0, 1.6fr)
-        minmax(280px, 0.9fr);
+        minmax(0, 1.6fr) minmax(280px, 0.9fr);
 
     gap: 18px;
 
@@ -889,8 +885,7 @@ td.block-number {
 }
 
 
-.workflow-step.completed
-.workflow-number {
+.workflow-step.completed .workflow-number {
     background: var(--success-soft);
     color: var(--success);
 }
@@ -1469,7 +1464,7 @@ footer {
     padding: 10px;
     border-radius: 10px;
     border: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .hash-display {
