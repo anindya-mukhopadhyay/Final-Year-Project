@@ -81,7 +81,7 @@ class TestPhase11MultiCollegeStudent(unittest.TestCase):
         """Test Super Admin activates, suspends, and resets college credentials."""
         # 1. Status update
         resp = self.client.patch(
-            "/api/admin/colleges/COL-TINT/status",
+            "/api/admin/colleges/COL-HIT/status",
             headers=self.admin_headers,
             json={"status": "ACTIVE"},
         )
@@ -89,7 +89,7 @@ class TestPhase11MultiCollegeStudent(unittest.TestCase):
 
         # 2. Reset credentials
         resp2 = self.client.post(
-            "/api/admin/colleges/COL-TINT/reset-credentials",
+            "/api/admin/colleges/COL-HIT/reset-credentials",
             headers=self.admin_headers,
             json={"password": "newCollegePass123"},
         )
@@ -113,9 +113,7 @@ class TestPhase11MultiCollegeStudent(unittest.TestCase):
     def test_05_college_admin_student_registration_and_credentials(self):
         """Test College Admin registers a student with auto credentials."""
         # Login as TINT college admin
-        admin_auth = authenticate("COL-TINT-ADMIN", "newCollegePass123")
-        if not admin_auth:
-            admin_auth = authenticate("COL-TINT-ADMIN", "college123")
+        admin_auth = authenticate("COL-TINT-ADMIN", "college123")
         self.assertIsNotNone(admin_auth)
         tint_headers = {"Authorization": f"Bearer {admin_auth['token']}"}
 
@@ -186,7 +184,8 @@ class TestPhase11MultiCollegeStudent(unittest.TestCase):
 
     def test_08_academic_results_entry_and_sgpa(self):
         """Test semester results entry with subject marks and SGPA auto-computation."""
-        admin_auth = authenticate("COL-TINT-ADMIN", "newCollegePass123") or authenticate("COL-TINT-ADMIN", "college123")
+        admin_auth = authenticate("COL-TINT-ADMIN", "college123")
+        self.assertIsNotNone(admin_auth)
         tint_headers = {"Authorization": f"Bearer {admin_auth['token']}"}
 
         payload = {
@@ -214,7 +213,8 @@ class TestPhase11MultiCollegeStudent(unittest.TestCase):
 
     def test_09_marksheet_pdf_generation_and_verification(self):
         """Test generating official marksheet PDF with QR and pyHanko signature, and public verification."""
-        admin_auth = authenticate("COL-TINT-ADMIN", "newCollegePass123") or authenticate("COL-TINT-ADMIN", "college123")
+        admin_auth = authenticate("COL-TINT-ADMIN", "college123")
+        self.assertIsNotNone(admin_auth)
         tint_headers = {"Authorization": f"Bearer {admin_auth['token']}"}
 
         gen_resp = self.client.post(
