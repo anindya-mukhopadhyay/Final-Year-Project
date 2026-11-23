@@ -92,6 +92,20 @@ def log_audit_event(
     }
     _AUDIT_LOG.append(event)
     _save_audit_log()
+    try:
+        from backend.database import insert_audit_log_to_db
+        insert_audit_log_to_db(
+            action=action.upper(),
+            actor=effective_actor,
+            actor_role=actor_role.upper(),
+            status=normalized_status,
+            resource_id=resource_id,
+            transaction_id=transaction_id,
+            reason=reason,
+            details=sanitized_details,
+        )
+    except Exception:
+        pass
     return event
 
 def get_audit_events(

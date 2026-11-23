@@ -22,17 +22,23 @@ PROJECT_ROOT = os.path.abspath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+import backend.database as db
 from backend.application_service import academic_service
 from backend.audit import get_audit_events, log_audit_event
 from backend.auth import (
     authenticate,
     check_login_rate_limit,
     check_upload_rate_limit,
+    create_teacher_account,
     get_user_by_id,
+    list_all_teachers_admin,
     list_teachers,
     record_login_failure,
     record_login_success,
+    reset_teacher_password,
     revoke_token,
+    toggle_teacher_account_status,
+    update_teacher_account,
     verify_token,
 )
 from backend.authorization import (
@@ -253,9 +259,290 @@ def logout():
 @app.route("/api/teachers", methods=["GET"])
 @require_auth
 def get_teachers():
-    """Return list of active teachers for assignment dropdown."""
-    teachers = list_teachers()
-    return jsonify({"teachers": teachers}), 200
+    """Return list of active teachers for assignment dropdown, optionally filtered by ?subject=<code>."""
+    subject = request.args.get("subject")
+    teachers = list_teachers(subject_code=subject)
+    return jsonify({"teachers": teachers, "count": len(teachers)}), 200
+
+
+@app.route("/api/subjects", methods=["GET"])
+def api_get_subjects():
+    """
+    GET /api/subjects
+    Returns all subjects from SQLite database (active only by default, or all if ?all=1).
+    """
+    show_all = request.args.get("all", "0").lower() in ("1", "true")
+    active_only = not show_all
+    subjects = db.list_subjects(active_only=active_only)
+    return jsonify({"subjects": subjects, "count": len(subjects)}), 200
+
+
+@app.route("/api/admin/subjects", methods=["POST"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_create_subject():
+    """
+    POST /api/admin/subjects
+    Body: {"subject_code": "AI", "subject_name": "Artificial Intelligence", "description": "..."}
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    code = data.get("subject_code", "").strip().upper()
+    name = data.get("subject_name", "").strip()
+    desc = data.get("description", "").strip()
+
+    if not code or not name:
+        return jsonify({"error": "Both Subject Code and Subject Name are required."}), 400
+
+    ok, subject, err = db.create_subject(code, name, desc)
+    if not ok:
+        status_code = 409 if "already exists" in (err or "").lower() else 400
+        return jsonify({"error": err or "Failed to create subject"}), status_code
+
+    log_audit_event(
+        action="SUBJECT_CREATED",
+        actor=user.user_id,
+        actor_role=user.role,
+        resource_id=code,
+        status="SUCCESS",
+        details={"subject_code": code, "subject_name": name},
+    )
+    return jsonify({"message": f"Subject '{name}' ({code}) created successfully.", "subject": subject}), 201
+
+
+@app.route("/api/admin/subjects/<subject_code>", methods=["PUT"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_update_subject(subject_code: str):
+    """
+    PUT /api/admin/subjects/<subject_code>
+    Body: {"subject_name": "...", "description": "..."}
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    name = data.get("subject_name")
+    desc = data.get("description")
+
+    ok, subject, err = db.update_subject(subject_code, subject_name=name, description=desc)
+    if not ok:
+        status_code = 404 if "not found" in (err or "").lower() else 400
+        return jsonify({"error": err or "Failed to update subject"}), status_code
+
+    log_audit_event(
+        action="SUBJECT_UPDATED",
+        actor=user.user_id,
+        actor_role=user.role,
+        resource_id=subject_code.upper(),
+        status="SUCCESS",
+        details={"subject_code": subject_code.upper(), "subject_name": name},
+    )
+    return jsonify({"message": f"Subject '{subject_code}' updated successfully.", "subject": subject}), 200
+
+
+@app.route("/api/admin/subjects/<subject_code>/status", methods=["PATCH"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_toggle_subject_status(subject_code: str):
+    """
+    PATCH /api/admin/subjects/<subject_code>/status
+    Body: {"active": true / false}
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    if "active" not in data:
+        return jsonify({"error": "Field 'active' (boolean) is required."}), 400
+
+    active = bool(data["active"])
+    ok, err = db.toggle_subject_status(subject_code, active=active)
+    if not ok:
+        status_code = 404 if "not found" in (err or "").lower() else 400
+        return jsonify({"error": err or "Failed to change subject status"}), status_code
+
+    state_str = "activated" if active else "deactivated"
+    log_audit_event(
+        action="SUBJECT_STATUS_CHANGED",
+        actor=user.user_id,
+        actor_role=user.role,
+        resource_id=subject_code.upper(),
+        status="SUCCESS",
+        details={"subject_code": subject_code.upper(), "active": active},
+    )
+    return jsonify({"message": f"Subject '{subject_code}' {state_str} successfully.", "active": active}), 200
+
+
+@app.route("/api/admin/teachers", methods=["GET"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_list_teachers():
+    """
+    GET /api/admin/teachers
+    Returns all teachers (active and inactive) with assigned subjects for Admin management.
+    """
+    teachers = list_all_teachers_admin()
+    return jsonify({"teachers": teachers, "count": len(teachers)}), 200
+
+
+@app.route("/api/admin/teachers", methods=["POST"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_create_teacher():
+    """
+    POST /api/admin/teachers
+    Body:
+      - name: Teacher Name
+      - assigned_subject: Subject Code
+      - user_id: Unique Teacher User ID
+      - password: Password
+      - confirm_password: Password confirmation
+      - department: Optional Department
+      - email: Optional Email
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+
+    name = data.get("name", "").strip()
+    assigned_subject = data.get("assigned_subject", "").strip().upper()
+    user_id = data.get("user_id", "").strip().upper()
+    password = data.get("password", "")
+    confirm_password = data.get("confirm_password", "")
+    department = data.get("department", "Academic Faculty").strip()
+    email = data.get("email", "").strip()
+
+    if not name or not assigned_subject or not user_id or not password:
+        return jsonify({"error": "Teacher Name, Assigned Subject, User ID, and Password are all required."}), 400
+
+    if password != confirm_password:
+        return jsonify({"error": "Passwords do not match."}), 400
+
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters long."}), 400
+
+    ok, teacher, err = create_teacher_account(
+        user_id=user_id,
+        name=name,
+        assigned_subject=assigned_subject,
+        password=password,
+        department=department,
+        email=email,
+    )
+    if not ok:
+        status_code = 409 if "already exists" in (err or "").lower() else 400
+        return jsonify({"error": err or "Failed to create teacher account"}), status_code
+
+    log_audit_event(
+        action="TEACHER_ACCOUNT_CREATED",
+        actor=user.user_id,
+        actor_role=user.role,
+        resource_id=user_id,
+        status="SUCCESS",
+        details={"user_id": user_id, "name": name, "assigned_subject": assigned_subject},
+    )
+    return jsonify({"message": f"Teacher account '{user_id}' ({name}) created successfully.", "teacher": teacher}), 201
+
+
+@app.route("/api/admin/teachers/<teacher_id>", methods=["PUT"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_update_teacher(teacher_id: str):
+    """
+    PUT /api/admin/teachers/<teacher_id>
+    Body: {"name": "...", "assigned_subject": "...", "department": "...", "email": "..."}
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+
+    name = data.get("name")
+    assigned_subject = data.get("assigned_subject")
+    department = data.get("department")
+    email = data.get("email")
+
+    ok, teacher, err = update_teacher_account(
+        user_id=teacher_id,
+        name=name,
+        assigned_subject=assigned_subject,
+        department=department,
+        email=email,
+    )
+    if not ok:
+        status_code = 404 if "not found" in (err or "").lower() else 400
+        return jsonify({"error": err or "Failed to update teacher"}), status_code
+
+    log_audit_event(
+        action="TEACHER_ACCOUNT_UPDATED",
+        actor=user.user_id,
+        actor_role=user.role,
+        resource_id=teacher_id.upper(),
+        status="SUCCESS",
+        details={"user_id": teacher_id.upper(), "assigned_subject": assigned_subject},
+    )
+    return jsonify({"message": f"Teacher '{teacher_id}' updated successfully.", "teacher": teacher}), 200
+
+
+@app.route("/api/admin/teachers/<teacher_id>/reset-password", methods=["POST"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_reset_teacher_password(teacher_id: str):
+    """
+    POST /api/admin/teachers/<teacher_id>/reset-password
+    Body: {"new_password": "...", "confirm_password": "..."}
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    new_password = data.get("new_password", "")
+    confirm_password = data.get("confirm_password", "")
+
+    if not new_password or not confirm_password:
+        return jsonify({"error": "New password and confirmation are required."}), 400
+    if new_password != confirm_password:
+        return jsonify({"error": "Passwords do not match."}), 400
+    if len(new_password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters long."}), 400
+
+    ok, err = reset_teacher_password(teacher_id, new_password)
+    if not ok:
+        status_code = 404 if "not found" in (err or "").lower() else 400
+        return jsonify({"error": err or "Failed to reset password"}), status_code
+
+    log_audit_event(
+        action="TEACHER_PASSWORD_RESET",
+        actor=user.user_id,
+        actor_role=user.role,
+        resource_id=teacher_id.upper(),
+        status="SUCCESS",
+        details={"user_id": teacher_id.upper()},
+    )
+    return jsonify({"message": f"Password for teacher '{teacher_id}' has been reset successfully."}), 200
+
+
+@app.route("/api/admin/teachers/<teacher_id>/status", methods=["PATCH"])
+@require_auth
+@require_role("ADMIN")
+def api_admin_toggle_teacher_status(teacher_id: str):
+    """
+    PATCH /api/admin/teachers/<teacher_id>/status
+    Body: {"active": true / false}
+    """
+    user = get_current_user()
+    data = request.get_json(silent=True) or {}
+    if "active" not in data:
+        return jsonify({"error": "Field 'active' (boolean) is required."}), 400
+
+    active = bool(data["active"])
+    ok, err = toggle_teacher_account_status(teacher_id, active=active)
+    if not ok:
+        status_code = 404 if "not found" in (err or "").lower() else 400
+        return jsonify({"error": err or "Failed to update teacher status"}), status_code
+
+    state_str = "activated" if active else "deactivated"
+    log_audit_event(
+        action="TEACHER_STATUS_CHANGED",
+        actor=user.user_id,
+        actor_role=user.role,
+        resource_id=teacher_id.upper(),
+        status="SUCCESS",
+        details={"user_id": teacher_id.upper(), "active": active},
+    )
+    return jsonify({"message": f"Teacher account '{teacher_id}' has been {state_str}.", "active": active}), 200
 
 
 # ============================================================
@@ -269,6 +556,15 @@ def university_dashboard():
     """GET /api/university/dashboard"""
     data = academic_service.get_university_dashboard()
     return jsonify(data), 200
+
+
+@app.route("/api/university/next-script-id", methods=["GET"])
+@require_auth
+@require_role(["UNIVERSITY", "ADMIN"])
+def api_university_next_script_id():
+    """GET /api/university/next-script-id - Return next auto-generated script ID."""
+    next_id = academic_service.get_next_answer_script_id()
+    return jsonify({"next_id": next_id}), 200
 
 
 @app.route("/api/university/answer-scripts", methods=["GET"])
@@ -296,6 +592,8 @@ def university_register_answer_script():
         student_name = data.get("student_name", "")
         exam_id = data.get("exam_id", "")
         exam_name = data.get("exam_name", "")
+        subject = data.get("subject") or data.get("subject_name")
+        subject_code = data.get("subject_code")
         file_name = data.get("file_name", "answer_script.pdf")
         file_hash = data.get("file_hash")
         answer_script_id = data.get("answer_script_id")
@@ -306,6 +604,8 @@ def university_register_answer_script():
         student_name = request.form.get("student_name", "")
         exam_id = request.form.get("exam_id", "")
         exam_name = request.form.get("exam_name", "")
+        subject = request.form.get("subject") or request.form.get("subject_name")
+        subject_code = request.form.get("subject_code")
         answer_script_id = request.form.get("answer_script_id")
         uploaded_file = request.files.get("file")
         if uploaded_file and uploaded_file.filename:
@@ -327,6 +627,8 @@ def university_register_answer_script():
         file_bytes=file_bytes,
         provided_hash=file_hash,
         answer_script_id=answer_script_id,
+        subject=subject,
+        subject_code=subject_code,
     )
     return jsonify(payload), status_code
 

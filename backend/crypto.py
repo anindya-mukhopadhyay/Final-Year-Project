@@ -315,8 +315,8 @@ def verify_academic_transaction(
 
     # Validate actor registered identity
     try:
-        from backend.auth import _USERS
-        registered_user = _USERS.get(actor_id.strip().upper())
+        from backend.auth import get_user_by_id
+        registered_user = get_user_by_id(actor_id.strip().upper())
         if not registered_user:
             return False, "UNKNOWN_ACTOR"
         is_role_authorized = (
@@ -327,8 +327,9 @@ def verify_academic_transaction(
         )
         if not is_role_authorized:
             return False, "ACTOR_NOT_AUTHORIZED"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error("Error validating actor identity for %s: %s", actor_id, e)
+        return False, "UNKNOWN_ACTOR"
 
     # Reconstruct canonical payload
     canonical_bytes = canonicalize_transaction_payload(transaction_data)

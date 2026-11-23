@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty &amp; Teacher Management | AnswerChain Admin</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <script>
+        // Restrict strictly to ADMIN users
+        requireAuth(["ADMIN"]);
+    </script>
+</head>
+<body>
+    <div class="app">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>System Administration</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span>🛡️</span> Admin Console
+                </a>
+                <a href="/admin/teachers.html" class="nav-item active">
+                    <span>👨‍🏫</span> Teacher Management
+                </a>
+                <a href="/admin/subjects.html" class="nav-item">
+                    <span>📚</span> Subject Management
+                </a>
+                <a href="/index.html" class="nav-item" title="Blockchain Network Monitor &amp; Consensus State">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+                <a href="/verify/index.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Admin Console</strong><small>Faculty &amp; User Control</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Faculty &amp; Teacher Management</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Create teacher accounts, assign academic subjects, manage credentials, and control access permissions</p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">A</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">System Administrator</span>
+                            <span class="user-role-label" id="user-role">ADMIN</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- STATS CARDS -->
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="stat-card">
+                    <span class="stat-title">Total Teachers</span>
+                    <strong class="stat-value" id="kpi-total-teachers">0</strong>
+                    <span class="stat-subtitle">Registered faculty accounts</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Active Accounts</span>
+                    <strong class="stat-value" id="kpi-active-teachers" style="color: var(--success, #16a34a);">0</strong>
+                    <span class="stat-subtitle">Authorized for evaluation</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Deactivated</span>
+                    <strong class="stat-value" id="kpi-inactive-teachers" style="color: var(--danger, #dc2626);">0</strong>
+                    <span class="stat-subtitle">Access suspended</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Subjects Covered</span>
+                    <strong class="stat-value" id="kpi-subjects-covered" style="color: var(--primary, #3b82f6);">0</strong>
+                    <span class="stat-subtitle">Active subject assignments</span>
+                </div>
+            </div>
+
+            <!-- CONTROLS & TABLE CARD -->
+            <div class="table-card" style="margin-top: 24px;">
+                <div class="table-card-header" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h3>Faculty Directory</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 2px;">
+                            Authenticated examiners eligible to evaluate student answer scripts according to assigned subjects
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="search-input" class="form-control" placeholder="Search by name, ID, or subject..." style="width: 240px; font-size: 13px;" oninput="applyFilters()">
+                        <select id="filter-subject" class="form-control" style="width: 170px; font-size: 13px;" onchange="applyFilters()">
+                            <option value="">All Subjects</option>
+                        </select>
+                        <select id="filter-status" class="form-control" style="width: 130px; font-size: 13px;" onchange="applyFilters()">
+                            <option value="">All Status</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="openCreateTeacherModal()">
+                            + Create Teacher Account
+                        </button>
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Teacher Profile</th>
+                                <th>Assigned Subject</th>
+                                <th>Department &amp; Email</th>
+                                <th>Account Status</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teachers-tbody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading faculty directory from database...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CREATE TEACHER MODAL -->
+            <div id="create-teacher-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+                <div style="background: var(--surface, #ffffff); padding: 26px; border-radius: 12px; max-width: 520px; width: 92%; border: 1px solid var(--border); box-shadow: 0 15px 35px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Create Teacher Account</h3>
+                        <button onclick="closeCreateTeacherModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);">&times;</button>
+                    </div>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 18px;">
+                        Create a new faculty examiner profile with automatic <strong>TEACHER</strong> role and dynamic subject allocation.
+                    </p>
+
+                    <form id="create-teacher-form" onsubmit="handleCreateTeacher(event)">
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Teacher Full Name *</label>
+                            <input type="text" id="new-teacher-name" class="form-control" placeholder="e.g. Prof. Michael Chang" required oninput="autoSuggestUserId()">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <div class="form-group">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">User ID *</label>
+                                <input type="text" id="new-teacher-id" class="form-control" placeholder="e.g. TCH-006" required style="font-family: monospace;">
+                                <small style="font-size: 11px; color: var(--muted);">Must be unique across the cluster</small>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Assigned Subject *</label>
+                                <select id="new-teacher-subject" class="form-control" required>
+                                    <option value="" disabled selected>— Select Subject —</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Department</label>
+                            <input type="text" id="new-teacher-dept" class="form-control" value="Computer Science & Engineering" placeholder="e.g. Computer Science & Engineering">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Institutional Email</label>
+                            <input type="email" id="new-teacher-email" class="form-control" placeholder="e.g. m.chang@tint.edu.in">
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px;">
+                            <div class="form-group">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Password *</label>
+                                <input type="password" id="new-teacher-pwd" class="form-control" placeholder="Min. 6 characters" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Confirm Password *</label>
+                                <input type="password" id="new-teacher-pwd-confirm" class="form-control" placeholder="Re-enter password" required minlength="6">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn btn-outline" onclick="closeCreateTeacherModal()">Cancel</button>
+                            <button type="submit" id="btn-submit-teacher" class="btn btn-primary">Create Account</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- EDIT TEACHER MODAL -->
+            <div id="edit-teacher-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+                <div style="background: var(--surface, #ffffff); padding: 26px; border-radius: 12px; max-width: 480px; width: 92%; border: 1px solid var(--border); box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Edit Faculty Details</h3>
+                        <button onclick="closeEditTeacherModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);">&times;</button>
+                    </div>
+
+                    <form id="edit-teacher-form" onsubmit="handleUpdateTeacher(event)">
+                        <input type="hidden" id="edit-teacher-id">
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">User ID</label>
+                            <input type="text" id="edit-teacher-id-display" class="form-control" disabled style="font-family: monospace; opacity: 0.7;">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Teacher Full Name *</label>
+                            <input type="text" id="edit-teacher-name" class="form-control" required>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Assigned Subject *</label>
+                            <select id="edit-teacher-subject" class="form-control" required>
+                                <option value="" disabled>— Select Subject —</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Department</label>
+                            <input type="text" id="edit-teacher-dept" class="form-control">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 22px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Institutional Email</label>
+                            <input type="email" id="edit-teacher-email" class="form-control">
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn btn-outline" onclick="closeEditTeacherModal()">Cancel</button>
+                            <button type="submit" id="btn-update-teacher" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- RESET PASSWORD MODAL -->
+            <div id="reset-pwd-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+                <div style="background: var(--surface, #ffffff); padding: 26px; border-radius: 12px; max-width: 420px; width: 90%; border: 1px solid var(--border); box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                        <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Reset Password</h3>
+                        <button onclick="closeResetPwdModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);">&times;</button>
+                    </div>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+                        Set a new password for <strong id="reset-pwd-teacher-title">Prof. Examiner</strong>. All existing active sessions will be terminated immediately.
+                    </p>
+
+                    <form id="reset-pwd-form" onsubmit="handleResetPassword(event)">
+                        <input type="hidden" id="reset-pwd-teacher-id">
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">New Password *</label>
+                            <input type="password" id="reset-pwd-input" class="form-control" placeholder="Min. 6 characters" required minlength="6">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Confirm New Password *</label>
+                            <input type="password" id="reset-pwd-confirm" class="form-control" placeholder="Re-enter password" required minlength="6">
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn btn-outline" onclick="closeResetPwdModal()">Cancel</button>
+                            <button type="submit" id="btn-submit-reset-pwd" class="btn btn-primary">Reset Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let allTeachers = [];
+        let allSubjects = [];
+
+        async function init() {
+            const user = getCurrentUser();
+            if (user) {
+                document.getElementById('user-name').textContent = user.name;
+                document.getElementById('user-role').textContent = user.role;
+                document.getElementById('user-avatar').textContent = user.name.charAt(0);
+            }
+            await loadSubjects();
+            await loadTeachers();
+        }
+
+        async function loadSubjects() {
+            try {
+                const res = await authFetch('/api/subjects?all=1');
+                if (res.ok && res.data && res.data.subjects) {
+                    allSubjects = res.data.subjects;
+                    populateSubjectDropdowns();
+                } else {
+                    console.error('Failed to load subjects:', res);
+                }
+            } catch (e) {
+                console.error('Failed to load subjects:', e);
+            }
+        }
+
+        function populateSubjectDropdowns() {
+            const newSelect = document.getElementById('new-teacher-subject');
+            const editSelect = document.getElementById('edit-teacher-subject');
+            const filterSelect = document.getElementById('filter-subject');
+
+            if (!newSelect || !editSelect || !filterSelect) return;
+
+            newSelect.innerHTML = '<option value="" disabled selected>— Select Subject —</option>';
+            editSelect.innerHTML = '<option value="" disabled selected>— Select Subject —</option>';
+            filterSelect.innerHTML = '<option value="">All Subjects</option>';
+
+            if (allSubjects.length === 0) {
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = "";
+                emptyOpt.disabled = true;
+                emptyOpt.textContent = "No subjects available - create one in Subject Management";
+                newSelect.appendChild(emptyOpt);
+                return;
+            }
+
+            allSubjects.forEach(s => {
+                const opt1 = document.createElement('option');
+                opt1.value = s.subject_code;
+                opt1.textContent = `${s.subject_name} (${s.subject_code})${!s.active ? ' [Inactive]' : ''}`;
+                newSelect.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = s.subject_code;
+                opt2.textContent = `${s.subject_name} (${s.subject_code})${!s.active ? ' [Inactive]' : ''}`;
+                editSelect.appendChild(opt2);
+
+                const opt3 = document.createElement('option');
+                opt3.value = s.subject_code;
+                opt3.textContent = `${s.subject_name} (${s.subject_code})`;
+                filterSelect.appendChild(opt3);
+            });
+        }
+
+        async function loadTeachers() {
+            try {
+                const res = await authFetch('/api/admin/teachers');
+                if (!res.ok) {
+                    showToast(res.data.error || 'Failed to load teachers.', 'error');
+                    return;
+                }
+                allTeachers = res.data.teachers || [];
+                renderStats();
+                applyFilters();
+            } catch (err) {
+                console.error(err);
+                showToast('Network error loading teachers.', 'error');
+            }
+        }
+
+        function renderStats() {
+            const total = allTeachers.length;
+            const active = allTeachers.filter(t => t.active).length;
+            const inactive = total - active;
+            const subjectsCovered = new Set(allTeachers.filter(t => t.active && t.assigned_subject).map(t => t.assigned_subject)).size;
+
+            document.getElementById('kpi-total-teachers').textContent = total;
+            document.getElementById('kpi-active-teachers').textContent = active;
+            document.getElementById('kpi-inactive-teachers').textContent = inactive;
+            document.getElementById('kpi-subjects-covered').textContent = subjectsCovered;
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            const subjectFilter = document.getElementById('filter-subject').value;
+            const statusFilter = document.getElementById('filter-status').value;
+
+            const filtered = allTeachers.filter(t => {
+                const matchesQuery = !query ||
+                    t.name.toLowerCase().includes(query) ||
+                    t.user_id.toLowerCase().includes(query) ||
+                    (t.assigned_subject && t.assigned_subject.toLowerCase().includes(query)) ||
+                    (t.assigned_subject_name && t.assigned_subject_name.toLowerCase().includes(query));
+
+                const matchesSubject = !subjectFilter || t.assigned_subject === subjectFilter;
+                const matchesStatus = !statusFilter ||
+                    (statusFilter === 'ACTIVE' && t.active) ||
+                    (statusFilter === 'INACTIVE' && !t.active);
+
+                return matchesQuery && matchesSubject && matchesStatus;
+            });
+
+            renderTeachersTable(filtered);
+        }
+
+        function renderTeachersTable(teachers) {
+            const tbody = document.getElementById('teachers-tbody');
+            tbody.innerHTML = '';
+
+            if (teachers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 30px;">No teachers found matching criteria.</td></tr>';
+                return;
+            }
+
+            teachers.forEach(t => {
+                const tr = document.createElement('tr');
+                const statusBadge = t.active
+                    ? '<span class="badge badge-verified" style="font-size: 11px;">Active</span>'
+                    : '<span class="badge badge-tampered" style="font-size: 11px; background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1;">Inactive</span>';
+
+                const subjectBadge = t.assigned_subject
+                    ? `<span class="badge badge-assigned" style="font-size: 11px;" title="${t.assigned_subject_name || t.assigned_subject}">${t.assigned_subject_name ? `${t.assigned_subject_name} (${t.assigned_subject})` : t.assigned_subject}</span>`
+                    : '<span style="color: var(--muted); font-size: 12px;">Unassigned</span>';
+
+                const toggleBtnLabel = t.active ? 'Deactivate' : 'Activate';
+                const toggleBtnClass = t.active ? 'btn-outline' : 'btn-primary';
+
+                tr.innerHTML = `
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px;">
+                                ${t.name.charAt(0)}
+                            </div>
+                            <div>
+                                <strong style="display: block; font-size: 14px;">${t.name}</strong>
+                                <small style="font-family: monospace; color: var(--muted);">${t.user_id}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${subjectBadge}</td>
+                    <td>
+                        <div style="font-size: 13px;">${t.department || 'Academic Faculty'}</div>
+                        <small style="color: var(--muted);">${t.email || '—'}</small>
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td style="text-align: right;">
+                        <div style="display: inline-flex; gap: 6px;">
+                            <button class="btn btn-sm btn-outline" onclick="openEditTeacherModal('${t.user_id}')" title="Edit Teacher Details">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="openResetPwdModal('${t.user_id}', '${t.name}')" title="Reset Password">
+                                🔑 Reset
+                            </button>
+                            <button class="btn btn-sm ${toggleBtnClass}" onclick="toggleTeacherStatus('${t.user_id}', ${!t.active})">
+                                ${toggleBtnLabel}
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ==========================================
+        // CREATE TEACHER
+        // ==========================================
+        function openCreateTeacherModal() {
+            document.getElementById('create-teacher-form').reset();
+            populateSubjectDropdowns();
+            autoSuggestUserId();
+            document.getElementById('create-teacher-modal').style.display = 'flex';
+        }
+
+        function closeCreateTeacherModal() {
+            document.getElementById('create-teacher-modal').style.display = 'none';
+        }
+
+        function autoSuggestUserId() {
+            const idInput = document.getElementById('new-teacher-id');
+            if (idInput.value.trim() === '') {
+                // Suggest next TCH number
+                const teacherIds = allTeachers
+                    .map(t => t.user_id)
+                    .filter(id => id.startsWith('TCH-'))
+                    .map(id => parseInt(id.replace('TCH-', ''), 10))
+                    .filter(n => !isNaN(n));
+                const maxNum = teacherIds.length > 0 ? Math.max(...teacherIds) : 0;
+                idInput.value = `TCH-${String(maxNum + 1).padStart(3, '0')}`;
+            }
+        }
+
+        async function handleCreateTeacher(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-teacher-name').value.trim();
+            const userId = document.getElementById('new-teacher-id').value.trim().toUpperCase();
+            const subject = document.getElementById('new-teacher-subject').value;
+            const dept = document.getElementById('new-teacher-dept').value.trim();
+            const email = document.getElementById('new-teacher-email').value.trim();
+            const pwd = document.getElementById('new-teacher-pwd').value;
+            const pwdConfirm = document.getElementById('new-teacher-pwd-confirm').value;
+            const btn = document.getElementById('btn-submit-teacher');
+
+            if (pwd !== pwdConfirm) {
+                showToast('Passwords do not match.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Creating Account...';
+
+            try {
+                const res = await authFetch('/api/admin/teachers', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: name,
+                        user_id: userId,
+                        assigned_subject: subject,
+                        department: dept,
+                        email: email,
+                        password: pwd,
+                        confirm_password: pwdConfirm
+                    })
+                });
+
+                if (res.ok) {
+                    showToast(res.data.message || `Teacher ${userId} created successfully!`, 'success');
+                    closeCreateTeacherModal();
+                    await loadTeachers();
+                } else {
+                    showToast(res.data.error || 'Failed to create teacher account.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error creating teacher account.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+        }
+
+        // ==========================================
+        // EDIT TEACHER
+        // ==========================================
+        function openEditTeacherModal(userId) {
+            const t = allTeachers.find(item => item.user_id === userId);
+            if (!t) return;
+
+            populateSubjectDropdowns();
+            document.getElementById('edit-teacher-id').value = t.user_id;
+            document.getElementById('edit-teacher-id-display').value = t.user_id;
+            document.getElementById('edit-teacher-name').value = t.name;
+            document.getElementById('edit-teacher-subject').value = t.assigned_subject || '';
+            document.getElementById('edit-teacher-dept').value = t.department || '';
+            document.getElementById('edit-teacher-email').value = t.email || '';
+
+            document.getElementById('edit-teacher-modal').style.display = 'flex';
+        }
+
+        function closeEditTeacherModal() {
+            document.getElementById('edit-teacher-modal').style.display = 'none';
+        }
+
+        async function handleUpdateTeacher(e) {
+            e.preventDefault();
+            const userId = document.getElementById('edit-teacher-id').value;
+            const name = document.getElementById('edit-teacher-name').value.trim();
+            const subject = document.getElementById('edit-teacher-subject').value;
+            const dept = document.getElementById('edit-teacher-dept').value.trim();
+            const email = document.getElementById('edit-teacher-email').value.trim();
+            const btn = document.getElementById('btn-update-teacher');
+
+            btn.disabled = true;
+            btn.textContent = 'Saving Changes...';
+
+            try {
+                const res = await authFetch(`/api/admin/teachers/${userId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        name: name,
+                        assigned_subject: subject,
+                        department: dept,
+                        email: email
+                    })
+                });
+
+                if (res.ok) {
+                    showToast(`Teacher ${userId} updated successfully!`, 'success');
+                    closeEditTeacherModal();
+                    await loadTeachers();
+                } else {
+                    showToast(res.data.error || 'Failed to update teacher.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error updating teacher.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            }
+        }
+
+        // ==========================================
+        // RESET PASSWORD
+        // ==========================================
+        function openResetPwdModal(userId, name) {
+            document.getElementById('reset-pwd-teacher-id').value = userId;
+            document.getElementById('reset-pwd-teacher-title').textContent = `${name} (${userId})`;
+            document.getElementById('reset-pwd-form').reset();
+            document.getElementById('reset-pwd-modal').style.display = 'flex';
+        }
+
+        function closeResetPwdModal() {
+            document.getElementById('reset-pwd-modal').style.display = 'none';
+        }
+
+        async function handleResetPassword(e) {
+            e.preventDefault();
+            const userId = document.getElementById('reset-pwd-teacher-id').value;
+            const newPwd = document.getElementById('reset-pwd-input').value;
+            const confirmPwd = document.getElementById('reset-pwd-confirm').value;
+            const btn = document.getElementById('btn-submit-reset-pwd');
+
+            if (newPwd !== confirmPwd) {
+                showToast('Passwords do not match.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Resetting...';
+
+            try {
+                const res = await authFetch(`/api/admin/teachers/${userId}/reset-password`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        new_password: newPwd,
+                        confirm_password: confirmPwd
+                    })
+                });
+
+                if (res.ok) {
+                    showToast(`Password for ${userId} reset successfully!`, 'success');
+                    closeResetPwdModal();
+                } else {
+                    showToast(res.data.error || 'Failed to reset password.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error resetting password.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Reset Password';
+            }
+        }
+
+        // ==========================================
+        // TOGGLE STATUS
+        // ==========================================
+        async function toggleTeacherStatus(userId, makeActive) {
+            const actionText = makeActive ? 'activate' : 'deactivate';
+            const confirmed = confirm(`Are you sure you want to ${actionText} teacher account ${userId}?${!makeActive ? ' All active sessions will be terminated and this teacher will not be able to log in or receive evaluations.' : ''}`);
+            if (!confirmed) return;
+
+            try {
+                const res = await authFetch(`/api/admin/teachers/${userId}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ active: makeActive })
+                });
+
+                if (res.ok) {
+                    showToast(`Teacher ${userId} successfully ${makeActive ? 'activated' : 'deactivated'}.`, 'success');
+                    await loadTeachers();
+                } else {
+                    showToast(res.data.error || 'Failed to change status.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error changing account status.', 'error');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

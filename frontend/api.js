@@ -25,6 +25,10 @@ function getCurrentUser() {
     }
 }
 
+function getSession() {
+    return getCurrentUser();
+}
+
 function setSession(token, user) {
     localStorage.setItem("answerchain_token", token);
     localStorage.setItem("answerchain_user", JSON.stringify(user));

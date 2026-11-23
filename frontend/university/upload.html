@@ -79,37 +79,21 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="exam_id">Exam ID *</label>
-                                <select id="exam_id" class="form-control" required onchange="syncExamName()">
-                                    <option value="" disabled selected>— Select Exam —</option>
-                                    <option value="EXAM-2026-DBMS">EXAM-2026-DBMS</option>
-                                    <option value="EXAM-2026-OS">EXAM-2026-OS</option>
-                                    <option value="EXAM-2026-PM">EXAM-2026-PM</option>
-                                    <option value="EXAM-2026-AIML">EXAM-2026-AIML</option>
-                                    <option value="EXAM-2026-CYS">EXAM-2026-CYS</option>
-                                    <option value="EXAM-2026-ENGLISH">EXAM-2026-ENGLISH</option>
-                                    <option value="EXAM-2026-CLOUD">EXAM-2026-CLOUD</option>
-                                    <option value="EXAM-2026-04">EXAM-2026-04 (Legacy Demo)</option>
-                                </select>
+                                <input type="text" id="exam_id" class="form-control" placeholder="e.g. EXAM-2026-DBMS" required>
+                                <small style="font-size: 11px; color: var(--muted);">Auto-generated from selected course or customized</small>
                             </div>
                             <div class="form-group">
                                 <label for="answer_script_id">Answer Script ID (Optional)</label>
-                                <input type="text" id="answer_script_id" class="form-control" placeholder="Auto-generates AS-004 if blank">
+                                <input type="text" id="answer_script_id" class="form-control" placeholder="Auto-generating next ID if blank...">
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label for="exam_name">Examination Course / Module *</label>
-                            <select id="exam_name" class="form-control" required onchange="syncExamId()">
-                                <option value="" disabled selected>— Select Course / Module —</option>
-                                <option value="Database Management Systems (DBMS)">Database Management Systems (DBMS)</option>
-                                <option value="Operating Systems (OS)">Operating Systems (OS)</option>
-                                <option value="Project Management (PM)">Project Management (PM)</option>
-                                <option value="Artificial Intelligence & Machine Learning (AIML)">Artificial Intelligence & Machine Learning (AIML)</option>
-                                <option value="Cyber Security (CYS)">Cyber Security (CYS)</option>
-                                <option value="English Communication">English Communication</option>
-                                <option value="Cloud Computing & Distributed Networks">Cloud Computing & Distributed Networks</option>
-                                <option value="Distributed Systems & Advanced Consensus">Distributed Systems & Advanced Consensus (Legacy Demo)</option>
+                            <select id="exam_name" class="form-control" required onchange="handleSubjectChange()">
+                                <option value="" disabled selected>— Loading Courses from Database... —</option>
                             </select>
+                            <small style="font-size: 11px; color: var(--muted);">Dynamically retrieved from institutional subjects database</small>
                         </div>
 
                         <div class="form-group">
@@ -189,32 +173,52 @@
 
         let selectedFile = null;
 
-        // Exam ID <-> Course/Module mapping for testing phase
-        const EXAM_MAP = {
-            'EXAM-2026-DBMS':    'Database Management Systems (DBMS)',
-            'EXAM-2026-OS':      'Operating Systems (OS)',
-            'EXAM-2026-PM':      'Project Management (PM)',
-            'EXAM-2026-AIML':    'Artificial Intelligence & Machine Learning (AIML)',
-            'EXAM-2026-CYS':    'Cyber Security (CYS)',
-            'EXAM-2026-ENGLISH': 'English Communication',
-            'EXAM-2026-CLOUD':   'Cloud Computing & Distributed Networks',
-            'EXAM-2026-04':      'Distributed Systems & Advanced Consensus',
-        };
-        const EXAM_MAP_REVERSE = Object.fromEntries(Object.entries(EXAM_MAP).map(([k, v]) => [v, k]));
+        let dynamicSubjects = [];
 
-        function syncExamName() {
-            const examId = document.getElementById('exam_id').value;
-            const examNameSelect = document.getElementById('exam_name');
-            if (EXAM_MAP[examId]) {
-                examNameSelect.value = EXAM_MAP[examId];
+        async function loadNextScriptId() {
+            try {
+                const res = await authFetch('/api/university/next-script-id');
+                if (res.ok && res.data && res.data.next_id) {
+                    const idInput = document.getElementById('answer_script_id');
+                    if (idInput && !idInput.value.trim()) {
+                        idInput.placeholder = `Auto-generates ${res.data.next_id} if blank`;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load next script ID:', err);
             }
         }
 
-        function syncExamId() {
-            const examName = document.getElementById('exam_name').value;
-            const examIdSelect = document.getElementById('exam_id');
-            if (EXAM_MAP_REVERSE[examName]) {
-                examIdSelect.value = EXAM_MAP_REVERSE[examName];
+        async function loadActiveSubjects() {
+            try {
+                const res = await authFetch('/api/subjects');
+                if (res.ok && res.data.subjects) {
+                    dynamicSubjects = res.data.subjects;
+                    const select = document.getElementById('exam_name');
+                    select.innerHTML = '<option value="" disabled selected>— Select Course / Module —</option>';
+                    dynamicSubjects.forEach(s => {
+                        const opt = document.createElement('option');
+                        opt.value = `${s.subject_name} (${s.subject_code})`;
+                        opt.dataset.code = s.subject_code;
+                        opt.dataset.name = s.subject_name;
+                        opt.textContent = `${s.subject_name} (${s.subject_code})`;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to load dynamic subjects:', err);
+            }
+        }
+
+        loadActiveSubjects();
+        loadNextScriptId();
+
+        function handleSubjectChange() {
+            const select = document.getElementById('exam_name');
+            const selectedOpt = select.options[select.selectedIndex];
+            if (selectedOpt && selectedOpt.dataset.code) {
+                const code = selectedOpt.dataset.code;
+                document.getElementById('exam_id').value = `EXAM-2026-${code}`;
             }
         }
 
@@ -229,10 +233,23 @@
             document.getElementById('student_id').value = 'STUDENT-004';
             document.getElementById('student_name').value = 'Sourav Ganguly';
             document.getElementById('exam_id').value = 'EXAM-2026-04';
-            document.getElementById('exam_name').value = 'Distributed Systems & Advanced Consensus';
             document.getElementById('answer_script_id').value = 'AS-004';
             document.getElementById('file-label').textContent = 'Synthetic Demo Document: AS-004_submission.pdf (Automated)';
             selectedFile = null;
+
+            // Select Distributed Systems or fallback
+            const select = document.getElementById('exam_name');
+            let found = false;
+            for (let i = 0; i < select.options.length; i++) {
+                if (select.options[i].value.includes('Distributed') || select.options[i].value.includes('DISTRIB')) {
+                    select.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found && select.options.length > 1) {
+                select.selectedIndex = 1;
+            }
         }
 
         document.getElementById('upload-form').addEventListener('submit', async (e) => {
@@ -247,6 +264,11 @@
             const examName = document.getElementById('exam_name').value.trim();
             const asId = document.getElementById('answer_script_id').value.trim();
 
+            const select = document.getElementById('exam_name');
+            const selectedOpt = select.options[select.selectedIndex];
+            const subjectCode = selectedOpt && selectedOpt.dataset ? selectedOpt.dataset.code : '';
+            const subjectName = selectedOpt && selectedOpt.dataset ? selectedOpt.dataset.name : '';
+
             try {
                 let res;
                 if (selectedFile) {
@@ -255,6 +277,8 @@
                     formData.append('student_name', studentName);
                     formData.append('exam_id', examId);
                     formData.append('exam_name', examName);
+                    if (subjectCode) formData.append('subject_code', subjectCode);
+                    if (subjectName) formData.append('subject', subjectName);
                     if (asId) formData.append('answer_script_id', asId);
                     formData.append('file', selectedFile);
 
@@ -270,6 +294,8 @@
                             student_name: studentName,
                             exam_id: examId,
                             exam_name: examName,
+                            subject_code: subjectCode || undefined,
+                            subject: subjectName || undefined,
                             answer_script_id: asId || undefined,
                             file_name: asId ? `${asId}.pdf` : 'script.pdf'
                         })
@@ -305,6 +331,7 @@
             selectedFile = null;
             document.getElementById('file-label').textContent = 'Click to select answer script file';
             document.getElementById('receipt-card').style.display = 'none';
+            loadNextScriptId();
         }
     </script>
 </body>

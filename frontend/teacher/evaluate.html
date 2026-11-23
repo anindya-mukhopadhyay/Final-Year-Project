@@ -662,7 +662,8 @@
                 document.getElementById('lbl-script-id').textContent = assignmentData.answer_script_id;
                 document.getElementById('lbl-student-id').textContent = `(${assignmentData.student_id})`;
                 document.getElementById('lbl-student-name').textContent = assignmentData.student_name;
-                document.getElementById('lbl-exam-name').textContent = assignmentData.exam_name;
+                const subLabel = assignmentData.subject_name ? `${assignmentData.subject_name} (${assignmentData.subject})` : (assignmentData.subject || '');
+                document.getElementById('lbl-exam-name').textContent = subLabel ? `${subLabel} • ${assignmentData.exam_name}` : assignmentData.exam_name;
                 document.getElementById('pdf-hash-display').textContent = assignmentData.file_hash;
 
                 totalPagesCount = draftData.total_pages || 3;

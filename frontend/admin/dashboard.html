@@ -232,6 +232,12 @@
                 <a href="/admin/dashboard.html" class="nav-item active">
                     <span>🛡️</span> Admin Console
                 </a>
+                <a href="/admin/teachers.html" class="nav-item">
+                    <span>👨‍🏫</span> Teacher Management
+                </a>
+                <a href="/admin/subjects.html" class="nav-item">
+                    <span>📚</span> Subject Management
+                </a>
                 <a href="/index.html" class="nav-item" title="Blockchain Network Monitor &amp; Consensus State">
                     <span>⬡</span> Blockchain Monitor
                 </a>
@@ -283,6 +289,33 @@
                     <span class="stat-title">Node-3 (Authority)</span>
                     <strong class="stat-value" id="node3-blocks">11 Blocks</strong>
                     <span class="stat-subtitle" id="node3-status">Port 5003 • Online</span>
+                </div>
+            </div>
+
+            <!-- ACADEMIC GOVERNANCE QUICK CONTROLS -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 24px;">
+                <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <span>👨‍🏫</span> Faculty &amp; Teacher Management
+                        </div>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Create examiner accounts, assign subjects, reset passwords, and toggle access.
+                        </p>
+                    </div>
+                    <a href="/admin/teachers.html" class="btn btn-primary" style="white-space: nowrap;">Manage Teachers &rarr;</a>
+                </div>
+
+                <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <span>📚</span> Curriculum &amp; Subject Management
+                        </div>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Define academic courses, manage subject codes, and dynamically sync with registration.
+                        </p>
+                    </div>
+                    <a href="/admin/subjects.html" class="btn btn-outline" style="white-space: nowrap;">Manage Subjects &rarr;</a>
                 </div>
             </div>
 

@@ -96,6 +96,7 @@
                                 <tr>
                                     <th>Script ID</th>
                                     <th>Student</th>
+                                    <th>Subject</th>
                                     <th>Assigned Teacher</th>
                                     <th>Status</th>
                                     <th>Evaluation</th>
@@ -103,7 +104,7 @@
                             </thead>
                             <tbody id="assignments-tbody">
                                 <tr>
-                                    <td colspan="5" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    <td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">
                                         Loading assignments...
                                     </td>
                                 </tr>
@@ -126,25 +127,76 @@
         const urlParams = new URLSearchParams(window.location.search);
         const preselectedScriptId = urlParams.get('id');
 
+        let loadedTeachers = [];
+        let loadedScripts = [];
+
         async function init() {
             await Promise.all([loadTeachers(), loadScriptsAndAssignments()]);
+            document.getElementById('script-select').addEventListener('change', updateTeacherDropdownForSelectedScript);
         }
 
         async function loadTeachers() {
             try {
                 const res = await authFetch('/api/teachers');
                 if (res.ok) {
-                    const select = document.getElementById('teacher-select');
-                    res.data.teachers.forEach(t => {
-                        const opt = document.createElement('option');
-                        opt.value = t.user_id;
-                        opt.textContent = `${t.name} (${t.user_id} - ${t.department})`;
-                        select.appendChild(opt);
-                    });
+                    loadedTeachers = res.data.teachers || [];
+                    renderTeacherDropdown();
                 }
             } catch (e) {
                 console.error(e);
             }
+        }
+
+        function renderTeacherDropdown(preferredSubject = '') {
+            const select = document.getElementById('teacher-select');
+            select.innerHTML = '<option value="">Select teacher...</option>';
+
+            const cleanSub = (preferredSubject || '').trim().toUpperCase();
+
+            if (cleanSub) {
+                const eligible = loadedTeachers.filter(t => (t.assigned_subject || '').toUpperCase() === cleanSub);
+                const others = loadedTeachers.filter(t => (t.assigned_subject || '').toUpperCase() !== cleanSub);
+
+                if (eligible.length > 0) {
+                    const optgroupEligible = document.createElement('optgroup');
+                    optgroupEligible.label = `⭐ Eligible Faculty for ${cleanSub} (${eligible.length})`;
+                    eligible.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.user_id;
+                        opt.textContent = `${t.name} (${t.user_id} • Subject: ${t.assigned_subject})`;
+                        optgroupEligible.appendChild(opt);
+                    });
+                    select.appendChild(optgroupEligible);
+                    // Auto-select first eligible teacher
+                    select.value = eligible[0].user_id;
+                }
+
+                if (others.length > 0) {
+                    const optgroupOthers = document.createElement('optgroup');
+                    optgroupOthers.label = `Other Available Faculty (${others.length})`;
+                    others.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.user_id;
+                        opt.textContent = `${t.name} (${t.user_id} • Subject: ${t.assigned_subject || 'General'})`;
+                        optgroupOthers.appendChild(opt);
+                    });
+                    select.appendChild(optgroupOthers);
+                }
+            } else {
+                loadedTeachers.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.user_id;
+                    opt.textContent = `${t.name} (${t.user_id} • Subject: ${t.assigned_subject || 'General'})`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        function updateTeacherDropdownForSelectedScript() {
+            const scriptId = document.getElementById('script-select').value;
+            const script = loadedScripts.find(s => s.answer_script_id === scriptId);
+            const scriptSub = script ? (script.subject || '') : '';
+            renderTeacherDropdown(scriptSub);
         }
 
         async function loadScriptsAndAssignments() {
@@ -152,19 +204,19 @@
                 const res = await authFetch('/api/university/answer-scripts');
                 if (!res.ok) return;
 
-                const scripts = res.data.answer_scripts || [];
+                loadedScripts = res.data.answer_scripts || [];
                 const scriptSelect = document.getElementById('script-select');
                 scriptSelect.innerHTML = '<option value="">Select script...</option>';
 
                 const tbody = document.getElementById('assignments-tbody');
                 tbody.innerHTML = '';
 
-                scripts.forEach(s => {
+                loadedScripts.forEach(s => {
                     // Populate dropdown with unassigned scripts or preselected
                     if (!s.assigned || s.answer_script_id === preselectedScriptId) {
                         const opt = document.createElement('option');
                         opt.value = s.answer_script_id;
-                        opt.textContent = `${s.answer_script_id} - ${s.student_name} (${s.exam_name})`;
+                        opt.textContent = `${s.answer_script_id} - ${s.student_name} [${s.subject || 'DBMS'}] (${s.exam_name})`;
                         if (s.answer_script_id === preselectedScriptId) {
                             opt.selected = true;
                         }
@@ -183,6 +235,7 @@
                         tr.innerHTML = `
                             <td><strong>${s.answer_script_id}</strong></td>
                             <td>${s.student_name}<br><small style="color:var(--muted)">${s.student_id}</small></td>
+                            <td><span class="badge badge-assigned">${s.subject || '—'}</span></td>
                             <td><strong>${s.teacher_name || s.teacher_id}</strong><br><small style="color:var(--muted)">${s.teacher_id}</small></td>
                             <td>${statusBadge}</td>
                             <td>${evalDisplay}</td>
@@ -191,8 +244,12 @@
                     }
                 });
 
+                if (preselectedScriptId) {
+                    updateTeacherDropdownForSelectedScript();
+                }
+
                 if (tbody.children.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 24px;">No scripts currently assigned.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">No scripts currently assigned.</td></tr>';
                 }
             } catch (e) {
                 console.error(e);

@@ -60,7 +60,12 @@
             </header>
 
             <!-- STATS CARDS -->
-            <div class="stats-grid">
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="stat-card">
+                    <span class="stat-title">Assigned Subject</span>
+                    <strong class="stat-value" id="kpi-subject" style="font-size: 20px; color: var(--primary);">Loading...</strong>
+                    <span class="stat-subtitle" id="kpi-subject-name">Academic Discipline</span>
+                </div>
                 <div class="stat-card">
                     <span class="stat-title">Assigned To Me</span>
                     <strong class="stat-value" id="kpi-total">0</strong>
@@ -90,6 +95,7 @@
                             <tr>
                                 <th>Script ID</th>
                                 <th>Student</th>
+                                <th>Subject</th>
                                 <th>Examination</th>
                                 <th>Grade / Marks</th>
                                 <th>Status</th>
@@ -98,7 +104,7 @@
                         </thead>
                         <tbody id="assignments-list">
                             <tr>
-                                <td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">
+                                <td colspan="7" style="text-align: center; color: var(--muted); padding: 30px;">
                                     Loading your assigned scripts...
                                 </td>
                             </tr>
@@ -270,6 +276,12 @@
                     return;
                 }
 
+                const t = res.data.teacher || {};
+                const subCode = t.assigned_subject || 'General';
+                const subName = t.assigned_subject_name || subCode;
+                document.getElementById('kpi-subject').textContent = subCode;
+                document.getElementById('kpi-subject-name').textContent = subName;
+
                 const k = res.data.kpis;
                 document.getElementById('kpi-total').textContent = k.total_assigned;
                 document.getElementById('kpi-evaluated').textContent = k.evaluated;
@@ -280,7 +292,7 @@
                 const assignments = res.data.assignments || [];
 
                 if (assignments.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">No answer scripts currently assigned to you.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 30px;">No answer scripts currently assigned to you.</td></tr>';
                     return;
                 }
 
@@ -299,10 +311,12 @@
                     }
 
                     const marksDisplay = a.marks !== null ? `<strong>${a.marks}</strong> / ${a.max_marks}` : '—';
+                    const scriptSub = a.subject || subCode;
 
                     tr.innerHTML = `
                         <td><strong>${a.answer_script_id}</strong></td>
                         <td>${a.student_name}<br><small style="color:var(--muted)">${a.student_id}</small></td>
+                        <td><span class="badge badge-assigned" style="font-size: 11px;">${scriptSub}</span></td>
                         <td>${a.exam_name}</td>
                         <td>${marksDisplay}</td>
                         <td>${statusBadge}</td>

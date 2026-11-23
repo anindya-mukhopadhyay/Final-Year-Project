@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curriculum &amp; Subject Management | AnswerChain Admin</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <script>
+        // Restrict strictly to ADMIN users
+        requireAuth(["ADMIN"]);
+    </script>
+</head>
+<body>
+    <div class="app">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>System Administration</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span>🛡️</span> Admin Console
+                </a>
+                <a href="/admin/teachers.html" class="nav-item">
+                    <span>👨‍🏫</span> Teacher Management
+                </a>
+                <a href="/admin/subjects.html" class="nav-item active">
+                    <span>📚</span> Subject Management
+                </a>
+                <a href="/index.html" class="nav-item" title="Blockchain Network Monitor &amp; Consensus State">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+                <a href="/verify/index.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Admin Console</strong><small>Curriculum &amp; Course Control</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 style="font-size: 20px; font-weight: 700;">Curriculum &amp; Subject Management</h2>
+                    <p style="font-size: 13px; color: var(--muted);">Create examination subjects, manage course codes, and maintain dynamic syllabus records for institutional evaluations</p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">A</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">System Administrator</span>
+                            <span class="user-role-label" id="user-role">ADMIN</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- STATS CARDS -->
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                <div class="stat-card">
+                    <span class="stat-title">Total Subjects</span>
+                    <strong class="stat-value" id="kpi-total-subjects">0</strong>
+                    <span class="stat-subtitle">Registered academic courses</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Active Subjects</span>
+                    <strong class="stat-value" id="kpi-active-subjects" style="color: var(--success, #16a34a);">0</strong>
+                    <span class="stat-subtitle">Available for exam registration</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Inactive Subjects</span>
+                    <strong class="stat-value" id="kpi-inactive-subjects" style="color: var(--muted, #64748b);">0</strong>
+                    <span class="stat-subtitle">Archived or disabled</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Faculty Assigned</span>
+                    <strong class="stat-value" id="kpi-faculty-assigned" style="color: var(--primary, #3b82f6);">0</strong>
+                    <span class="stat-subtitle">Teachers actively teaching</span>
+                </div>
+            </div>
+
+            <!-- TABLE CARD -->
+            <div class="table-card" style="margin-top: 24px;">
+                <div class="table-card-header" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h3>Subject Catalog</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 2px;">
+                            Active subjects are dynamically exposed in Upload &amp; Register, Course Modules, Teacher Allocation, and Evaluation
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="search-input" class="form-control" placeholder="Search by code or name..." style="width: 240px; font-size: 13px;" oninput="applyFilters()">
+                        <select id="filter-status" class="form-control" style="width: 140px; font-size: 13px;" onchange="applyFilters()">
+                            <option value="">All Statuses</option>
+                            <option value="ACTIVE">Active Only</option>
+                            <option value="INACTIVE">Inactive Only</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="openCreateSubjectModal()">
+                            + Add New Subject
+                        </button>
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Subject Code</th>
+                                <th>Subject Name</th>
+                                <th>Curriculum Description</th>
+                                <th>Allocated Faculty</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subjects-tbody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">
+                                    Loading subjects from database...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CREATE SUBJECT MODAL -->
+            <div id="create-subject-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+                <div style="background: var(--surface, #ffffff); padding: 26px; border-radius: 12px; max-width: 480px; width: 92%; border: 1px solid var(--border); box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Add New Subject</h3>
+                        <button onclick="closeCreateSubjectModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);">&times;</button>
+                    </div>
+                    <p style="font-size: 13px; color: var(--muted); margin-bottom: 18px;">
+                        Newly created subjects instantly become available in Examination Modules, Answer Script Registration, and Teacher Allocation.
+                    </p>
+
+                    <form id="create-subject-form" onsubmit="handleCreateSubject(event)">
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Subject Code *</label>
+                            <input type="text" id="new-sub-code" class="form-control" placeholder="e.g. AIML, CS801, CYBER, DS" required style="font-family: monospace; text-transform: uppercase;">
+                            <small style="font-size: 11px; color: var(--muted);">Short unique identifier for exam IDs and marksheets</small>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Subject Name *</label>
+                            <input type="text" id="new-sub-name" class="form-control" placeholder="e.g. Artificial Intelligence & Machine Learning" required>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 22px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Curriculum Description</label>
+                            <textarea id="new-sub-desc" class="form-control" rows="3" placeholder="Brief outline of syllabus, core topics, and examination focus..."></textarea>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn btn-outline" onclick="closeCreateSubjectModal()">Cancel</button>
+                            <button type="submit" id="btn-submit-subject" class="btn btn-primary">Create Subject</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- EDIT SUBJECT MODAL -->
+            <div id="edit-subject-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+                <div style="background: var(--surface, #ffffff); padding: 26px; border-radius: 12px; max-width: 480px; width: 92%; border: 1px solid var(--border); box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Edit Subject Details</h3>
+                        <button onclick="closeEditSubjectModal()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);">&times;</button>
+                    </div>
+
+                    <form id="edit-subject-form" onsubmit="handleUpdateSubject(event)">
+                        <input type="hidden" id="edit-sub-code">
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Subject Code</label>
+                            <input type="text" id="edit-sub-code-display" class="form-control" disabled style="font-family: monospace; opacity: 0.7;">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Subject Name *</label>
+                            <input type="text" id="edit-sub-name" class="form-control" required>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 22px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Curriculum Description</label>
+                            <textarea id="edit-sub-desc" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="btn btn-outline" onclick="closeEditSubjectModal()">Cancel</button>
+                            <button type="submit" id="btn-update-subject" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let allSubjects = [];
+
+        async function init() {
+            const user = getCurrentUser();
+            if (user) {
+                document.getElementById('user-name').textContent = user.name;
+                document.getElementById('user-role').textContent = user.role;
+                document.getElementById('user-avatar').textContent = user.name.charAt(0);
+            }
+            await loadSubjects();
+        }
+
+        async function loadSubjects() {
+            try {
+                const res = await authFetch('/api/subjects?all=1');
+                if (!res.ok) {
+                    showToast(res.data.error || 'Failed to load subjects.', 'error');
+                    return;
+                }
+                allSubjects = res.data.subjects || [];
+                renderStats();
+                applyFilters();
+            } catch (err) {
+                console.error(err);
+                showToast('Network error loading subjects.', 'error');
+            }
+        }
+
+        function renderStats() {
+            const total = allSubjects.length;
+            const active = allSubjects.filter(s => s.active).length;
+            const inactive = total - active;
+            const facultyCount = allSubjects.reduce((acc, s) => acc + (s.teacher_count || 0), 0);
+
+            document.getElementById('kpi-total-subjects').textContent = total;
+            document.getElementById('kpi-active-subjects').textContent = active;
+            document.getElementById('kpi-inactive-subjects').textContent = inactive;
+            document.getElementById('kpi-faculty-assigned').textContent = facultyCount;
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            const statusFilter = document.getElementById('filter-status').value;
+
+            const filtered = allSubjects.filter(s => {
+                const matchesQuery = !query ||
+                    s.subject_code.toLowerCase().includes(query) ||
+                    s.subject_name.toLowerCase().includes(query) ||
+                    (s.description && s.description.toLowerCase().includes(query));
+
+                const matchesStatus = !statusFilter ||
+                    (statusFilter === 'ACTIVE' && s.active) ||
+                    (statusFilter === 'INACTIVE' && !s.active);
+
+                return matchesQuery && matchesStatus;
+            });
+
+            renderSubjectsTable(filtered);
+        }
+
+        function renderSubjectsTable(subjects) {
+            const tbody = document.getElementById('subjects-tbody');
+            tbody.innerHTML = '';
+
+            if (subjects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 30px;">No subjects found.</td></tr>';
+                return;
+            }
+
+            subjects.forEach(s => {
+                const tr = document.createElement('tr');
+                const statusBadge = s.active
+                    ? '<span class="badge badge-verified" style="font-size: 11px;">Active</span>'
+                    : '<span class="badge badge-tampered" style="font-size: 11px; background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1;">Inactive</span>';
+
+                const toggleLabel = s.active ? 'Deactivate' : 'Activate';
+                const toggleClass = s.active ? 'btn-outline' : 'btn-primary';
+
+                tr.innerHTML = `
+                    <td>
+                        <strong style="font-family: monospace; font-size: 14px; color: var(--primary);">${s.subject_code}</strong>
+                    </td>
+                    <td>
+                        <strong style="font-size: 14px;">${s.subject_name}</strong>
+                    </td>
+                    <td>
+                        <span style="font-size: 12px; color: var(--muted);">${s.description || '—'}</span>
+                    </td>
+                    <td>
+                        <span class="badge badge-assigned" style="font-size: 11px;">
+                            ${s.teacher_count || 0} Faculty
+                        </span>
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td style="text-align: right;">
+                        <div style="display: inline-flex; gap: 6px;">
+                            <button class="btn btn-sm btn-outline" onclick="openEditSubjectModal('${s.subject_code}')" title="Edit Subject">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn btn-sm ${toggleClass}" onclick="toggleSubjectStatus('${s.subject_code}', ${!s.active})">
+                                ${toggleLabel}
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ==========================================
+        // CREATE SUBJECT
+        // ==========================================
+        function openCreateSubjectModal() {
+            document.getElementById('create-subject-form').reset();
+            document.getElementById('create-subject-modal').style.display = 'flex';
+        }
+
+        function closeCreateSubjectModal() {
+            document.getElementById('create-subject-modal').style.display = 'none';
+        }
+
+        async function handleCreateSubject(e) {
+            e.preventDefault();
+            const code = document.getElementById('new-sub-code').value.trim().toUpperCase();
+            const name = document.getElementById('new-sub-name').value.trim();
+            const desc = document.getElementById('new-sub-desc').value.trim();
+            const btn = document.getElementById('btn-submit-subject');
+
+            btn.disabled = true;
+            btn.textContent = 'Creating Subject...';
+
+            try {
+                const res = await authFetch('/api/admin/subjects', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        subject_code: code,
+                        subject_name: name,
+                        description: desc
+                    })
+                });
+
+                if (res.ok) {
+                    showToast(res.data.message || `Subject ${code} created successfully!`, 'success');
+                    closeCreateSubjectModal();
+                    await loadSubjects();
+                } else {
+                    showToast(res.data.error || 'Failed to create subject.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error creating subject.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Subject';
+            }
+        }
+
+        // ==========================================
+        // EDIT SUBJECT
+        // ==========================================
+        function openEditSubjectModal(code) {
+            const s = allSubjects.find(item => item.subject_code === code);
+            if (!s) return;
+
+            document.getElementById('edit-sub-code').value = s.subject_code;
+            document.getElementById('edit-sub-code-display').value = s.subject_code;
+            document.getElementById('edit-sub-name').value = s.subject_name;
+            document.getElementById('edit-sub-desc').value = s.description || '';
+
+            document.getElementById('edit-subject-modal').style.display = 'flex';
+        }
+
+        function closeEditSubjectModal() {
+            document.getElementById('edit-subject-modal').style.display = 'none';
+        }
+
+        async function handleUpdateSubject(e) {
+            e.preventDefault();
+            const code = document.getElementById('edit-sub-code').value;
+            const name = document.getElementById('edit-sub-name').value.trim();
+            const desc = document.getElementById('edit-sub-desc').value.trim();
+            const btn = document.getElementById('btn-update-subject');
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const res = await authFetch(`/api/admin/subjects/${code}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        subject_name: name,
+                        description: desc
+                    })
+                });
+
+                if (res.ok) {
+                    showToast(`Subject ${code} updated successfully!`, 'success');
+                    closeEditSubjectModal();
+                    await loadSubjects();
+                } else {
+                    showToast(res.data.error || 'Failed to update subject.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error updating subject.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            }
+        }
+
+        // ==========================================
+        // TOGGLE STATUS
+        // ==========================================
+        async function toggleSubjectStatus(code, makeActive) {
+            const actionText = makeActive ? 'activate' : 'deactivate';
+            const confirmed = confirm(`Are you sure you want to ${actionText} subject ${code}?${!makeActive ? ' Inactive subjects will not appear in new examination registration dropdowns.' : ''}`);
+            if (!confirmed) return;
+
+            try {
+                const res = await authFetch(`/api/admin/subjects/${code}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ active: makeActive })
+                });
+
+                if (res.ok) {
+                    showToast(`Subject ${code} ${makeActive ? 'activated' : 'deactivated'} successfully!`, 'success');
+                    await loadSubjects();
+                } else {
+                    showToast(res.data.error || 'Failed to toggle subject status.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Network error changing subject status.', 'error');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
