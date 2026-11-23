@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Profile &amp; Academic History | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .details-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+        }
+        .info-label {
+            color: var(--muted);
+            font-weight: 500;
+        }
+        .info-value {
+            color: #1e293b;
+            font-weight: 600;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">🏫</div>
+                <div>
+                    <h1 id="sidebar-college-name">College Portal</h1>
+                    <span>Institutional Node</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/college/dashboard.html" class="nav-item">
+                    <span>📊</span> College Dashboard
+                </a>
+                <a href="/college/students.html" class="nav-item active">
+                    <span>👥</span> Student Directory
+                </a>
+                <a href="/college/register-student.html" class="nav-item">
+                    <span>➕</span> Register Student
+                </a>
+                <a href="/college/manage-results.html" class="nav-item">
+                    <span>📝</span> Manage Results
+                </a>
+                <a href="/college/marksheets.html" class="nav-item">
+                    <span>📜</span> Marksheets &amp; PDF
+                </a>
+                <a href="/verify-marksheet.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Isolated College Tenant</strong><small id="footer-college-code">TINT</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main">
+            <header class="header">
+                <div>
+                    <h2 id="student-header-name">Student Profile</h2>
+                    <p style="color: var(--muted); font-size: 13px;" id="student-header-meta">Academic record, semester grades &amp; verified marksheets.</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="/college/students.html" class="btn btn-outline">&larr; Back to Directory</a>
+                </div>
+            </header>
+
+            <div class="details-grid" style="margin-top: 20px;">
+                <!-- Left: Profile & Credentials -->
+                <div>
+                    <div class="table-card">
+                        <div style="text-align: center; padding: 24px 16px 16px 16px; border-bottom: 1px solid var(--border);">
+                            <div style="width: 72px; height: 72px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; margin: 0 auto 12px auto;">
+                                <span id="student-avatar">S</span>
+                            </div>
+                            <h3 style="font-size: 17px; font-weight: 800; color: #1e293b;" id="card-name">-</h3>
+                            <div style="font-family: monospace; font-size: 13px; color: var(--muted); margin-top: 2px;" id="card-roll">-</div>
+                            <span id="card-status-badge" style="display: inline-block; margin-top: 8px; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #dcfce7; color: #15803d;">
+                                ACTIVE
+                            </span>
+                        </div>
+
+                        <div style="padding: 16px;">
+                            <div class="info-row">
+                                <span class="info-label">Student ID</span>
+                                <span class="info-value" id="stu-id" style="font-family: monospace; font-size: 11px;">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Registration No</span>
+                                <span class="info-value" id="stu-reg">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">College Roll</span>
+                                <span class="info-value" id="stu-college-roll">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Department</span>
+                                <span class="info-value" id="stu-dept">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Course</span>
+                                <span class="info-value" id="stu-course">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Current Semester</span>
+                                <span class="info-value" id="stu-sem">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Session</span>
+                                <span class="info-value" id="stu-session">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email</span>
+                                <span class="info-value" id="stu-email">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Mobile</span>
+                                <span class="info-value" id="stu-mobile">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Enrolled On</span>
+                                <span class="info-value" id="stu-created">-</span>
+                            </div>
+
+                            <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 8px;">
+                                <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="resetStudentPassword()">
+                                    🔑 Reset Student Password
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Academic Results & Marksheets -->
+                <div>
+                    <!-- Academic Performance Summary -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 0;">
+                        <div class="stat-card">
+                            <span class="stat-title">Cumulative CGPA</span>
+                            <strong class="stat-value" id="sum-cgpa" style="color: #2563eb;">-</strong>
+                            <span class="stat-subtitle">Current overall standing</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-title">Total Credits Earned</span>
+                            <strong class="stat-value" id="sum-credits" style="color: #16a34a;">-</strong>
+                            <span class="stat-subtitle">Passed subject credits</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-title">Semesters Completed</span>
+                            <strong class="stat-value" id="sum-sems" style="color: #7c3aed;">-</strong>
+                            <span class="stat-subtitle">Evaluated semesters</span>
+                        </div>
+                    </div>
+
+                    <!-- Semester-wise results -->
+                    <div class="table-card" style="margin-top: 20px;">
+                        <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>Semester Results History</h3>
+                                <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Official academic grades and publish status.</p>
+                            </div>
+                            <a href="/college/manage-results.html" class="btn btn-primary" style="font-size: 12px;">
+                                ➕ Enter Semester Marks
+                            </a>
+                        </div>
+                        <div id="results-container" style="padding: 16px 20px;">
+                            <div style="text-align: center; color: var(--muted); padding: 24px;">Loading academic history...</div>
+                        </div>
+                    </div>
+
+                    <!-- Marksheets -->
+                    <div class="table-card" style="margin-top: 20px; margin-bottom: 40px;">
+                        <div class="table-card-header">
+                            <div>
+                                <h3>Issued Marksheets &amp; PDF Certificates</h3>
+                                <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Official downloadable certificates with cryptographic QR code.</p>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Marksheet ID</th>
+                                        <th>Semester</th>
+                                        <th>Issued Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="marksheets-tbody">
+                                    <tr><td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">No marksheets issued yet.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentStudentId = '';
+        let currentStudent = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['COLLEGE_ADMIN', 'ADMIN']);
+            if (!user) return;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            currentStudentId = urlParams.get('id');
+
+            if (!currentStudentId) {
+                alert('No student ID provided');
+                window.location.href = '/college/students.html';
+                return;
+            }
+
+            await loadStudentDetails();
+        });
+
+        async function loadStudentDetails() {
+            try {
+                const res = await authFetch(`/api/college/students/${currentStudentId}`);
+                if (!res.ok) {
+                    showToast('Failed to load student details', 'error');
+                    return;
+                }
+
+                currentStudent = res.data.student;
+                const results = res.data.results || [];
+                const marksheets = res.data.marksheets || [];
+                const summary = res.data.summary || {};
+
+                // Header
+                document.getElementById('student-header-name').textContent = `${currentStudent.name} (${currentStudent.roll_number})`;
+                document.getElementById('card-name').textContent = currentStudent.name;
+                document.getElementById('card-roll').textContent = `Roll: ${currentStudent.roll_number}`;
+                document.getElementById('student-avatar').textContent = (currentStudent.name || 'S')[0].toUpperCase();
+
+                // Profile card
+                document.getElementById('stu-id').textContent = currentStudent.student_id;
+                document.getElementById('stu-reg').textContent = currentStudent.registration_number;
+                document.getElementById('stu-college-roll').textContent = currentStudent.college_roll || '-';
+                document.getElementById('stu-dept').textContent = currentStudent.department;
+                document.getElementById('stu-course').textContent = currentStudent.course;
+                document.getElementById('stu-sem').textContent = `Semester ${currentStudent.current_semester}`;
+                document.getElementById('stu-session').textContent = currentStudent.academic_session;
+                document.getElementById('stu-email').textContent = currentStudent.email;
+                document.getElementById('stu-mobile').textContent = currentStudent.mobile_number || '-';
+                document.getElementById('stu-created').textContent = (currentStudent.created_at || '').substring(0, 10);
+
+                // Summary
+                document.getElementById('sum-cgpa').textContent = summary.cgpa !== undefined ? summary.cgpa : '-';
+                document.getElementById('sum-credits').textContent = summary.total_credits_earned || 0;
+                document.getElementById('sum-sems').textContent = results.length;
+
+                // Render Results
+                renderResults(results);
+
+                // Render Marksheets
+                renderMarksheets(marksheets);
+
+            } catch (err) {
+                console.error("Student details load error:", err);
+                showToast('Server connection error', 'error');
+            }
+        }
+
+        function renderResults(results) {
+            const container = document.getElementById('results-container');
+            if (!results || results.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 24px;">No semester results recorded yet. Click 'Enter Semester Marks' to add.</div>`;
+                return;
+            }
+
+            container.innerHTML = results.map(r => {
+                const isPublished = Boolean(r.is_published);
+                const publishBadge = isPublished
+                    ? `<span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;">✓ Published to Student</span>`
+                    : `<button onclick="publishResult('${r.result_id}')" class="btn btn-outline" style="padding: 2px 8px; font-size: 11px; color: #d97706;">📢 Publish to Student</button>`;
+
+                const subjectsHtml = (r.subjects || []).map(s => `
+                    <tr>
+                        <td><code>${s.subject_code}</code></td>
+                        <td>${s.subject_name}</td>
+                        <td style="text-align: center;">${s.credits}</td>
+                        <td style="text-align: center;">${s.internal_marks}</td>
+                        <td style="text-align: center;">${s.external_marks}</td>
+                        <td style="text-align: center;"><strong>${s.total_marks}</strong></td>
+                        <td style="text-align: center;"><strong>${s.grade}</strong></td>
+                        <td style="text-align: center;">${s.grade_point}</td>
+                        <td style="text-align: center;"><span style="color: ${s.result_status === 'PASS' ? '#15803d' : '#b91c1c'}; font-weight: 700;">${s.result_status}</span></td>
+                    </tr>
+                `).join('');
+
+                return `
+                    <div style="border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; overflow: hidden;">
+                        <div style="background: #f8fafc; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
+                            <div>
+                                <strong style="font-size: 15px; color: #1e293b;">Semester ${r.semester}</strong>
+                                <span style="font-size: 12px; color: var(--muted); margin-left: 8px;">Session: ${r.academic_session} • SGPA: <strong style="color: #2563eb;">${r.sgpa}</strong> • Credits: ${r.total_credits}</span>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                ${publishBadge}
+                                <button onclick="generateMarksheetForSemester(${r.semester}, '${r.academic_session}')" class="btn btn-primary" style="padding: 3px 10px; font-size: 11px;">
+                                    📜 Generate Marksheet
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-container" style="padding: 0;">
+                            <table class="data-table" style="margin: 0; font-size: 12px;">
+                                <thead>
+                                    <tr>
+                                        <th>Code</th>
+                                        <th>Subject Name</th>
+                                        <th style="text-align: center;">Credits</th>
+                                        <th style="text-align: center;">Int (25)</th>
+                                        <th style="text-align: center;">Ext (75)</th>
+                                        <th style="text-align: center;">Total (100)</th>
+                                        <th style="text-align: center;">Grade</th>
+                                        <th style="text-align: center;">Grade Pt</th>
+                                        <th style="text-align: center;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${subjectsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderMarksheets(marksheets) {
+            const tbody = document.getElementById('marksheets-tbody');
+            if (!marksheets || marksheets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">No marksheets issued yet. Click 'Generate Marksheet' above.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = marksheets.map(m => `
+                <tr>
+                    <td><strong style="font-family: monospace;">${m.marksheet_id}</strong></td>
+                    <td>Semester ${m.semester} ${m.is_consolidated ? '(Consolidated)' : ''}</td>
+                    <td>${(m.issued_at || '').substring(0, 10)}</td>
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <a href="/api/student/marksheets/${m.marksheet_id}/download" target="_blank" class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;">
+                                📥 Download PDF
+                            </a>
+                            <a href="/verify-marksheet.html?id=${m.marksheet_id}" target="_blank" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;">
+                                🔍 Verify
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function publishResult(resultId) {
+            if (!confirm("Publish this semester result to the student?")) return;
+
+            try {
+                const res = await authFetch(`/api/college/results/${resultId}/publish`, {
+                    method: 'POST',
+                });
+                if (res.ok) {
+                    showToast('Result published to student portal!', 'success');
+                    await loadStudentDetails();
+                } else {
+                    showToast(res.data.message || 'Publish failed', 'error');
+                }
+            } catch (e) {
+                showToast('Error publishing result', 'error');
+            }
+        }
+
+        async function generateMarksheetForSemester(semester, session) {
+            if (!confirm(`Generate official cryptographically signed PDF marksheet for Semester ${semester}?`)) return;
+
+            try {
+                const res = await authFetch('/api/college/marksheets/generate', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        student_id: currentStudentId,
+                        semester: semester,
+                        academic_session: session,
+                    }),
+                });
+
+                if (res.ok) {
+                    showToast('Marksheet PDF generated successfully!', 'success');
+                    await loadStudentDetails();
+                } else {
+                    showToast(res.data.message || 'Failed to generate marksheet', 'error');
+                }
+            } catch (e) {
+                showToast('Error generating marksheet', 'error');
+            }
+        }
+
+        async function resetStudentPassword() {
+            if (!confirm(`Reset login password for ${currentStudent.name}?`)) return;
+
+            try {
+                const res = await authFetch(`/api/college/students/${currentStudentId}/reset-password`, {
+                    method: 'POST',
+                    body: JSON.stringify({}),
+                });
+                if (res.ok) {
+                    const c = res.data.credentials;
+                    alert(`Password reset successfully!\nUsername: ${c.username}\nTemporary Password: ${c.temporary_password}`);
+                } else {
+                    showToast(res.data.message || 'Reset failed', 'error');
+                }
+            } catch (e) {
+                showToast('Error resetting password', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

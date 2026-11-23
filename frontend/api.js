@@ -104,8 +104,22 @@ function requireAuth(allowedRoles = []) {
     return user;
 }
 
-function redirectToRoleHome(role) {
+function redirectToRoleHome(role, userObj = null) {
+    const user = userObj || getCurrentUser();
+    if (user && user.must_change_password) {
+        if (role === "STUDENT") {
+            window.location.href = "/student/change-password.html";
+            return;
+        }
+    }
+
     switch (role) {
+        case "COLLEGE_ADMIN":
+            window.location.href = "/college/dashboard.html";
+            break;
+        case "STUDENT":
+            window.location.href = "/student/dashboard.html";
+            break;
         case "UNIVERSITY":
             window.location.href = "/university/dashboard.html";
             break;

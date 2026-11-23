@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Administration Dashboard | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .quick-action-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        .quick-action-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border-color: #93c5fd;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">🏫</div>
+                <div>
+                    <h1 id="sidebar-college-name">College Portal</h1>
+                    <span id="sidebar-univ-name">Institutional Node</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/college/dashboard.html" class="nav-item active">
+                    <span>📊</span> College Dashboard
+                </a>
+                <a href="/college/students.html" class="nav-item">
+                    <span>👥</span> Student Directory
+                </a>
+                <a href="/college/register-student.html" class="nav-item">
+                    <span>➕</span> Register Student
+                </a>
+                <a href="/college/manage-results.html" class="nav-item">
+                    <span>📝</span> Manage Results
+                </a>
+                <a href="/college/marksheets.html" class="nav-item">
+                    <span>📜</span> Marksheets &amp; PDF
+                </a>
+                <a href="/verify-marksheet.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Isolated College Tenant</strong><small id="footer-college-code">TINT</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main">
+            <header class="header">
+                <div>
+                    <h2 id="page-header-title">College Administration Dashboard</h2>
+                    <p style="color: var(--muted); font-size: 13px;" id="page-header-sub">Manage student registrations, academic results, and verified marksheets.</p>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar" id="user-avatar">C</div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name">College Administrator</span>
+                        <span class="user-role" id="user-role">COLLEGE ADMIN</span>
+                    </div>
+                    <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                </div>
+            </header>
+
+            <!-- Metrics Cards -->
+            <div class="stats-grid" style="margin-top: 16px;">
+                <div class="stat-card">
+                    <span class="stat-title">Total Students</span>
+                    <strong class="stat-value" id="stat-total-students" style="color: #2563eb;">0</strong>
+                    <span class="stat-subtitle">Registered in college</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Active Students</span>
+                    <strong class="stat-value" id="stat-active-students" style="color: #16a34a;">0</strong>
+                    <span class="stat-subtitle">Enrolled &amp; In Good Standing</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Academic Results</span>
+                    <strong class="stat-value" id="stat-total-results" style="color: #d97706;">0</strong>
+                    <span class="stat-subtitle">Semester records recorded</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Marksheets Issued</span>
+                    <strong class="stat-value" id="stat-total-marksheets" style="color: #7c3aed;">0</strong>
+                    <span class="stat-subtitle">Digitally signed &amp; QR notarized</span>
+                </div>
+            </div>
+
+            <!-- Quick Action Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 24px;">
+                <div class="quick-action-card" style="border-left: 4px solid #2563eb;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 15px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                            <span>➕</span> Register New Student
+                        </div>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Create student profile and securely provision one-time login credentials.
+                        </p>
+                    </div>
+                    <a href="/college/register-student.html" class="btn btn-primary" style="white-space: nowrap; margin-left: 10px;">Register &rarr;</a>
+                </div>
+
+                <div class="quick-action-card" style="border-left: 4px solid #d97706;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 15px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                            <span>📝</span> Manage Results
+                        </div>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Enter semester grades, auto-compute SGPA/CGPA, and publish to Student Portal.
+                        </p>
+                    </div>
+                    <a href="/college/manage-results.html" class="btn btn-outline" style="white-space: nowrap; margin-left: 10px;">Enter Grades &rarr;</a>
+                </div>
+
+                <div class="quick-action-card" style="border-left: 4px solid #7c3aed;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 15px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                            <span>📜</span> Issue Marksheet
+                        </div>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Generate official PDF marksheets with embedded QR code &amp; pyHanko signature.
+                        </p>
+                    </div>
+                    <a href="/college/marksheets.html" class="btn btn-outline" style="white-space: nowrap; margin-left: 10px;">View Marksheets &rarr;</a>
+                </div>
+            </div>
+
+            <!-- Two-column: Department breakdown & Semester breakdown -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px;">
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3>Department-Wise Enrollment</h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Department</th>
+                                    <th>Enrolled</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dept-tbody">
+                                <tr><td colspan="2" style="text-align: center; color: var(--muted); padding: 16px;">Loading departments...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3>Semester Distribution</h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Semester</th>
+                                    <th>Students</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sem-tbody">
+                                <tr><td colspan="2" style="text-align: center; color: var(--muted); padding: 16px;">Loading semesters...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recently Registered Students -->
+            <div class="table-card" style="margin-top: 24px; margin-bottom: 40px;">
+                <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3>Recently Registered Students</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Latest student accounts created by administration.</p>
+                    </div>
+                    <a href="/college/students.html" class="btn btn-outline" style="font-size: 12px;">View All Students &rarr;</a>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Department</th>
+                                <th>Course</th>
+                                <th>Semester</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-students-tbody">
+                            <tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 20px;">Loading students...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['COLLEGE_ADMIN', 'ADMIN']);
+            if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'College Administrator';
+            document.getElementById('user-avatar').textContent = (user.name || 'C')[0].toUpperCase();
+
+            await loadCollegeDashboard();
+        });
+
+        async function loadCollegeDashboard() {
+            try {
+                const res = await authFetch('/api/college/dashboard');
+                if (!res.ok) {
+                    showToast('Failed to load college dashboard', 'error');
+                    return;
+                }
+
+                const d = res.data;
+                const col = d.college || {};
+                const stats = d.stats || {};
+
+                document.getElementById('sidebar-college-name').textContent = col.name || 'College Portal';
+                document.getElementById('sidebar-univ-name').textContent = col.university || 'Affiliated College';
+                document.getElementById('footer-college-code').textContent = col.code || 'COL';
+                document.getElementById('page-header-title').textContent = `${col.name} — Overview`;
+
+                // Stats
+                document.getElementById('stat-total-students').textContent = stats.total_students || 0;
+                document.getElementById('stat-active-students').textContent = stats.active_students || 0;
+                document.getElementById('stat-total-results').textContent = stats.total_results || 0;
+                document.getElementById('stat-total-marksheets').textContent = stats.total_marksheets || 0;
+
+                // Depts
+                const deptTbody = document.getElementById('dept-tbody');
+                const depts = stats.department_counts || [];
+                if (depts.length === 0) {
+                    deptTbody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--muted); padding: 14px;">No departments registered yet.</td></tr>`;
+                } else {
+                    deptTbody.innerHTML = depts.map(dp => `
+                        <tr>
+                            <td><strong>${dp.department}</strong></td>
+                            <td><span style="font-weight: 700; color: #2563eb;">${dp.count}</span> students</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Semesters
+                const semTbody = document.getElementById('sem-tbody');
+                const sems = stats.semester_counts || [];
+                if (sems.length === 0) {
+                    semTbody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--muted); padding: 14px;">No semester data yet.</td></tr>`;
+                } else {
+                    semTbody.innerHTML = sems.map(sm => `
+                        <tr>
+                            <td><strong>Semester ${sm.current_semester}</strong></td>
+                            <td><span style="font-weight: 700; color: #16a34a;">${sm.count}</span> students</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Recent Students
+                const recentTbody = document.getElementById('recent-students-tbody');
+                const students = stats.recent_students || [];
+                if (students.length === 0) {
+                    recentTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 20px;">No students registered yet. Click 'Register New Student' above.</td></tr>`;
+                } else {
+                    recentTbody.innerHTML = students.map(s => `
+                        <tr>
+                            <td><strong style="font-family: monospace;">${s.roll_number}</strong></td>
+                            <td><strong>${s.name}</strong></td>
+                            <td>${s.department}</td>
+                            <td>${s.course || 'B.Tech'}</td>
+                            <td>Semester ${s.current_semester}</td>
+                            <td><span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #dcfce7; color: #15803d;">${s.status}</span></td>
+                            <td>
+                                <a href="/college/student-details.html?id=${s.student_id}" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;">
+                                    View Profile &rarr;
+                                </a>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+            } catch (err) {
+                console.error("Dashboard error:", err);
+                showToast('Server connection error', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

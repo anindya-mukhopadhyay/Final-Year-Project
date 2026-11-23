@@ -50,6 +50,9 @@ class User:
     active: bool = True
     assigned_subject: Optional[str] = None
     assigned_subject_name: Optional[str] = None
+    college_id: Optional[str] = None
+    college_name: Optional[str] = None
+    must_change_password: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -61,6 +64,9 @@ class User:
             "active": self.active,
             "assigned_subject": self.assigned_subject or "",
             "assigned_subject_name": self.assigned_subject_name or "",
+            "college_id": self.college_id or "",
+            "college_name": self.college_name or "",
+            "must_change_password": bool(self.must_change_password),
         }
 
 def _hash_password(password: str, salt: str = "answerchain_salt_2026") -> str:
@@ -187,6 +193,9 @@ def authenticate(user_id: str, password: str) -> Optional[Dict[str, Any]]:
             active=bool(user_auth.get("active", 1)),
             assigned_subject=user_auth.get("assigned_subject"),
             assigned_subject_name=user_auth.get("assigned_subject_name"),
+            college_id=user_auth.get("college_id"),
+            college_name=user_auth.get("college_name"),
+            must_change_password=bool(user_auth.get("must_change_password", 0)),
         )
     else:
         # Fallback to in-memory store
@@ -223,6 +232,9 @@ def authenticate(user_id: str, password: str) -> Optional[Dict[str, Any]]:
         "active": user.active,
         "assigned_subject": user.assigned_subject or "",
         "assigned_subject_name": user.assigned_subject_name or "",
+        "college_id": user.college_id or "",
+        "college_name": user.college_name or "",
+        "must_change_password": user.must_change_password,
         "token": token,
     }
 
@@ -299,6 +311,9 @@ def get_user_by_id(user_id: str) -> Optional[User]:
             active=bool(u_dict.get("active", 1)),
             assigned_subject=u_dict.get("assigned_subject"),
             assigned_subject_name=u_dict.get("assigned_subject_name"),
+            college_id=u_dict.get("college_id"),
+            college_name=u_dict.get("college_name"),
+            must_change_password=bool(u_dict.get("must_change_password", 0)),
         )
     upper_id = clean_id.upper()
     if upper_id in _USERS:

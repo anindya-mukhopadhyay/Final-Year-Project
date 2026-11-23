@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Academic Dashboard | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .student-banner {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            border-radius: 16px;
+            color: white;
+            padding: 24px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #2563eb, #60a5fa);">🎓</div>
+                <div>
+                    <h1>Student Portal</h1>
+                    <span id="sidebar-college-name">Academic System</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/student/dashboard.html" class="nav-item active">
+                    <span>📊</span> My Dashboard
+                </a>
+                <a href="/student/profile.html" class="nav-item">
+                    <span>👤</span> Student Profile
+                </a>
+                <a href="/student/results.html" class="nav-item">
+                    <span>📝</span> Semester Results
+                </a>
+                <a href="/student/marksheets.html" class="nav-item">
+                    <span>📜</span> My Marksheets
+                </a>
+                <a href="/student/change-password.html" class="nav-item">
+                    <span>🔐</span> Security &amp; Password
+                </a>
+                <a href="/verify-marksheet.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Authenticated Student</strong><small id="footer-roll">-</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main">
+            <header class="header">
+                <div>
+                    <h2>Academic Dashboard</h2>
+                    <p style="color: var(--muted); font-size: 13px;">View your official semester grades, overall CGPA standing &amp; download certified marksheets.</p>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar" id="user-avatar">S</div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name">Student</span>
+                        <span class="user-role">STUDENT</span>
+                    </div>
+                    <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                </div>
+            </header>
+
+            <!-- Student Welcome Banner -->
+            <div class="student-banner" style="margin-top: 16px;">
+                <div>
+                    <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85;">
+                        Official Academic Record
+                    </span>
+                    <h2 style="font-size: 24px; font-weight: 800; margin: 4px 0 6px 0;" id="banner-name">Welcome!</h2>
+                    <div style="font-size: 13px; opacity: 0.9;" id="banner-meta">
+                        Loading student enrollment details...
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 11px; opacity: 0.8; text-transform: uppercase;">Enrollment Status</div>
+                    <div style="display: inline-block; background: #22c55e; color: white; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 999px; margin-top: 4px;" id="banner-status">
+                        ACTIVE
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metric Cards -->
+            <div class="stats-grid" style="margin-top: 20px;">
+                <div class="stat-card">
+                    <span class="stat-title">Cumulative CGPA</span>
+                    <strong class="stat-value" id="stat-cgpa" style="color: #2563eb;">-</strong>
+                    <span class="stat-subtitle">Across evaluated semesters</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Latest Semester SGPA</span>
+                    <strong class="stat-value" id="stat-sgpa" style="color: #16a34a;">-</strong>
+                    <span class="stat-subtitle" id="stat-sgpa-sub">Most recent result</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Total Credits Earned</span>
+                    <strong class="stat-value" id="stat-credits" style="color: #7c3aed;">0</strong>
+                    <span class="stat-subtitle">Passed subject credits</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Pending Backlogs</span>
+                    <strong class="stat-value" id="stat-backlogs" style="color: #059669;">0</strong>
+                    <span class="stat-subtitle">Cleared to proceed</span>
+                </div>
+            </div>
+
+            <!-- Quick Action Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 24px;">
+                <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #2563eb;">
+                    <div>
+                        <strong style="font-size: 15px; color: #1e293b; display: block;">Semester Results</strong>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">View subject-wise grades, internal/external marks breakdown.</p>
+                    </div>
+                    <a href="/student/results.html" class="btn btn-primary" style="margin-left: 10px; white-space: nowrap;">View &rarr;</a>
+                </div>
+
+                <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #7c3aed;">
+                    <div>
+                        <strong style="font-size: 15px; color: #1e293b; display: block;">Official Marksheets</strong>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Download tamper-evident PDF transcripts with verifiable QR code.</p>
+                    </div>
+                    <a href="/student/marksheets.html" class="btn btn-outline" style="margin-left: 10px; white-space: nowrap;">Download &rarr;</a>
+                </div>
+
+                <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #059669;">
+                    <div>
+                        <strong style="font-size: 15px; color: #1e293b; display: block;">Student Profile</strong>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">View official registration details &amp; submit correction requests.</p>
+                    </div>
+                    <a href="/student/profile.html" class="btn btn-outline" style="margin-left: 10px; white-space: nowrap;">Profile &rarr;</a>
+                </div>
+            </div>
+
+            <!-- Published Semester Results Summary -->
+            <div class="table-card" style="margin-top: 24px; margin-bottom: 40px;">
+                <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3>Official Semester Grade Cards</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Certified grades committed to institutional ledger.</p>
+                    </div>
+                    <a href="/student/results.html" class="btn btn-outline" style="font-size: 12px;">Detailed Breakdown &rarr;</a>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Semester</th>
+                                <th>Academic Session</th>
+                                <th>Credits</th>
+                                <th>SGPA</th>
+                                <th>Result Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="semesters-tbody">
+                            <tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">Loading academic results...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['STUDENT']);
+            if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'Student';
+            document.getElementById('user-avatar').textContent = (user.name || 'S')[0].toUpperCase();
+
+            await loadDashboardData();
+        });
+
+        async function loadDashboardData() {
+            try {
+                // Profile & College
+                const profRes = await authFetch('/api/student/profile');
+                if (profRes.ok) {
+                    const stu = profRes.data.student || {};
+                    const col = profRes.data.college || {};
+
+                    document.getElementById('sidebar-college-name').textContent = col.name || 'College Portal';
+                    document.getElementById('footer-roll').textContent = stu.roll_number || stu.student_id;
+                    document.getElementById('banner-name').textContent = `Welcome, ${stu.name}!`;
+                    document.getElementById('banner-meta').textContent = `${stu.course || 'B.Tech'} • ${stu.department || ''} • Roll: ${stu.roll_number} • Reg: ${stu.registration_number} • ${col.name || ''}`;
+                    document.getElementById('banner-status').textContent = stu.status || 'ACTIVE';
+                }
+
+                // Summary
+                const sumRes = await authFetch('/api/student/academic-summary');
+                if (sumRes.ok) {
+                    const sum = sumRes.data.summary || {};
+                    document.getElementById('stat-cgpa').textContent = sum.cgpa !== undefined ? sum.cgpa : '-';
+                    document.getElementById('stat-credits').textContent = sum.total_credits_earned || 0;
+
+                    const results = sum.semester_results || [];
+                    if (results.length > 0) {
+                        const latest = results[results.length - 1];
+                        document.getElementById('stat-sgpa').textContent = latest.sgpa || '-';
+                        document.getElementById('stat-sgpa-sub').textContent = `Semester ${latest.semester} (${latest.academic_session})`;
+                    }
+
+                    renderSemesterTable(results);
+                }
+            } catch (err) {
+                console.error("Dashboard data load error:", err);
+                showToast('Server connection error', 'error');
+            }
+        }
+
+        function renderSemesterTable(results) {
+            const tbody = document.getElementById('semesters-tbody');
+            if (!results || results.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">No semester results published yet by your college.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = results.map(r => `
+                <tr>
+                    <td><strong style="color: #1e293b;">Semester ${r.semester}</strong></td>
+                    <td>${r.academic_session}</td>
+                    <td><strong>${r.total_credits}</strong></td>
+                    <td><strong style="color: #2563eb; font-size: 15px;">${r.sgpa}</strong></td>
+                    <td><span style="display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #dcfce7; color: #15803d;">PASS</span></td>
+                    <td>
+                        <a href="/student/results.html#sem-${r.semester}" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;">
+                            View Grades &rarr;
+                        </a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    </script>
+</body>
+</html>

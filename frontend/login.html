@@ -46,30 +46,38 @@
             </button>
         </form>
 
-        <div style="margin-top: 18px; text-align: center;">
-            <a href="/verify/index.html" style="font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600;">
+        <div style="margin-top: 18px; text-align: center; display: flex; flex-direction: column; gap: 6px;">
+            <a href="/verify-marksheet.html" style="font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600;">
                 Public Verifier? Verify a Marksheet without Logging In →
             </a>
+            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                Looking for dedicated portals?
+                <a href="/college/login.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">College Admin Portal</a> |
+                <a href="/student/login.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Student Portal</a>
+            </div>
         </div>
 
         <!-- Development Quick Role Switcher -->
         <div class="demo-credentials-box">
             <div class="demo-title">Development Roles &amp; Quick Access</div>
             <div class="demo-buttons">
+                <button type="button" class="demo-btn" onclick="fillCreds('ADMIN-001', 'admin123')">
+                    🛡️ Super Admin (ADMIN-001)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('COL-TINT-ADMIN', 'college123')">
+                    🏫 College Admin (TINT)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('111', 'student123')">
+                    🎓 Student (Asmit Mondal)
+                </button>
                 <button type="button" class="demo-btn" onclick="fillCreds('UNIV-001', 'university123')">
                     🏛️ University (UNIV-001)
                 </button>
                 <button type="button" class="demo-btn" onclick="fillCreds('TCH-001', 'teacher123')">
                     👨‍🏫 Teacher 1 (TCH-001)
                 </button>
-                <button type="button" class="demo-btn" onclick="fillCreds('TCH-004', 'teacher123')">
-                    👨‍🏫 Teacher 4 (TCH-004)
-                </button>
                 <button type="button" class="demo-btn" onclick="fillCreds('AUTH-001', 'authority123')">
                     ⚖️ Authority (AUTH-001)
-                </button>
-                <button type="button" class="demo-btn" onclick="fillCreds('ADMIN-001', 'admin123')">
-                    🛡️ Admin (ADMIN-001)
                 </button>
                 <button type="button" class="demo-btn" onclick="fillCreds('VERIFY-001', 'verify123')">
                     🔍 Verifier (VERIFY-001)
@@ -102,7 +110,7 @@
                     setSession(res.data.token, res.data.user);
                     showToast(`Authenticated as ${res.data.user.name} (${res.data.user.role})`, 'success');
                     setTimeout(() => {
-                        redirectToRoleHome(res.data.user.role);
+                        redirectToRoleHome(res.data.user.role, res.data.user);
                     }, 400);
                 } else {
                     showToast(res.data.message || 'Authentication failed. Please check credentials.', 'error');

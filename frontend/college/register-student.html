@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register New Student | College Administration | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+        .form-section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-top: 24px;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: white;
+            border-radius: 16px;
+            max-width: 520px;
+            width: 90%;
+            padding: 28px;
+            box-shadow: 0 25px 35px -5px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">🏫</div>
+                <div>
+                    <h1 id="sidebar-college-name">College Portal</h1>
+                    <span>Institutional Node</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/college/dashboard.html" class="nav-item">
+                    <span>📊</span> College Dashboard
+                </a>
+                <a href="/college/students.html" class="nav-item">
+                    <span>👥</span> Student Directory
+                </a>
+                <a href="/college/register-student.html" class="nav-item active">
+                    <span>➕</span> Register Student
+                </a>
+                <a href="/college/manage-results.html" class="nav-item">
+                    <span>📝</span> Manage Results
+                </a>
+                <a href="/college/marksheets.html" class="nav-item">
+                    <span>📜</span> Marksheets &amp; PDF
+                </a>
+                <a href="/verify-marksheet.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Isolated College Tenant</strong><small id="footer-college-code">TINT</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main">
+            <header class="header">
+                <div>
+                    <h2>Student Registration Module</h2>
+                    <p style="color: var(--muted); font-size: 13px;">Authoritative provisioning of student profile &amp; secure one-time credentials generation.</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="/college/students.html" class="btn btn-outline">&larr; Back to Student Directory</a>
+                </div>
+            </header>
+
+            <div class="table-card" style="margin-top: 20px; max-width: 960px;">
+                <form id="student-reg-form" onsubmit="submitStudentRegistration(event)">
+
+                    <!-- 1. PERSONAL INFORMATION -->
+                    <div class="form-section-title" style="margin-top: 0;">
+                        <span>👤</span> 1. Personal Information
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" class="form-control" placeholder="e.g. Asmit Mondal" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="father_name">Father's Name</label>
+                            <input type="text" id="father_name" class="form-control" placeholder="e.g. Debabrata Mondal">
+                        </div>
+                        <div class="form-group">
+                            <label for="mother_name">Mother's Name</label>
+                            <input type="text" id="mother_name" class="form-control" placeholder="e.g. Shikha Mondal">
+                        </div>
+                        <div class="form-group">
+                            <label for="dob">Date of Birth</label>
+                            <input type="date" id="dob" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="gender">Gender</label>
+                            <select id="gender" class="form-control">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="blood_group">Blood Group (Optional)</label>
+                            <input type="text" id="blood_group" class="form-control" placeholder="e.g. O+, A+, B+">
+                        </div>
+                        <div class="form-group">
+                            <label for="category">Category (Optional)</label>
+                            <select id="category" class="form-control">
+                                <option value="General">General</option>
+                                <option value="OBC">OBC</option>
+                                <option value="SC">SC</option>
+                                <option value="ST">ST</option>
+                                <option value="EWS">EWS</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 2. CONTACT INFORMATION -->
+                    <div class="form-section-title">
+                        <span>📞</span> 2. Contact Information
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" class="form-control" placeholder="e.g. asmit@tint.edu.in" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="mobile_number">Mobile Number</label>
+                            <input type="text" id="mobile_number" class="form-control" placeholder="e.g. +91 98301 23456">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label for="current_address">Current Residential Address</label>
+                            <input type="text" id="current_address" class="form-control" placeholder="e.g. Action Area II, New Town, Kolkata">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label for="permanent_address">Permanent Address</label>
+                            <input type="text" id="permanent_address" class="form-control" placeholder="e.g. Same as above or permanent home address">
+                        </div>
+                    </div>
+
+                    <!-- 3. ACADEMIC INFORMATION -->
+                    <div class="form-section-title">
+                        <span>🎓</span> 3. Official Academic Details
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="roll_number">University Roll Number *</label>
+                            <input type="text" id="roll_number" class="form-control" placeholder="e.g. 11100123001" required style="font-family: monospace;">
+                        </div>
+                        <div class="form-group">
+                            <label for="registration_number">Registration Number *</label>
+                            <input type="text" id="registration_number" class="form-control" placeholder="e.g. 2311101001" required style="font-family: monospace;">
+                        </div>
+                        <div class="form-group">
+                            <label for="college_roll">College Roll Number (Optional)</label>
+                            <input type="text" id="college_roll" class="form-control" placeholder="e.g. CSE-2023-001">
+                        </div>
+                        <div class="form-group">
+                            <label for="department">Department *</label>
+                            <select id="department" class="form-control" required>
+                                <option value="Computer Science & Engineering">Computer Science &amp; Engineering</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Electronics & Communication">Electronics &amp; Communication</option>
+                                <option value="Electrical Engineering">Electrical Engineering</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                <option value="Civil Engineering">Civil Engineering</option>
+                                <option value="Applied Electronics & Instrumentation">Applied Electronics &amp; Instrumentation</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="course">Course / Degree *</label>
+                            <input type="text" id="course" class="form-control" value="B.Tech Computer Science & Engineering" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admission_year">Admission Year *</label>
+                            <input type="text" id="admission_year" class="form-control" value="2023" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="current_semester">Current Semester *</label>
+                            <select id="current_semester" class="form-control" required>
+                                <option value="1">Semester 1</option>
+                                <option value="2">Semester 2</option>
+                                <option value="3">Semester 3</option>
+                                <option value="4">Semester 4</option>
+                                <option value="5">Semester 5</option>
+                                <option value="6">Semester 6</option>
+                                <option value="7">Semester 7</option>
+                                <option value="8">Semester 8</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="academic_session">Academic Session *</label>
+                            <input type="text" id="academic_session" class="form-control" value="2023-2024" required>
+                        </div>
+                    </div>
+
+                    <!-- 4. ACCOUNT INFORMATION -->
+                    <div class="form-section-title">
+                        <span>🔐</span> 4. Student Authentication Credentials
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="username">Assigned Username (Optional)</label>
+                            <input type="text" id="username" class="form-control" placeholder="Leave blank to use University Roll Number">
+                            <small style="color: var(--muted); font-size: 11px;">Default is University Roll Number (e.g. 11100123001)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Temporary Password *</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="password" class="form-control" placeholder="Min. 6 chars" required>
+                                <button type="button" class="btn btn-outline" onclick="generateTempPassword()" style="white-space: nowrap;">Auto Gen</button>
+                            </div>
+                            <small style="color: var(--muted); font-size: 11px;">Student will be forced to change password on first login.</small>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px;">
+                        <a href="/college/students.html" class="btn btn-outline">Cancel</a>
+                        <button type="submit" class="btn btn-primary" id="submit-btn" style="padding: 10px 24px;">
+                            Register Student &amp; Create Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Credentials Modal -->
+    <div id="creds-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">
+                ✓
+            </div>
+            <h3 style="font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 6px;">Student Registered Successfully!</h3>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+                The student account is now active. Please securely provide these initial login credentials to the student:
+            </p>
+
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                <div style="margin-bottom: 10px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Student ID:</span>
+                    <div style="font-family: monospace; font-size: 14px; font-weight: 700; color: #1e293b;" id="modal-student-id"></div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Login Username / Roll:</span>
+                    <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #2563eb;" id="modal-username"></div>
+                </div>
+                <div>
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Temporary Password:</span>
+                    <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #b91c1c;" id="modal-password"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="copyCreds()">📋 Copy Credentials</button>
+                <button type="button" class="btn btn-primary" onclick="goToStudents()">Done &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = requireAuth(['COLLEGE_ADMIN', 'ADMIN']);
+            if (!user) return;
+
+            if (user.college_name) {
+                document.getElementById('sidebar-college-name').textContent = user.college_name;
+            }
+            generateTempPassword();
+        });
+
+        function generateTempPassword() {
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+            let p = "Stu@";
+            for (let i = 0; i < 6; i++) {
+                p += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('password').value = p;
+        }
+
+        async function submitStudentRegistration(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Registering...';
+
+            const payload = {
+                name: document.getElementById('name').value.trim(),
+                father_name: document.getElementById('father_name').value.trim(),
+                mother_name: document.getElementById('mother_name').value.trim(),
+                dob: document.getElementById('dob').value,
+                gender: document.getElementById('gender').value,
+                blood_group: document.getElementById('blood_group').value.trim(),
+                category: document.getElementById('category').value,
+                email: document.getElementById('email').value.trim(),
+                mobile_number: document.getElementById('mobile_number').value.trim(),
+                permanent_address: document.getElementById('permanent_address').value.trim(),
+                current_address: document.getElementById('current_address').value.trim(),
+                roll_number: document.getElementById('roll_number').value.trim(),
+                registration_number: document.getElementById('registration_number').value.trim(),
+                college_roll: document.getElementById('college_roll').value.trim(),
+                department: document.getElementById('department').value,
+                course: document.getElementById('course').value.trim(),
+                admission_year: document.getElementById('admission_year').value.trim(),
+                current_semester: parseInt(document.getElementById('current_semester').value, 10),
+                academic_session: document.getElementById('academic_session').value.trim(),
+                username: document.getElementById('username').value.trim() || undefined,
+                password: document.getElementById('password').value.trim(),
+            };
+
+            try {
+                const res = await authFetch('/api/college/students', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+
+                if (res.ok) {
+                    const d = res.data;
+                    document.getElementById('modal-student-id').textContent = d.student.student_id;
+                    document.getElementById('modal-username').textContent = d.credentials.username;
+                    document.getElementById('modal-password').textContent = d.credentials.temporary_password;
+                    document.getElementById('creds-modal').style.display = 'flex';
+                } else {
+                    showToast(res.data.message || 'Registration failed', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Register Student & Create Account';
+                }
+            } catch (err) {
+                showToast('Server connection error', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Register Student & Create Account';
+            }
+        }
+
+        function copyCreds() {
+            const sid = document.getElementById('modal-student-id').textContent;
+            const user = document.getElementById('modal-username').textContent;
+            const pass = document.getElementById('modal-password').textContent;
+            const text = `AnswerChain Student Login Credentials:\nStudent ID: ${sid}\nUsername: ${user}\nTemporary Password: ${pass}\nStudent Portal: ${window.location.origin}/student/login.html`;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Credentials copied to clipboard!', 'success');
+            }).catch(() => {
+                showToast('Unable to copy', 'warning');
+            });
+        }
+
+        function goToStudents() {
+            window.location.href = '/college/students.html';
+        }
+    </script>
+</body>
+</html>

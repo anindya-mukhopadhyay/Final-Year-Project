@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register New College | AnswerChain Admin</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+        }
+        .form-section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-top: 24px;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: white;
+            border-radius: 16px;
+            max-width: 540px;
+            width: 90%;
+            padding: 28px;
+            box-shadow: 0 25px 35px -5px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>System Administration</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span>🛡️</span> Admin Console
+                </a>
+                <a href="/admin/colleges.html" class="nav-item active">
+                    <span>🏫</span> Colleges &amp; Institutions
+                </a>
+                <a href="/admin/teachers.html" class="nav-item">
+                    <span>👨‍🏫</span> Teacher Management
+                </a>
+                <a href="/admin/subjects.html" class="nav-item">
+                    <span>📚</span> Subject Management
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+                <a href="/verify/index.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Multi-Tenant Root</strong><small>Institutional Provisioning</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main">
+            <header class="header">
+                <div>
+                    <h2>Register New College</h2>
+                    <p style="color: var(--muted); font-size: 13px;">Add a new college tenant, define institutional parameters, and provision isolated administrator access.</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="/admin/colleges.html" class="btn btn-outline">&larr; Back to Colleges</a>
+                </div>
+            </header>
+
+            <div class="table-card" style="margin-top: 20px; max-width: 960px;">
+                <form id="add-college-form" onsubmit="submitNewCollege(event)">
+
+                    <div class="form-section-title" style="margin-top: 0;">
+                        <span>🏛️</span> Institutional Information
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="college_name">College Name *</label>
+                            <input type="text" id="college_name" class="form-control" placeholder="e.g. Heritage Institute of Technology" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="college_code">College Code *</label>
+                            <input type="text" id="college_code" class="form-control" placeholder="e.g. HIT, IEM, TINT" required style="text-transform: uppercase;">
+                            <small style="color: var(--muted); font-size: 11px;">Must be unique across platform. Used in Student IDs.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="university">Affiliated University *</label>
+                            <input type="text" id="university" class="form-control" placeholder="e.g. Maulana Abul Kalam Azad University of Technology" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="official_email">Official Email Address *</label>
+                            <input type="email" id="official_email" class="form-control" placeholder="e.g. info@heritageit.edu" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="contact_number">Contact Phone Number *</label>
+                            <input type="text" id="contact_number" class="form-control" placeholder="e.g. +91 33 2443 0456" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="district">District / City *</label>
+                            <input type="text" id="district" class="form-control" placeholder="e.g. Kolkata" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="state">State *</label>
+                            <input type="text" id="state" class="form-control" placeholder="e.g. West Bengal" required>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label for="address">Full Campus Address *</label>
+                            <input type="text" id="address" class="form-control" placeholder="e.g. Chowbaga Road, Anandapur, PO: East Kolkata Township" required>
+                        </div>
+                    </div>
+
+                    <div class="form-section-title">
+                        <span>👤</span> College Administrator Account Credentials
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="admin_name">Administrator Full Name *</label>
+                            <input type="text" id="admin_name" class="form-control" placeholder="e.g. Dr. Pranay Chaudhuri" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin_email">Administrator Institutional Email *</label>
+                            <input type="email" id="admin_email" class="form-control" placeholder="e.g. principal@heritageit.edu" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin_username">Admin Login Username *</label>
+                            <input type="text" id="admin_username" class="form-control" placeholder="e.g. COL-HIT-ADMIN or admin.hit" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin_password">Temporary Password *</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="admin_password" class="form-control" placeholder="Min. 6 chars" required>
+                                <button type="button" class="btn btn-outline" onclick="generateRandomPassword()" style="white-space: nowrap;">Auto Gen</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px;">
+                        <a href="/admin/colleges.html" class="btn btn-outline">Cancel</a>
+                        <button type="submit" class="btn btn-primary" id="submit-btn" style="padding: 10px 24px;">
+                            Provision College &amp; Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Credentials Modal -->
+    <div id="creds-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">
+                ✓
+            </div>
+            <h3 style="font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 6px;">College Created Successfully!</h3>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+                Please securely record the following administrator login credentials. The administrator will be required to change this temporary password upon first login.
+            </p>
+
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                <div style="margin-bottom: 10px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">College ID:</span>
+                    <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #1e293b;" id="modal-college-id"></div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Admin Username:</span>
+                    <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #2563eb;" id="modal-username"></div>
+                </div>
+                <div>
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Temporary Password:</span>
+                    <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #b91c1c;" id="modal-password"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="copyCreds()">📋 Copy Credentials</button>
+                <button type="button" class="btn btn-primary" onclick="goToColleges()">Done &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            requireAuth(['ADMIN']);
+            generateRandomPassword();
+        });
+
+        function generateRandomPassword() {
+            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$";
+            let p = "";
+            for (let i = 0; i < 10; i++) {
+                p += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('admin_password').value = p;
+        }
+
+        async function submitNewCollege(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = "Provisioning...";
+
+            const payload = {
+                name: document.getElementById('college_name').value.trim(),
+                code: document.getElementById('college_code').value.trim().toUpperCase(),
+                university: document.getElementById('university').value.trim(),
+                official_email: document.getElementById('official_email').value.trim(),
+                contact_number: document.getElementById('contact_number').value.trim(),
+                district: document.getElementById('district').value.trim(),
+                state: document.getElementById('state').value.trim(),
+                address: document.getElementById('address').value.trim(),
+                admin_name: document.getElementById('admin_name').value.trim(),
+                admin_email: document.getElementById('admin_email').value.trim(),
+                admin_username: document.getElementById('admin_username').value.trim(),
+                admin_password: document.getElementById('admin_password').value.trim(),
+            };
+
+            try {
+                const res = await authFetch('/api/admin/colleges', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+
+                if (res.ok) {
+                    const d = res.data;
+                    document.getElementById('modal-college-id').textContent = d.college.college_id;
+                    document.getElementById('modal-username').textContent = d.credentials.username;
+                    document.getElementById('modal-password').textContent = d.credentials.temporary_password;
+                    document.getElementById('creds-modal').style.display = 'flex';
+                } else {
+                    showToast(res.data.message || 'Failed to create college', 'error');
+                    btn.disabled = false;
+                    btn.textContent = "Provision College & Save";
+                }
+            } catch (err) {
+                showToast('Server connection error', 'error');
+                btn.disabled = false;
+                btn.textContent = "Provision College & Save";
+            }
+        }
+
+        function copyCreds() {
+            const cid = document.getElementById('modal-college-id').textContent;
+            const user = document.getElementById('modal-username').textContent;
+            const pass = document.getElementById('modal-password').textContent;
+            const text = `AnswerChain College Administrator Credentials:\nCollege ID: ${cid}\nUsername: ${user}\nTemporary Password: ${pass}\nLogin URL: ${window.location.origin}/login.html`;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Credentials copied to clipboard!', 'success');
+            }).catch(() => {
+                showToast('Unable to copy to clipboard', 'warning');
+            });
+        }
+
+        function goToColleges() {
+            window.location.href = '/admin/colleges.html';
+        }
+    </script>
+</body>
+</html>

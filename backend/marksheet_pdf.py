@@ -763,3 +763,344 @@ def verify_pdf_hash(
         calculate_pdf_hash(pdf_path)
         == expected_hash
     )
+
+
+def generate_academic_marksheet_pdf(
+    marksheet_id: str,
+    college: Dict[str, Any],
+    student: Dict[str, Any],
+    result: Dict[str, Any],
+    subjects: list,
+    is_consolidated: bool = False,
+    all_semesters: Optional[list] = None,
+    output_filename: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Generate an official, tamper-evident Academic Grade Card / Marksheet PDF
+    for college students, complete with grade breakdown, SGPA/CGPA, verifiable QR code,
+    and pyHanko digital signature.
+    """
+    from backend.qr_service import generate_qr_png_bytes, get_verification_url
+
+    filename = output_filename or f"{marksheet_id}.pdf"
+    if not filename.endswith(".pdf"):
+        filename += ".pdf"
+    pdf_path = os.path.join(GENERATED_DIR, filename)
+
+    doc = SimpleDocTemplate(
+        pdf_path,
+        pagesize=A4,
+        rightMargin=14 * mm,
+        leftMargin=14 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+        title=f"Academic Marksheet - {marksheet_id}",
+        author="AnswerChain Academic System",
+    )
+
+    styles = getSampleStyleSheet()
+
+    header_univ_style = ParagraphStyle(
+        "HeaderUniv",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=12,
+        leading=15,
+        textColor=colors.HexColor("#475569"),
+        fontName="Helvetica-Bold",
+    )
+    header_col_style = ParagraphStyle(
+        "HeaderCol",
+        parent=styles["Title"],
+        alignment=TA_CENTER,
+        fontSize=16,
+        leading=20,
+        textColor=colors.HexColor("#1e293b"),
+        fontName="Helvetica-Bold",
+        spaceAfter=3,
+    )
+    sub_header_style = ParagraphStyle(
+        "SubHeader",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor("#64748b"),
+        spaceAfter=6,
+    )
+    title_badge_style = ParagraphStyle(
+        "TitleBadge",
+        parent=styles["Heading2"],
+        alignment=TA_CENTER,
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#1d4ed8"),
+        fontName="Helvetica-Bold",
+        spaceAfter=10,
+    )
+    meta_label_style = ParagraphStyle(
+        "MetaLabel",
+        parent=styles["Normal"],
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor("#475569"),
+        fontName="Helvetica-Bold",
+    )
+    meta_val_style = ParagraphStyle(
+        "MetaVal",
+        parent=styles["Normal"],
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor("#0f172a"),
+    )
+    th_style = ParagraphStyle(
+        "TableHead",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#ffffff"),
+        fontName="Helvetica-Bold",
+    )
+    tb_style = ParagraphStyle(
+        "TableBody",
+        parent=styles["Normal"],
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#1e293b"),
+    )
+    tb_center = ParagraphStyle(
+        "TableBodyCenter",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#1e293b"),
+    )
+    tb_bold = ParagraphStyle(
+        "TableBodyBold",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor("#0f172a"),
+        fontName="Helvetica-Bold",
+    )
+    notice_style = ParagraphStyle(
+        "Notice",
+        parent=styles["Normal"],
+        fontSize=7,
+        leading=9,
+        textColor=colors.HexColor("#64748b"),
+    )
+
+    story = []
+
+    # 1. Header Banner
+    univ_name = (college.get("university") or "STATE TECHNICAL UNIVERSITY").upper()
+    col_name = (college.get("name") or "COLLEGE OF ENGINEERING").upper()
+    col_address = f"{college.get('address', '')}, {college.get('district', '')}, {college.get('state', '')} | Code: {college.get('code', '')}"
+
+    story.append(Paragraph(univ_name, header_univ_style))
+    story.append(Paragraph(col_name, header_col_style))
+    story.append(Paragraph(col_address, sub_header_style))
+
+    report_type = "CONSOLIDATED GRADE REPORT" if is_consolidated else f"GRADE CARD — SEMESTER {result.get('semester', 'I')}"
+    story.append(Paragraph(f"<b>{report_type}</b>", title_badge_style))
+
+    # 2. Student & Meta Info Table
+    meta_data = [
+        [
+            Paragraph("<b>Student Name:</b>", meta_label_style),
+            Paragraph(student.get("name", "N/A"), meta_val_style),
+            Paragraph("<b>Roll Number:</b>", meta_label_style),
+            Paragraph(student.get("roll_number", "N/A"), meta_val_style),
+        ],
+        [
+            Paragraph("<b>Registration No:</b>", meta_label_style),
+            Paragraph(student.get("registration_number", "N/A"), meta_val_style),
+            Paragraph("<b>College Roll:</b>", meta_label_style),
+            Paragraph(student.get("college_roll") or student.get("student_id", "N/A"), meta_val_style),
+        ],
+        [
+            Paragraph("<b>Course / Degree:</b>", meta_label_style),
+            Paragraph(student.get("course") or "Bachelor of Technology", meta_val_style),
+            Paragraph("<b>Department:</b>", meta_label_style),
+            Paragraph(student.get("department", "Engineering"), meta_val_style),
+        ],
+        [
+            Paragraph("<b>Academic Session:</b>", meta_label_style),
+            Paragraph(str(result.get("academic_session", "2023-2024")), meta_val_style),
+            Paragraph("<b>Marksheet ID:</b>", meta_label_style),
+            Paragraph(marksheet_id, meta_val_style),
+        ],
+    ]
+
+    meta_table = Table(meta_data, colWidths=[32 * mm, 58 * mm, 32 * mm, 60 * mm])
+    meta_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cbd5e1")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#e2e8f0")),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ])
+    )
+    story.append(meta_table)
+    story.append(Spacer(1, 4 * mm))
+
+    # 3. Subject-wise Marks & Grades Table
+    col_widths = [22 * mm, 60 * mm, 14 * mm, 16 * mm, 16 * mm, 16 * mm, 14 * mm, 14 * mm, 14 * mm]
+    sub_table_data = [[
+        Paragraph("Sub Code", th_style),
+        Paragraph("Subject Title", th_style),
+        Paragraph("Credits", th_style),
+        Paragraph("Internal", th_style),
+        Paragraph("External", th_style),
+        Paragraph("Total", th_style),
+        Paragraph("Grade", th_style),
+        Paragraph("Grade Pt", th_style),
+        Paragraph("Status", th_style),
+    ]]
+
+    for sub in subjects:
+        internal = str(sub.get("internal_marks", "-"))
+        external = str(sub.get("external_marks", "-"))
+        total = str(sub.get("total_marks", "-"))
+        grade = str(sub.get("grade", "-"))
+        gp = str(sub.get("grade_point", "-"))
+        st = str(sub.get("result_status", "PASS"))
+        code = str(sub.get("subject_code", ""))
+        name = str(sub.get("subject_name", ""))
+        credits_val = str(sub.get("credits", 3))
+
+        sub_table_data.append([
+            Paragraph(code, tb_style),
+            Paragraph(name, tb_style),
+            Paragraph(credits_val, tb_center),
+            Paragraph(internal, tb_center),
+            Paragraph(external, tb_center),
+            Paragraph(f"<b>{total}</b>", tb_center),
+            Paragraph(f"<b>{grade}</b>", tb_bold),
+            Paragraph(gp, tb_center),
+            Paragraph(f"<b>{st}</b>", tb_bold),
+        ])
+
+    subject_table = Table(sub_table_data, colWidths=col_widths, repeatRows=1)
+    subject_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a8a")),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#94a3b8")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#ffffff"), colors.HexColor("#f8fafc")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ])
+    )
+    story.append(subject_table)
+    story.append(Spacer(1, 4 * mm))
+
+    # 4. Summary & Performance Metrics
+    sgpa = str(result.get("sgpa", "N/A"))
+    cgpa = str(result.get("cgpa", "N/A"))
+    tot_credits = str(result.get("total_credits", "N/A"))
+    overall_status = str(result.get("result_status", "PASSED"))
+
+    summary_data = [
+        [
+            Paragraph("<b>Semester Credits</b>", meta_label_style),
+            Paragraph(tot_credits, meta_val_style),
+            Paragraph("<b>Semester SGPA</b>", meta_label_style),
+            Paragraph(f"<b>{sgpa}</b>", meta_val_style),
+            Paragraph("<b>Cumulative CGPA</b>", meta_label_style),
+            Paragraph(f"<b>{cgpa}</b>", meta_val_style),
+            Paragraph("<b>Result Status</b>", meta_label_style),
+            Paragraph(f"<b>{overall_status}</b>", meta_val_style),
+        ]
+    ]
+    summary_table = Table(summary_data, colWidths=[24 * mm, 18 * mm, 26 * mm, 20 * mm, 28 * mm, 20 * mm, 24 * mm, 22 * mm])
+    summary_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#e0f2fe")),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#38bdf8")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#bae6fd")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ])
+    )
+    story.append(summary_table)
+    story.append(Spacer(1, 5 * mm))
+
+    # 5. QR Code and Verification Section
+    raw_date = result.get('updated_at')
+    if isinstance(raw_date, (int, float)):
+        import datetime
+        issued_date_str = datetime.date.fromtimestamp(raw_date).isoformat()
+    else:
+        issued_date_str = str(raw_date or '2026-11-24')[:10]
+
+    verify_url = get_verification_url(marksheet_id)
+    qr_png = generate_qr_png_bytes(verify_url)
+    qr_image = Image(io.BytesIO(qr_png), width=24 * mm, height=24 * mm)
+
+    qr_block = [
+        [
+            qr_image,
+            [
+                Paragraph("<b>AnswerChain Cryptographic Authenticity Verification</b>", meta_label_style),
+                Paragraph(
+                    "This official academic record is permanently notarized and cryptographically secured. "
+                    "Scan the QR code with any smartphone camera or visit the verification portal below "
+                    "to independently verify transcript authenticity, grades, and cryptographic signatures.",
+                    notice_style,
+                ),
+                Paragraph(f"<b>Verification Portal:</b> {verify_url}", notice_style),
+                Paragraph(f"<b>Issued on:</b> {issued_date_str} | <b>Audit Ref:</b> {marksheet_id}", notice_style),
+            ],
+            [
+                Paragraph("<br/><br/><b>____________________</b><br/>Controller of Examinations", tb_center),
+            ],
+        ]
+    ]
+
+    qr_table = Table(qr_block, colWidths=[28 * mm, 114 * mm, 40 * mm])
+    qr_table.setStyle(
+        TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cbd5e1")),
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fafaf9")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ])
+    )
+    story.append(qr_table)
+
+    # Build Document
+    doc.build(story)
+
+    # Apply PyHanko digital signature if institutional credentials available
+    try:
+        sign_marksheet_pdf(pdf_path)
+    except Exception as e:
+        logger.warning(f"Could not apply pyHanko signature to academic marksheet: {e}")
+
+    pdf_hash = calculate_pdf_hash(pdf_path)
+
+    return {
+        "marksheet_id": marksheet_id,
+        "pdf_path": pdf_path,
+        "filename": filename,
+        "pdf_hash": pdf_hash,
+        "verification_url": verify_url,
+    }

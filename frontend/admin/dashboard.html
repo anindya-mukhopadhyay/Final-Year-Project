@@ -232,6 +232,9 @@
                 <a href="/admin/dashboard.html" class="nav-item active">
                     <span>🛡️</span> Admin Console
                 </a>
+                <a href="/admin/colleges.html" class="nav-item">
+                    <span>🏫</span> Colleges &amp; Institutions
+                </a>
                 <a href="/admin/teachers.html" class="nav-item">
                     <span>👨‍🏫</span> Teacher Management
                 </a>
@@ -293,7 +296,19 @@
             </div>
 
             <!-- ACADEMIC GOVERNANCE QUICK CONTROLS -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 24px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 24px;">
+                <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #2563eb;">
+                    <div>
+                        <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <span>🏫</span> Multi-College Management
+                        </div>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                            Register affiliated colleges, provision isolated admin credentials, and monitor student counts.
+                        </p>
+                    </div>
+                    <a href="/admin/colleges.html" class="btn btn-primary" style="white-space: nowrap; margin-left: 12px;">Manage Colleges &rarr;</a>
+                </div>
+
                 <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <div style="font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
@@ -303,7 +318,7 @@
                             Create examiner accounts, assign subjects, reset passwords, and toggle access.
                         </p>
                     </div>
-                    <a href="/admin/teachers.html" class="btn btn-primary" style="white-space: nowrap;">Manage Teachers &rarr;</a>
+                    <a href="/admin/teachers.html" class="btn btn-outline" style="white-space: nowrap; margin-left: 12px;">Manage Teachers &rarr;</a>
                 </div>
 
                 <div class="table-card" style="padding: 20px; display: flex; justify-content: space-between; align-items: center;">
@@ -315,7 +330,7 @@
                             Define academic courses, manage subject codes, and dynamically sync with registration.
                         </p>
                     </div>
-                    <a href="/admin/subjects.html" class="btn btn-outline" style="white-space: nowrap;">Manage Subjects &rarr;</a>
+                    <a href="/admin/subjects.html" class="btn btn-outline" style="white-space: nowrap; margin-left: 12px;">Manage Subjects &rarr;</a>
                 </div>
             </div>
 

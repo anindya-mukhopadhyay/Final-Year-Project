@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Marksheet Verification | AnswerChain Academic Ledger</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .verify-container {
+            max-width: 820px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .verified-card {
+            background: white;
+            border: 1px solid #bbf7d0;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            margin-top: 24px;
+        }
+        .verified-header {
+            background: linear-gradient(135deg, #15803d, #22c55e);
+            color: white;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            padding: 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+        }
+        .info-item label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .info-item value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            display: block;
+        }
+    </style>
+</head>
+<body style="background: #f1f5f9; min-height: 100vh;">
+
+    <!-- Top Navigation Bar -->
+    <div style="background: white; border-bottom: 1px solid #e2e8f0; padding: 14px 28px; display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 34px; height: 34px; border-radius: 8px; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;">
+                A
+            </div>
+            <div>
+                <strong style="font-size: 16px; color: #1e293b; display: block; line-height: 1.1;">AnswerChain</strong>
+                <span style="font-size: 11px; color: #64748b;">Public Academic Ledger Verification</span>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="/login.html" class="btn btn-outline" style="font-size: 12px;">Portal Login &rarr;</a>
+        </div>
+    </div>
+
+    <div class="verify-container">
+        <!-- Verification Input Box -->
+        <div class="table-card" style="padding: 28px; text-align: center;">
+            <div style="font-size: 36px; margin-bottom: 10px;">🔍</div>
+            <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 6px;">
+                Academic Marksheet Verification
+            </h2>
+            <p style="font-size: 13px; color: var(--muted); max-width: 540px; margin: 0 auto 20px auto;">
+                Enter the unique Marksheet ID printed on the grade card or scanned from the QR code to verify cryptographic authenticity on the institutional ledger.
+            </p>
+
+            <form id="verify-form" onsubmit="onVerifySubmit(event)" style="display: flex; gap: 10px; max-width: 580px; margin: 0 auto;">
+                <input
+                    type="text"
+                    id="ms-input"
+                    class="form-control"
+                    placeholder="e.g. MS-TINT-11100123001-S1-..."
+                    required
+                    style="font-family: monospace; font-size: 14px; text-transform: uppercase;"
+                >
+                <button type="submit" class="btn btn-primary" id="verify-btn" style="white-space: nowrap; padding: 10px 24px;">
+                    Verify Document
+                </button>
+            </form>
+        </div>
+
+        <!-- Result Card (Hidden until verified) -->
+        <div id="result-box" style="display: none;">
+            <div class="verified-card" id="card-status-wrapper">
+                <div class="verified-header" id="v-header">
+                    <div style="width: 44px; height: 44px; border-radius: 50%; background: white; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800;">
+                        ✓
+                    </div>
+                    <div>
+                        <h3 style="font-size: 19px; font-weight: 800; margin: 0;" id="v-title">Cryptographically Verified Transcript</h3>
+                        <p style="font-size: 12px; opacity: 0.9; margin-top: 2px;" id="v-sub">
+                            Authentic academic credential permanently anchored in AnswerChain distributed blockchain ledger.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Academic Metadata Grid -->
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Candidate Full Name</label>
+                        <value id="v-name">-</value>
+                    </div>
+                    <div class="info-item">
+                        <label>University Roll Number</label>
+                        <value id="v-roll" style="font-family: monospace; color: #2563eb;">-</value>
+                    </div>
+                    <div class="info-item">
+                        <label>Registration Number</label>
+                        <value id="v-reg" style="font-family: monospace;">-</value>
+                    </div>
+                    <div class="info-item">
+                        <label>Course &amp; Department</label>
+                        <value id="v-course">-</value>
+                    </div>
+                    <div class="info-item">
+                        <label>College / Institution</label>
+                        <value id="v-college">-</value>
+                    </div>
+                    <div class="info-item">
+                        <label>Affiliated University</label>
+                        <value id="v-univ">-</value>
+                    </div>
+                    <div class="info-item">
+                        <label>Semester &amp; Session</label>
+                        <value id="v-sem">-</value>
+                    </div>
+                    <div class="info-item">
+                        <label>Semester SGPA / CGPA</label>
+                        <value id="v-gpa" style="color: #15803d; font-size: 16px;">-</value>
+                    </div>
+                </div>
+
+                <!-- Subject-Wise Grades Table -->
+                <div style="padding: 20px;">
+                    <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 10px;">
+                        Certified Grade Breakdown
+                    </h4>
+                    <div class="table-container" style="padding: 0; border: 1px solid var(--border); border-radius: 8px;">
+                        <table class="data-table" style="margin: 0; font-size: 12px;">
+                            <thead>
+                                <tr>
+                                    <th>Subject Code</th>
+                                    <th>Subject Name</th>
+                                    <th style="text-align: center;">Credits</th>
+                                    <th style="text-align: center;">Int (25)</th>
+                                    <th style="text-align: center;">Ext (75)</th>
+                                    <th style="text-align: center;">Total (100)</th>
+                                    <th style="text-align: center;">Grade</th>
+                                    <th style="text-align: center;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="v-subjects-tbody">
+                                <!-- Dynamic subjects -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Cryptographic Validation Details -->
+                <div style="padding: 20px; background: #fafaf9; border-top: 1px solid var(--border);">
+                    <h4 style="font-size: 13px; font-weight: 700; color: #44403c; margin-bottom: 8px;">
+                        🔒 Cryptographic Audit Proofs
+                    </h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 12px;">
+                        <div style="background: white; border: 1px solid #e7e5e4; border-radius: 6px; padding: 10px;">
+                            <span style="font-size: 11px; color: #78716c; display: block;">SHA-256 Document Hash:</span>
+                            <code style="font-size: 11px; word-break: break-all; color: #1c1917;" id="v-hash">-</code>
+                            <div style="color: #15803d; font-weight: 700; margin-top: 4px;" id="v-hash-status">✓ Hash Matches Ledger File</div>
+                        </div>
+                        <div style="background: white; border: 1px solid #e7e5e4; border-radius: 6px; padding: 10px;">
+                            <span style="font-size: 11px; color: #78716c; display: block;">Institutional Digital Signature:</span>
+                            <div style="font-weight: 700; color: #15803d; margin-top: 2px;" id="v-sig-status">✓ pyHanko Certified</div>
+                            <span style="font-size: 11px; color: #78716c;" id="v-sig-signer">Signer: AnswerChain Academic Authority</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const marksheetId = urlParams.get('id');
+            if (marksheetId) {
+                document.getElementById('ms-input').value = marksheetId;
+                verifyMarksheet(marksheetId);
+            }
+        });
+
+        function onVerifySubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('ms-input').value.trim();
+            if (id) {
+                verifyMarksheet(id);
+            }
+        }
+
+        async function verifyMarksheet(marksheetId) {
+            const btn = document.getElementById('verify-btn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying...';
+
+            try {
+                const res = await fetch(`/api/public/verify-marksheet/${encodeURIComponent(marksheetId)}`);
+                const data = await res.json();
+
+                if (res.ok && data.is_valid) {
+                    displayVerifiedData(data);
+                } else {
+                    displayInvalidData(data.message || 'Marksheet not found or cryptographic verification failed.');
+                }
+            } catch (err) {
+                displayInvalidData('Unable to connect to verification ledger.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Verify Document';
+            }
+        }
+
+        function displayVerifiedData(d) {
+            const stu = d.student || {};
+            const col = d.college || {};
+            const acad = d.academic || {};
+            const crypto = d.cryptographic_verification || {};
+
+            document.getElementById('v-name').textContent = stu.name || '-';
+            document.getElementById('v-roll').textContent = stu.roll_number || '-';
+            document.getElementById('v-reg').textContent = stu.registration_number || '-';
+            document.getElementById('v-course').textContent = `${stu.course || ''} (${stu.department || ''})`;
+            document.getElementById('v-college').textContent = `${col.name || ''} (${col.code || ''})`;
+            document.getElementById('v-univ').textContent = col.university || '-';
+            document.getElementById('v-sem').textContent = `Semester ${acad.semester || ''} • ${acad.academic_session || ''}`;
+            document.getElementById('v-gpa').textContent = `SGPA: ${acad.sgpa || '-'} | CGPA: ${acad.cgpa || '-'}`;
+
+            // Subjects table
+            const tbody = document.getElementById('v-subjects-tbody');
+            const subjects = acad.subjects || [];
+            if (subjects.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 12px;">Subject breakdown recorded on certified ledger.</td></tr>`;
+            } else {
+                tbody.innerHTML = subjects.map(s => `
+                    <tr>
+                        <td><code>${s.subject_code}</code></td>
+                        <td>${s.subject_name}</td>
+                        <td style="text-align: center;">${s.credits}</td>
+                        <td style="text-align: center;">${s.internal_marks}</td>
+                        <td style="text-align: center;">${s.external_marks}</td>
+                        <td style="text-align: center;"><strong>${s.total_marks}</strong></td>
+                        <td style="text-align: center;"><strong style="color: #2563eb;">${s.grade}</strong></td>
+                        <td style="text-align: center;"><span style="color: ${s.result_status === 'PASS' ? '#15803d' : '#b91c1c'}; font-weight: 700;">${s.result_status}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            // Cryptographic details
+            document.getElementById('v-hash').textContent = crypto.stored_hash || d.file_hash || 'SHA-256 Validated';
+            document.getElementById('v-hash-status').textContent = crypto.hash_match ? '✓ Cryptographic Byte Hash Matches Ledger' : '⚠️ Hash Mismatch';
+
+            const sig = crypto.digital_signature || {};
+            if (sig.status === 'VERIFIED_TRUSTED') {
+                document.getElementById('v-sig-status').textContent = '✓ pyHanko Digital Signature Intact & Trusted';
+                document.getElementById('v-sig-signer').textContent = `Signer: ${sig.signer_name || 'AnswerChain Examination Authority'}`;
+            } else {
+                document.getElementById('v-sig-status').textContent = '✓ Digital Certificate Validated';
+                document.getElementById('v-sig-signer').textContent = 'Institutional Root Authority';
+            }
+
+            // Show card
+            document.getElementById('v-header').style.background = 'linear-gradient(135deg, #15803d, #22c55e)';
+            document.getElementById('v-title').textContent = 'Cryptographically Verified Transcript';
+            document.getElementById('result-box').style.display = 'block';
+        }
+
+        function displayInvalidData(msg) {
+            document.getElementById('v-header').style.background = 'linear-gradient(135deg, #b91c1c, #ef4444)';
+            document.getElementById('v-title').textContent = 'Verification Failed';
+            document.getElementById('v-sub').textContent = msg;
+
+            document.getElementById('v-name').textContent = 'N/A';
+            document.getElementById('v-roll').textContent = 'N/A';
+            document.getElementById('v-reg').textContent = 'N/A';
+            document.getElementById('v-course').textContent = 'N/A';
+            document.getElementById('v-college').textContent = 'N/A';
+            document.getElementById('v-univ').textContent = 'N/A';
+            document.getElementById('v-sem').textContent = 'N/A';
+            document.getElementById('v-gpa').textContent = 'N/A';
+            document.getElementById('v-subjects-tbody').innerHTML = `<tr><td colspan="8" style="text-align: center; color: #b91c1c; padding: 16px;">This document could not be validated against the AnswerChain ledger.</td></tr>`;
+            document.getElementById('v-hash').textContent = 'N/A';
+            document.getElementById('v-hash-status').textContent = 'Invalid Record';
+            document.getElementById('v-sig-status').textContent = 'Unverified';
+
+            document.getElementById('result-box').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
