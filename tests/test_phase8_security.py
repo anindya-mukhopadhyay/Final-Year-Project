@@ -602,6 +602,81 @@ class Phase8SecurityTests(unittest.TestCase):
         self.assertTrue(deleted)
         self.assertFalse(document_storage.exists(test_filename))
 
+    def test_22_blockchain_monitor_admin_rbac(self):
+        """Verify that Blockchain Monitor APIs (/api/chain, /api/admin/chain) are restricted to ADMIN."""
+        # 1. Unauthenticated request to /api/chain -> 401
+        unauth_resp = self.client.get("/api/chain")
+        self.assertEqual(unauth_resp.status_code, 401)
+
+        # 2. Teacher role requesting /api/chain -> 403 Forbidden
+        tch_login = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"user_id": "TCH-001", "password": "teacher123"}),
+            content_type="application/json",
+        ).get_json()
+        tch_token = tch_login["token"]
+        tch_resp = self.client.get(
+            "/api/chain",
+            headers={"Authorization": f"Bearer {tch_token}"},
+        )
+        self.assertEqual(tch_resp.status_code, 403)
+
+        # 3. University role requesting /api/chain -> 403 Forbidden
+        uni_login = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"user_id": "UNIV-001", "password": "university123"}),
+            content_type="application/json",
+        ).get_json()
+        uni_token = uni_login["token"]
+        uni_resp = self.client.get(
+            "/api/chain",
+            headers={"Authorization": f"Bearer {uni_token}"},
+        )
+        self.assertEqual(uni_resp.status_code, 403)
+
+        # 4. Admin role requesting /api/chain -> Allowed
+        admin_login = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"user_id": "ADMIN-001", "password": "admin123"}),
+            content_type="application/json",
+        ).get_json()
+        admin_token = admin_login["token"]
+        admin_resp = self.client.get(
+            "/api/chain",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        self.assertIn(admin_resp.status_code, (200, 503))
+
+    def test_23_blockchain_monitor_non_admin_redirect(self):
+        """Non-admin visiting index.html with a session token is redirected to their authorized portal."""
+        # Teacher visiting index.html
+        tch_login = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"user_id": "TCH-001", "password": "teacher123"}),
+            content_type="application/json",
+        ).get_json()
+        tch_token = tch_login["token"]
+        resp = self.client.get(
+            "/index.html",
+            headers={"Authorization": f"Bearer {tch_token}"},
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.headers.get("Location"), "/teacher/dashboard.html")
+
+        # University visiting index.html
+        uni_login = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"user_id": "UNIV-001", "password": "university123"}),
+            content_type="application/json",
+        ).get_json()
+        uni_token = uni_login["token"]
+        resp2 = self.client.get(
+            "/index.html",
+            headers={"Authorization": f"Bearer {uni_token}"},
+        )
+        self.assertEqual(resp2.status_code, 302)
+        self.assertEqual(resp2.headers.get("Location"), "/university/dashboard.html")
+
 
 if __name__ == "__main__":
     unittest.main()

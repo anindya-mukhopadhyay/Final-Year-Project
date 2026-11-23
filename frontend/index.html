@@ -2,25 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>AnswerChain Network Dashboard</title>
-
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Network Monitor | AnswerChain Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="api.js"></script>
+    <script>
+        // Strictly restrict Blockchain Network Monitor to authenticated ADMIN users
+        const adminUser = requireAuth(["ADMIN"]);
+        if (!adminUser || adminUser.role !== "ADMIN") {
+            // Stop page execution if not admin
+            throw new Error("Unauthorized: ADMIN role required");
+        }
+    </script>
 </head>
 
 <body>
 
     <div class="app">
 
-        <!-- SIDEBAR -->
+        <!-- ADMIN SIDEBAR -->
         <aside class="sidebar">
 
             <div class="brand">
@@ -28,60 +28,25 @@
 
                 <div>
                     <h1>AnswerChain</h1>
-                    <span>Academic Blockchain</span>
+                    <span>System Administration</span>
                 </div>
             </div>
 
             <nav class="navigation">
-
-                <a
-                    href="#"
-                    class="nav-item active"
-                >
-                    <span>▦</span>
-                    Dashboard
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span>🛡️</span>
+                    Admin Console
                 </a>
 
-                <a
-                    href="#"
-                    class="nav-item"
-                >
-                    <span>◈</span>
-                    Answer Scripts
-                </a>
-
-                <a
-                    href="#"
-                    class="nav-item"
-                >
-                    <span>✓</span>
-                    Evaluations
-                </a>
-
-                <a
-                    href="#"
-                    class="nav-item"
-                >
-                    <span>▤</span>
-                    Results
-                </a>
-
-                <a
-                    href="#"
-                    class="nav-item"
-                >
+                <a href="/index.html" class="nav-item active">
                     <span>⬡</span>
-                    Blockchain
+                    Blockchain Monitor
                 </a>
 
-                <a
-                    href="#"
-                    class="nav-item"
-                >
-                    <span>⌁</span>
-                    Verification
+                <a href="/verify/index.html" class="nav-item">
+                    <span>🔍</span>
+                    Public Verifier
                 </a>
-
             </nav>
 
             <div class="sidebar-footer">
@@ -90,8 +55,8 @@
                     <span class="status-dot"></span>
 
                     <div>
-                        <strong>Network Online</strong>
-                        <small>Permissioned Network</small>
+                        <strong>Admin Console</strong>
+                        <small>Blockchain Network Monitor</small>
                     </div>
                 </div>
 
@@ -554,49 +519,31 @@
     <script src="api.js"></script>
     <script src="app.js"></script>
     <script>
-        (function initAuthHeader() {
+        (function initAdminHeader() {
             const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
             const headerActions = document.getElementById('header-actions-container');
             if (!headerActions) return;
 
-            if (user) {
-                let returnUrl = '/login.html';
-                let roleLabel = user.role;
-                if (user.role === 'TEACHER') returnUrl = '/teacher/dashboard.html';
-                else if (user.role === 'AUTHORITY') returnUrl = '/authority/dashboard.html';
-                else if (user.role === 'UNIVERSITY') returnUrl = '/university/dashboard.html';
-                else if (user.role === 'ADMIN') returnUrl = '/admin/dashboard.html';
+            const userName = (user && user.name) ? user.name : 'System Administrator';
 
-                headerActions.innerHTML = `
-                    <a href="${returnUrl}" class="btn btn-primary" style="text-decoration: none; font-size: 13px; font-weight: 600; padding: 7px 14px; display: inline-flex; align-items: center; gap: 6px;">
-                        ← Return to ${roleLabel} Portal
-                    </a>
-                    <div style="display:flex; align-items:center; gap:8px; background:var(--surface, #ffffff); padding:5px 12px; border-radius:8px; border:1px solid var(--border); font-size:12px;">
-                        <strong>${user.name}</strong>
-                        <span class="badge badge-finalized" style="font-size:10px;">${user.role}</span>
-                        <button onclick="logoutFromMonitor()" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 8px; margin-left:4px;">Logout</button>
+            headerActions.innerHTML = `
+                <a href="/admin/dashboard.html" class="btn btn-primary" style="text-decoration: none; font-size: 13px; font-weight: 600; padding: 7px 14px; display: inline-flex; align-items: center; gap: 6px;">
+                    ← Return to Admin Console
+                </a>
+                <div style="display:flex; align-items:center; gap:8px; background:var(--surface, #ffffff); padding:5px 12px; border-radius:8px; border:1px solid var(--border); font-size:12px;">
+                    <strong>${userName}</strong>
+                    <span class="badge badge-finalized" style="font-size:10px;">ADMIN</span>
+                    <button onclick="logoutFromMonitor()" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 8px; margin-left:4px;">Logout</button>
+                </div>
+                <button class="refresh-button" onclick="loadDashboard()">↻ Refresh</button>
+                <div class="node-badge">
+                    <span class="status-dot"></span>
+                    <div>
+                        <small>Current Node</small>
+                        <strong id="currentNode">node-1</strong>
                     </div>
-                    <button class="refresh-button" onclick="loadDashboard()">↻ Refresh</button>
-                    <div class="node-badge">
-                        <span class="status-dot"></span>
-                        <div>
-                            <small>Current Node</small>
-                            <strong id="currentNode">node-1</strong>
-                        </div>
-                    </div>
-                `;
-
-                // Wire up sidebar links dynamically so they point back into the portal
-                const navLinks = document.querySelectorAll('.sidebar .navigation a');
-                navLinks.forEach(link => {
-                    const text = link.textContent.trim();
-                    if (text.includes('Dashboard')) link.href = returnUrl;
-                    else if (text.includes('Answer Scripts')) link.href = user.role === 'UNIVERSITY' ? '/university/scripts.html' : (user.role === 'AUTHORITY' ? '/authority/pending-results.html' : '/teacher/dashboard.html');
-                    else if (text.includes('Evaluations')) link.href = user.role === 'TEACHER' ? '/teacher/dashboard.html' : '/authority/pending-results.html';
-                    else if (text.includes('Results')) link.href = user.role === 'AUTHORITY' ? '/authority/dashboard.html' : '/university/marksheets.html';
-                    else if (text.includes('Verification')) link.href = '/verify/index.html';
-                });
-            }
+                </div>
+            `;
         })();
 
         function logoutFromMonitor() {

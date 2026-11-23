@@ -33,6 +33,7 @@ from backend.auth import (
     record_login_failure,
     record_login_success,
     revoke_token,
+    verify_token,
 )
 from backend.authorization import (
     extract_token_from_request,
@@ -92,7 +93,22 @@ def apply_security_headers(response):
 # ============================================================
 
 @app.route("/", methods=["GET"])
+@app.route("/index.html", methods=["GET"])
 def index():
+    token = extract_token_from_request()
+    if token:
+        user = verify_token(token)
+        if user and user.role != "ADMIN":
+            from flask import redirect
+            if user.role == "UNIVERSITY":
+                return redirect("/university/dashboard.html")
+            elif user.role == "TEACHER":
+                return redirect("/teacher/dashboard.html")
+            elif user.role == "AUTHORITY":
+                return redirect("/authority/dashboard.html")
+            elif user.role == "VERIFIER":
+                return redirect("/verify/index.html")
+            return redirect("/login.html")
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
@@ -758,18 +774,35 @@ def admin_network():
     """
     GET /api/admin/network (and /api/network)
     Proxies live network and cluster status through the application server.
-    Safe for public dashboard and admin monitor (no internal secrets exposed).
+    Protected: Accessible to authenticated ADMIN users or local service health probe.
     """
+    token = extract_token_from_request()
+    if token:
+        user = verify_token(token)
+        if not user or user.role != "ADMIN":
+            return jsonify({
+                "error": "Forbidden",
+                "message": "Access forbidden: Blockchain monitor is restricted to System Administrators.",
+            }), 403
+    elif request.remote_addr not in ("127.0.0.1", "::1"):
+        return jsonify({
+            "error": "Unauthorized",
+            "message": "Authentication required. Admin privileges required.",
+        }), 401
+
     cluster_data = blockchain_service.get_cluster_status()
     return jsonify(cluster_data), 200
 
 
 @app.route("/api/chain", methods=["GET"])
 @app.route("/api/admin/chain", methods=["GET"])
+@require_auth
+@require_role("ADMIN")
 def api_chain():
     """
     GET /api/chain (and /api/admin/chain)
     Proxies confirmed blockchain ledger from the live cluster through the application server.
+    Restricted strictly to authenticated ADMIN users.
     """
     for role in ("UNIVERSITY", "AUTHORITY", "TEACHER"):
         resp = blockchain_service.get_blockchain(role)

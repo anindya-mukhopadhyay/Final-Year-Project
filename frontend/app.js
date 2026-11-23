@@ -7,10 +7,17 @@ async function getJSON(
     endpoint,
     options = {}
 ) {
+    const token = typeof getToken === "function"
+        ? getToken()
+        : (typeof localStorage !== "undefined" ? localStorage.getItem("answerchain_token") || "" : "");
+    const headers = { ...(options.headers || {}) };
+    if (token && !headers["Authorization"]) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
     const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
     const response = await fetch(
         url,
-        options
+        { ...options, headers }
     );
 
     if (!response.ok) {

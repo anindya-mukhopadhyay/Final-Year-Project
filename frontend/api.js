@@ -28,11 +28,17 @@ function getCurrentUser() {
 function setSession(token, user) {
     localStorage.setItem("answerchain_token", token);
     localStorage.setItem("answerchain_user", JSON.stringify(user));
+    try {
+        document.cookie = `answerchain_token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+    } catch (e) {}
 }
 
 function clearSession() {
     localStorage.removeItem("answerchain_token");
     localStorage.removeItem("answerchain_user");
+    try {
+        document.cookie = "answerchain_token=; path=/; max-age=0; SameSite=Lax";
+    } catch (e) {}
 }
 
 async function authFetch(endpoint, options = {}) {
