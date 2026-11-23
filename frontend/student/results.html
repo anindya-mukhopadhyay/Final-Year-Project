@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Semester Results | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #2563eb, #60a5fa);">🎓</div>
+                <div>
+                    <h1>Student Portal</h1>
+                    <span id="sidebar-college-name">Academic System</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/student/dashboard.html" class="nav-item">
+                    <span>📊</span> My Dashboard
+                </a>
+                <a href="/student/profile.html" class="nav-item">
+                    <span>👤</span> Student Profile
+                </a>
+                <a href="/student/results.html" class="nav-item active">
+                    <span>📝</span> Semester Results
+                </a>
+                <a href="/student/marksheets.html" class="nav-item">
+                    <span>📜</span> DigiLocker Vault
+                </a>
+                <a href="/digilocker/index.html" class="nav-item" target="_blank">
+                    <span>🇮🇳</span> DigiLocker Gateway
+                </a>
+                <a href="/student/change-password.html" class="nav-item">
+                    <span>🔐</span> Security &amp; Password
+                </a>
+                <a href="/verify-marksheet.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Authenticated Student</strong><small id="footer-roll">-</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2>Semester Examination Results</h2>
+                    <p style="color: var(--muted); font-size: 13px;">Official grade transcripts certified on the AnswerChain ledger.</p>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar" id="user-avatar">S</div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name">Student</span>
+                        <span class="user-role">STUDENT</span>
+                    </div>
+                    <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                </div>
+            </header>
+
+            <div id="results-list" style="margin-top: 20px; margin-bottom: 40px;">
+                <div style="text-align: center; color: var(--muted); padding: 40px;">Loading published semester results...</div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['STUDENT']);
+            if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'Student';
+            document.getElementById('user-avatar').textContent = (user.name || 'S')[0].toUpperCase();
+
+            await loadResults();
+        });
+
+        async function loadResults() {
+            try {
+                const res = await authFetch('/api/student/results');
+                if (!res.ok) {
+                    showToast('Failed to load results', 'error');
+                    return;
+                }
+
+                const results = res.data.results || [];
+                const container = document.getElementById('results-list');
+
+                if (results.length === 0) {
+                    container.innerHTML = `
+                        <div class="table-card" style="text-align: center; padding: 48px 24px;">
+                            <div style="font-size: 36px; margin-bottom: 12px;">📑</div>
+                            <h3 style="font-size: 18px; color: #1e293b;">No Published Results Yet</h3>
+                            <p style="color: var(--muted); font-size: 13px; max-width: 480px; margin: 8px auto 0 auto;">
+                                Your college examination committee has not published semester results yet. Once published, your official grades will appear here.
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = results.map(r => {
+                    const subjects = r.subjects || [];
+                    const subjectsRows = subjects.map(s => `
+                        <tr>
+                            <td><code style="font-weight: 700;">${s.subject_code}</code></td>
+                            <td>${s.subject_name}</td>
+                            <td style="text-align: center;">${s.credits}</td>
+                            <td style="text-align: center;">${s.internal_marks}</td>
+                            <td style="text-align: center;">${s.external_marks}</td>
+                            <td style="text-align: center;"><strong>${s.total_marks}</strong></td>
+                            <td style="text-align: center;"><strong style="color: #2563eb; font-size: 14px;">${s.grade}</strong></td>
+                            <td style="text-align: center;">${s.grade_point}</td>
+                            <td style="text-align: center;">
+                                <span style="font-weight: 700; color: ${s.result_status === 'PASS' ? '#15803d' : '#b91c1c'};">
+                                    ${s.result_status}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    return `
+                        <div class="table-card" id="sem-${r.semester}" style="margin-bottom: 24px; overflow: hidden;">
+                            <div class="table-card-header" style="background: #f8fafc; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h3 style="font-size: 17px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                                        <span>📘</span> Semester ${r.semester} Examination Result
+                                    </h3>
+                                    <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+                                        Academic Session: <strong>${r.academic_session}</strong> • Total Credits: <strong>${r.total_credits}</strong>
+                                    </p>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 6px 14px; text-align: center;">
+                                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Semester SGPA</div>
+                                        <div style="font-size: 18px; font-weight: 800; color: #2563eb;">${r.sgpa}</div>
+                                    </div>
+                                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 6px 14px; text-align: center;">
+                                        <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Cumulative CGPA</div>
+                                        <div style="font-size: 18px; font-weight: 800; color: #059669;">${r.cgpa || r.sgpa}</div>
+                                    </div>
+                                    <a href="/student/marksheets.html" class="btn btn-primary" style="font-size: 12px; padding: 8px 14px;">
+                                        📜 View Marksheet
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="table-container" style="padding: 0;">
+                                <table class="data-table" style="margin: 0;">
+                                    <thead>
+                                        <tr>
+                                            <th>Subject Code</th>
+                                            <th>Subject Title</th>
+                                            <th style="text-align: center;">Credits</th>
+                                            <th style="text-align: center;">Internal (25)</th>
+                                            <th style="text-align: center;">External (75)</th>
+                                            <th style="text-align: center;">Total (100)</th>
+                                            <th style="text-align: center;">Letter Grade</th>
+                                            <th style="text-align: center;">Grade Point</th>
+                                            <th style="text-align: center;">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${subjectsRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error("Results load error:", err);
+                showToast('Server connection error', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colleges &amp; Affiliated Institutions | AnswerChain Admin</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .badge-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .badge-status.active { background: #dcfce7; color: #15803d; }
+        .badge-status.suspended { background: #fee2e2; color: #b91c1c; }
+        .badge-status.inactive { background: #f1f5f9; color: #64748b; }
+        .badge-status.archived { background: #fef3c7; color: #b45309; }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(3px);
+        }
+        .modal-card {
+            background: white;
+            border-radius: 16px;
+            max-width: 520px;
+            width: 90%;
+            padding: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>System Administration</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span>🛡️</span> Admin Console
+                </a>
+                <a href="/admin/colleges.html" class="nav-item active">
+                    <span>🏫</span> Colleges &amp; Institutions
+                </a>
+                <a href="/admin/teachers.html" class="nav-item">
+                    <span>👨‍🏫</span> Teacher Management
+                </a>
+                <a href="/admin/subjects.html" class="nav-item">
+                    <span>📚</span> Subject Management
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+                <a href="/digilocker/index.html" class="nav-item" target="_blank">
+                    <span>📜</span> DigiLocker Gateway
+                </a>
+                <a href="/verify/index.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Multi-Tenant Root</strong><small>Hierarchical College Grid</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2>Colleges &amp; Affiliated Institutions</h2>
+                    <p style="color: var(--muted); font-size: 13px;">Manage multi-college hierarchy, provision administrator credentials &amp; monitor student statistics.</p>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar" id="user-avatar">A</div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name">Super Administrator</span>
+                        <span class="user-role" id="user-role">SUPER ADMIN</span>
+                    </div>
+                    <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                </div>
+            </header>
+
+            <!-- Global Analytics Cards -->
+            <div class="stats-grid" id="analytics-grid" style="margin-top: 16px;">
+                <div class="stat-card">
+                    <span class="stat-title">Total Colleges</span>
+                    <strong class="stat-value" id="stat-total-colleges">0</strong>
+                    <span class="stat-subtitle">Registered on Platform</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Active Colleges</span>
+                    <strong class="stat-value" id="stat-active-colleges" style="color: #16a34a;">0</strong>
+                    <span class="stat-subtitle">Operational &amp; Issuing</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Total Students</span>
+                    <strong class="stat-value" id="stat-total-students" style="color: #2563eb;">0</strong>
+                    <span class="stat-subtitle">Enrolled across all colleges</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Marksheets Generated</span>
+                    <strong class="stat-value" id="stat-total-marksheets" style="color: #7c3aed;">0</strong>
+                    <span class="stat-subtitle">Tamper-evident credentials</span>
+                </div>
+            </div>
+
+            <!-- Controls & Table -->
+            <div class="table-card" style="margin-top: 24px;">
+                <div class="table-card-header" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h3>Registered Colleges Directory</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Super Admin oversight of institutional tenants and accounts.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="search-input" placeholder="Search by name, code, university..." class="form-control" style="width: 260px;" oninput="filterColleges()">
+                        <select id="status-filter" class="form-control" style="width: 140px;" onchange="filterColleges()">
+                            <option value="">All Statuses</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="INACTIVE">Inactive</option>
+                            <option value="ARCHIVED">Archived</option>
+                        </select>
+                        <a href="/admin/add-college.html" class="btn btn-primary" style="display: flex; align-items: center; gap: 6px;">
+                            <span>➕</span> Register New College
+                        </a>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>College Code &amp; Name</th>
+                                <th>Affiliated University</th>
+                                <th>Location</th>
+                                <th>Administrator</th>
+                                <th>Students</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="colleges-tbody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 32px; color: var(--muted);">Loading colleges from database...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Reset Credentials Modal -->
+    <div id="reset-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Reset Administrator Credentials</h3>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;" id="reset-modal-sub">Reset login credentials for college admin.</p>
+
+            <form id="reset-form" onsubmit="submitResetCreds(event)">
+                <input type="hidden" id="reset-college-id">
+                <div class="form-group">
+                    <label for="reset-new-password">New Temporary Password (Optional)</label>
+                    <input type="password" id="reset-new-password" class="form-control" placeholder="Leave blank to auto-generate secure password">
+                </div>
+                <div id="reset-result-box" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                    <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">New Credentials Generated:</div>
+                    <div style="font-size: 13px; font-family: monospace;" id="reset-result-text"></div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeResetModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="reset-submit-btn">Reset Credentials</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allColleges = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['ADMIN']);
+            if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'Super Administrator';
+            document.getElementById('user-avatar').textContent = (user.name || 'A')[0].toUpperCase();
+
+            await loadAnalytics();
+            await loadColleges();
+        });
+
+        async function loadAnalytics() {
+            try {
+                const res = await authFetch('/api/admin/global-analytics');
+                if (res.ok) {
+                    const d = res.data;
+                    document.getElementById('stat-total-colleges').textContent = d.total_colleges || 0;
+                    document.getElementById('stat-active-colleges').textContent = d.active_colleges || 0;
+                    document.getElementById('stat-total-students').textContent = d.total_students || 0;
+                    document.getElementById('stat-total-marksheets').textContent = d.total_marksheets || 0;
+                }
+            } catch (e) {
+                console.error("Analytics load error:", e);
+            }
+        }
+
+        async function loadColleges() {
+            try {
+                const res = await authFetch('/api/admin/colleges');
+                if (res.ok) {
+                    allColleges = res.data.colleges || [];
+                    renderColleges(allColleges);
+                } else {
+                    showToast('Failed to load colleges', 'error');
+                }
+            } catch (e) {
+                showToast('Server connection error', 'error');
+            }
+        }
+
+        function filterColleges() {
+            const q = document.getElementById('search-input').value.toLowerCase().trim();
+            const status = document.getElementById('status-filter').value;
+
+            const filtered = allColleges.filter(c => {
+                const matchQ = !q ||
+                    (c.name && c.name.toLowerCase().includes(q)) ||
+                    (c.code && c.code.toLowerCase().includes(q)) ||
+                    (c.university && c.university.toLowerCase().includes(q)) ||
+                    (c.district && c.district.toLowerCase().includes(q));
+
+                const matchStatus = !status || c.status === status;
+                return matchQ && matchStatus;
+            });
+
+            renderColleges(filtered);
+        }
+
+        function renderColleges(colleges) {
+            const tbody = document.getElementById('colleges-tbody');
+            if (!colleges || colleges.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 32px; color: var(--muted);">No matching colleges registered.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = colleges.map(c => {
+                const statusCls = (c.status || 'ACTIVE').toLowerCase();
+                const totalStudents = c.total_students !== undefined ? c.total_students : (c.student_count || 0);
+
+                return `
+                    <tr>
+                        <td>
+                            <strong style="color: #1e293b; font-size: 14px;">${c.name}</strong>
+                            <div style="font-size: 11px; color: var(--muted); font-family: monospace;">Code: ${c.code} • ID: ${c.college_id}</div>
+                        </td>
+                        <td>${c.university || 'Affiliated'}</td>
+                        <td>${c.district || '-'}, ${c.state || '-'}</td>
+                        <td>
+                            <div style="font-weight: 600; font-size: 13px;">${c.admin_name || 'Administrator'}</div>
+                            <div style="font-size: 11px; color: var(--muted);">${c.admin_email || c.official_email || '-'}</div>
+                        </td>
+                        <td>
+                            <span style="display: inline-block; background: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 6px;">
+                                🎓 ${totalStudents}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge-status ${statusCls}">
+                                ● ${c.status || 'ACTIVE'}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 6px;">
+                                <a href="/admin/college-details.html?id=${c.college_id}" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;">
+                                    Profile
+                                </a>
+                                <button onclick="openResetModal('${c.college_id}', '${c.name.replace(/'/g, "\\'")}')" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;">
+                                    🔑 Reset
+                                </button>
+                                <button onclick="toggleCollegeStatus('${c.college_id}', '${c.status}')" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px; color: ${c.status === 'ACTIVE' ? '#dc2626' : '#16a34a'};">
+                                    ${c.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function toggleCollegeStatus(collegeId, currentStatus) {
+            const newStatus = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+            if (!confirm(`Are you sure you want to change college status to ${newStatus}?`)) return;
+
+            try {
+                const res = await authFetch(`/api/admin/colleges/${collegeId}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: newStatus }),
+                });
+                if (res.ok) {
+                    showToast(`College status updated to ${newStatus}`, 'success');
+                    await loadColleges();
+                    await loadAnalytics();
+                } else {
+                    showToast(res.data.message || 'Status update failed', 'error');
+                }
+            } catch (e) {
+                showToast('Error updating status', 'error');
+            }
+        }
+
+        function openResetModal(collegeId, collegeName) {
+            document.getElementById('reset-college-id').value = collegeId;
+            document.getElementById('reset-modal-sub').textContent = `Reset admin credentials for: ${collegeName}`;
+            document.getElementById('reset-new-password').value = '';
+            document.getElementById('reset-result-box').style.display = 'none';
+            document.getElementById('reset-submit-btn').textContent = 'Reset Credentials';
+            document.getElementById('reset-modal').style.display = 'flex';
+        }
+
+        function closeResetModal() {
+            document.getElementById('reset-modal').style.display = 'none';
+        }
+
+        async function submitResetCreds(e) {
+            e.preventDefault();
+            const collegeId = document.getElementById('reset-college-id').value;
+            const newPass = document.getElementById('reset-new-password').value.trim();
+
+            const res = await authFetch(`/api/admin/colleges/${collegeId}/reset-credentials`, {
+                method: 'POST',
+                body: JSON.stringify({ password: newPass || undefined }),
+            });
+
+            if (res.ok) {
+                const creds = res.data.credentials;
+                document.getElementById('reset-result-text').innerHTML = `
+                    Username: <strong>${creds.username}</strong><br/>
+                    Temporary Password: <strong>${creds.temporary_password}</strong>
+                `;
+                document.getElementById('reset-result-box').style.display = 'block';
+                document.getElementById('reset-submit-btn').textContent = 'Done';
+                showToast('Credentials successfully reset', 'success');
+            } else {
+                showToast(res.data.message || 'Reset failed', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

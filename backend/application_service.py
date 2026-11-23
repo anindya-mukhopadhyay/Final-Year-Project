@@ -208,7 +208,7 @@ def _generate_demo_answer_script_pdf(
 
 
 def _infer_subject_name(exam_name: str, exam_id: str = "") -> str:
-    """Infer canonical academic subject from exam name or ID."""
+    """Infer canonical academic subject from exam name or ID, checking dynamic database subjects first."""
     clean_name = (exam_name or "").strip()
     upper_name = clean_name.upper()
     clean_id = (exam_id or "").strip().upper()
@@ -216,6 +216,19 @@ def _infer_subject_name(exam_name: str, exam_id: str = "") -> str:
 
     if clean_name in ["", "—", "-"]:
         return "DBMS"
+
+    # 1. Check dynamic database subjects
+    try:
+        import backend.database as db
+        for s in db.list_subjects(active_only=False):
+            code = s["subject_code"].upper()
+            name = s["subject_name"].upper()
+            if code in upper_name or code in clean_id:
+                return code
+            if name in upper_name or name in combined:
+                return code
+    except Exception:
+        pass
 
     tokens = set(upper_name.replace("-", " ").replace("_", " ").split())
     tokens_id = set(clean_id.replace("-", " ").replace("_", " ").split())
@@ -453,6 +466,43 @@ class AcademicApplicationService:
             "recent_scripts": scripts[-10:] if scripts else [],
         }
 
+    def get_next_answer_script_id(self) -> str:
+        """
+        Determine the next guaranteed unique auto-generated Answer Script ID (e.g. AS-008)
+        across metadata cache, SQLite database, and blockchain ledger.
+        """
+        existing_meta = _load_scripts_metadata()
+        db_ids = set()
+        try:
+            import backend.database as db
+            conn = db.get_db_connection()
+            try:
+                rows = conn.execute("SELECT answer_script_id FROM answer_scripts").fetchall()
+                db_ids = {r[0] for r in rows if r[0]}
+            finally:
+                conn.close()
+        except Exception:
+            pass
+
+        scripts = self.get_unified_scripts_status()
+        existing_ids = (
+            set(existing_meta.keys())
+            | {s["answer_script_id"] for s in scripts if s.get("answer_script_id")}
+            | db_ids
+        )
+
+        as_nums = []
+        for aid in existing_ids:
+            if aid and aid.startswith("AS-"):
+                part = aid[3:]
+                if part.isdigit():
+                    as_nums.append(int(part))
+        max_num = max(as_nums) if as_nums else 0
+        candidate_num = max_num + 1
+        while f"AS-{candidate_num:03d}" in existing_ids:
+            candidate_num += 1
+        return f"AS-{candidate_num:03d}"
+
     def register_answer_script(
         self,
         current_user: User,
@@ -464,6 +514,8 @@ class AcademicApplicationService:
         file_bytes: Optional[bytes] = None,
         provided_hash: Optional[str] = None,
         answer_script_id: Optional[str] = None,
+        subject: Optional[str] = None,
+        subject_code: Optional[str] = None,
     ) -> Tuple[bool, Dict[str, Any], int]:
         """
         Register a new answer script on the university node and ledger.
@@ -489,20 +541,32 @@ class AcademicApplicationService:
             file_hash = hashlib.sha256(synth_content.encode("utf-8")).hexdigest()
 
         # Determine Answer Script ID
-        if not answer_script_id or not answer_script_id.strip():
-            scripts = self.get_unified_scripts_status()
-            existing_ids = {s["answer_script_id"] for s in scripts}
-            idx = 1
-            while f"AS-{idx:03d}" in existing_ids:
-                idx += 1
-            answer_script_id = f"AS-{idx:03d}"
-        else:
-            answer_script_id = answer_script_id.strip()
-
-        # Check existing
         existing_meta = _load_scripts_metadata()
-        if answer_script_id in existing_meta:
-            return False, {"error": f"Answer script '{answer_script_id}' already registered."}, 409
+        db_ids = set()
+        try:
+            import backend.database as db
+            conn = db.get_db_connection()
+            try:
+                rows = conn.execute("SELECT answer_script_id FROM answer_scripts").fetchall()
+                db_ids = {r[0] for r in rows if r[0]}
+            finally:
+                conn.close()
+        except Exception:
+            pass
+
+        scripts = self.get_unified_scripts_status()
+        existing_ids = (
+            set(existing_meta.keys())
+            | {s["answer_script_id"] for s in scripts if s.get("answer_script_id")}
+            | db_ids
+        )
+
+        if not answer_script_id or not answer_script_id.strip():
+            answer_script_id = self.get_next_answer_script_id()
+        else:
+            answer_script_id = answer_script_id.strip().upper()
+            if answer_script_id in existing_ids:
+                return False, {"error": f"Answer script '{answer_script_id}' already registered."}, 409
 
         # Register to University Node
         university_name = "TINT"
@@ -544,6 +608,12 @@ class AcademicApplicationService:
             except Exception as e:
                 logger.error("Failed to save uploaded answer script file: %s", e)
 
+        # Determine canonical subject code and name
+        chosen_sub_code = (subject_code or "").strip().upper()
+        if not chosen_sub_code:
+            chosen_sub_code = _infer_subject_name(exam_name, exam_id)
+        chosen_sub_name = (subject or "").strip() or chosen_sub_code
+
         # Store metadata
         existing_meta[answer_script_id] = {
             "answer_script_id": answer_script_id,
@@ -551,7 +621,8 @@ class AcademicApplicationService:
             "student_name": student_name.strip() or student_id.strip(),
             "exam_id": exam_id.strip(),
             "exam_name": exam_name.strip(),
-            "subject": _infer_subject_name(exam_name, exam_id),
+            "subject": chosen_sub_code,
+            "subject_name": chosen_sub_name,
             "university": university_name,
             "file_name": file_name or f"{answer_script_id}.pdf",
             "file_hash": file_hash,
@@ -559,6 +630,24 @@ class AcademicApplicationService:
             "uploaded_by": current_user.user_id,
         }
         _save_scripts_metadata(existing_meta)
+
+        # Sync to SQLite Database
+        try:
+            import backend.database as db
+            db.sync_answer_script_to_db(
+                answer_script_id=answer_script_id,
+                student_id=student_id.strip(),
+                student_name=student_name.strip() or student_id.strip(),
+                exam_id=exam_id.strip(),
+                exam_name=exam_name.strip(),
+                file_name=file_name or f"{answer_script_id}.pdf",
+                file_hash=file_hash,
+                subject_code=chosen_sub_code,
+                subject_name=chosen_sub_name,
+                status="REGISTERED",
+            )
+        except Exception as e:
+            logger.error("Failed to sync registered script %s to DB: %s", answer_script_id, e)
 
         # Audit log
         tx = resp["data"].get("transaction", {})
@@ -602,6 +691,8 @@ class AcademicApplicationService:
         teacher_user = get_user_by_id(clean_tch_id)
         if not teacher_user or teacher_user.role != "TEACHER":
             return False, {"error": f"Invalid teacher ID '{clean_tch_id}'. Must be an active teacher."}, 400
+        if not teacher_user.active:
+            return False, {"error": f"Teacher '{clean_tch_id}' is deactivated and cannot receive new assignments."}, 400
 
         raw_tx_data = {
             "type": "ANSWER_SCRIPT_ASSIGNED",

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Management Portal Login | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+</head>
+<body class="login-body">
+
+    <div class="login-card" style="max-width: 440px;">
+        <div class="login-brand">
+            <div class="login-brand-icon" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">🏫</div>
+            <h2 style="font-size: 22px; font-weight: 800; color: #1e293b; margin-bottom: 4px;">College Portal</h2>
+            <p style="font-size: 13px; color: #64748b;">Institutional Student &amp; Academic Management</p>
+        </div>
+
+        <form id="college-login-form">
+            <div class="form-group">
+                <label for="user_id">College Admin Username or Email</label>
+                <input
+                    type="text"
+                    id="user_id"
+                    class="form-control"
+                    placeholder="e.g. COL-TINT-ADMIN or admin@tint.edu.in"
+                    required
+                    autocomplete="username"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    class="form-control"
+                    placeholder="Enter administrator password"
+                    required
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; margin-top: 10px;">
+                Authenticate &amp; Enter College Dashboard
+            </button>
+        </form>
+
+        <div style="margin-top: 18px; text-align: center; display: flex; flex-direction: column; gap: 8px;">
+            <a href="/login.html" style="font-size: 12px; color: var(--muted); text-decoration: none;">
+                &larr; Return to Global Login
+            </a>
+            <div style="font-size: 11px; color: #94a3b8;">
+                Are you a student? <a href="/student/login.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Student Portal &rarr;</a> &bull; <a href="/digilocker/index.html" style="color: #059669; text-decoration: none; font-weight: 600;">DigiLocker &rarr;</a>
+            </div>
+        </div>
+
+        <!-- Quick Demo Login for testing -->
+        <div class="demo-credentials-box" style="margin-top: 20px;">
+            <div class="demo-title">Default College Admin Profile</div>
+            <div class="demo-buttons">
+                <button type="button" class="demo-btn" onclick="fillCreds('COL-TINT-ADMIN', 'college123')">
+                    🏫 TINT College Admin (COL-TINT-ADMIN)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillCreds(u, p) {
+            document.getElementById('user_id').value = u;
+            document.getElementById('password').value = p;
+        }
+
+        document.getElementById('college-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userId = document.getElementById('user_id').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await authFetch('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId, password: password })
+                });
+
+                if (res.ok && res.data.token) {
+                    const user = res.data.user;
+                    if (user.role !== 'COLLEGE_ADMIN' && user.role !== 'ADMIN') {
+                        showToast(`Access Denied: This portal requires College Administrator credentials.`, 'error');
+                        clearSession();
+                        return;
+                    }
+
+                    setSession(res.data.token, user);
+                    showToast(`Welcome, ${user.name}!`, 'success');
+                    setTimeout(() => {
+                        window.location.href = '/college/dashboard.html';
+                    }, 400);
+                } else {
+                    showToast(res.data.message || 'Invalid credentials', 'error');
+                }
+            } catch (err) {
+                showToast('Unable to connect to server', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

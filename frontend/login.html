@@ -46,7 +46,13 @@
             </button>
         </form>
 
-        <div style="margin-top: 18px; text-align: center;">
+        <div style="margin-top: 18px; text-align: center; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 12px; color: #475569;">
+                Looking for another portal?
+                <a href="/college/login.html" style="color: #2563eb; font-weight: 700; text-decoration: none;">College Portal</a> &bull;
+                <a href="/student/login.html" style="color: #16a34a; font-weight: 700; text-decoration: none;">Student Portal</a> &bull;
+                <a href="/digilocker/index.html" style="color: #047857; font-weight: 700; text-decoration: none;">DigiLocker Gateway</a>
+            </div>
             <a href="/verify/index.html" style="font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600;">
                 Public Verifier? Verify a Marksheet without Logging In →
             </a>
@@ -62,14 +68,17 @@
                 <button type="button" class="demo-btn" onclick="fillCreds('TCH-001', 'teacher123')">
                     👨‍🏫 Teacher 1 (TCH-001)
                 </button>
-                <button type="button" class="demo-btn" onclick="fillCreds('TCH-004', 'teacher123')">
-                    👨‍🏫 Teacher 4 (TCH-004)
-                </button>
                 <button type="button" class="demo-btn" onclick="fillCreds('AUTH-001', 'authority123')">
                     ⚖️ Authority (AUTH-001)
                 </button>
                 <button type="button" class="demo-btn" onclick="fillCreds('ADMIN-001', 'admin123')">
                     🛡️ Admin (ADMIN-001)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('COL-TINT-ADMIN', 'college123')">
+                    🏫 College Admin (COL-TINT-ADMIN)
+                </button>
+                <button type="button" class="demo-btn" onclick="fillCreds('11100123001', 'student123')">
+                    🎓 Student (11100123001)
                 </button>
                 <button type="button" class="demo-btn" onclick="fillCreds('VERIFY-001', 'verify123')">
                     🔍 Verifier (VERIFY-001)

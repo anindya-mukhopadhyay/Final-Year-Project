@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Directory &amp; Management | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(3px);
+        }
+        .modal-card {
+            background: white;
+            border-radius: 16px;
+            max-width: 580px;
+            width: 90%;
+            padding: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">🏫</div>
+                <div>
+                    <h1 id="sidebar-college-name">College Portal</h1>
+                    <span>Institutional Node</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/college/dashboard.html" class="nav-item">
+                    <span>📊</span> College Dashboard
+                </a>
+                <a href="/college/students.html" class="nav-item active">
+                    <span>👥</span> Student Directory
+                </a>
+                <a href="/college/register-student.html" class="nav-item">
+                    <span>➕</span> Register Student
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Isolated College Tenant</strong><small id="footer-college-code">TINT</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2>Student Directory &amp; Records</h2>
+                    <p style="color: var(--muted); font-size: 13px;">View, filter, manage student academic records, credentials, and profile statuses.</p>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar" id="user-avatar">C</div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name">College Administrator</span>
+                        <span class="user-role">COLLEGE ADMIN</span>
+                    </div>
+                    <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                </div>
+            </header>
+
+            <div class="table-card" style="margin-top: 20px;">
+                <div class="table-card-header" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h3>Enrolled Students (<span id="students-count">0</span>)</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Students cannot self-register; all accounts are provisioned by college administration.</p>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="search-input" placeholder="Search name, roll, reg, email..." class="form-control" style="width: 220px;" oninput="applyFilters()">
+                        <select id="sem-filter" class="form-control" style="width: 120px;" onchange="applyFilters()">
+                            <option value="">All Semesters</option>
+                            <option value="1">Semester 1</option>
+                            <option value="2">Semester 2</option>
+                            <option value="3">Semester 3</option>
+                            <option value="4">Semester 4</option>
+                            <option value="5">Semester 5</option>
+                            <option value="6">Semester 6</option>
+                            <option value="7">Semester 7</option>
+                            <option value="8">Semester 8</option>
+                        </select>
+                        <select id="status-filter" class="form-control" style="width: 110px;" onchange="applyFilters()">
+                            <option value="">All Status</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                            <option value="SUSPENDED">Suspended</option>
+                        </select>
+                        <button class="btn btn-outline" onclick="openBulkModal()" title="Import CSV">
+                            📥 Bulk Import
+                        </button>
+                        <button class="btn btn-outline" onclick="exportCSV()" title="Export CSV">
+                            📤 Export
+                        </button>
+                        <a href="/college/register-student.html" class="btn btn-primary" style="display: flex; align-items: center; gap: 6px;">
+                            <span>➕</span> Register Student
+                        </a>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Student Details</th>
+                                <th>University Roll &amp; Reg No.</th>
+                                <th>Department &amp; Degree</th>
+                                <th>Semester</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-tbody">
+                            <tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 32px;">Loading students...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bulk Import Modal -->
+    <div id="bulk-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Bulk Import Students (CSV)</h3>
+            <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">
+                Upload a CSV spreadsheet with student records. The system will automatically validate duplicates, create accounts, and generate login credentials.
+            </p>
+
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 12px; color: #1e40af;">
+                <strong>CSV Format Header:</strong><br/>
+                <code>name,roll_number,registration_number,department,course,admission_year,current_semester,email,mobile_number</code><br/>
+                <button type="button" onclick="downloadTemplate()" style="margin-top: 6px; background: none; border: none; color: #2563eb; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 0;">
+                    Download Sample CSV Template &darr;
+                </button>
+            </div>
+
+            <form id="bulk-form" onsubmit="submitBulkImport(event)">
+                <div class="form-group">
+                    <label for="csv-file">Select CSV File</label>
+                    <input type="file" id="csv-file" accept=".csv" class="form-control" required>
+                </div>
+
+                <div id="bulk-results" style="display: none; margin-top: 14px; max-height: 200px; overflow-y: auto; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 12px;"></div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeBulkModal()">Close</button>
+                    <button type="submit" class="btn btn-primary" id="bulk-submit-btn">Upload &amp; Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div id="reset-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Reset Student Password</h3>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;" id="reset-modal-sub">Generate a new temporary password for this student account.</p>
+
+            <form id="reset-form" onsubmit="submitResetPassword(event)">
+                <input type="hidden" id="reset-student-id">
+                <div class="form-group">
+                    <label for="reset-new-password">New Password (Optional)</label>
+                    <input type="password" id="reset-new-password" class="form-control" placeholder="Leave blank to auto-generate temporary password">
+                </div>
+                <div id="reset-result-box" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                    <div style="font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">Credentials Generated:</div>
+                    <div style="font-size: 13px; font-family: monospace;" id="reset-result-text"></div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeResetModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="reset-btn">Reset Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allStudents = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['COLLEGE_ADMIN', 'ADMIN']);
+            if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'College Administrator';
+            document.getElementById('user-avatar').textContent = (user.name || 'C')[0].toUpperCase();
+            if (user.college_name) {
+                document.getElementById('sidebar-college-name').textContent = user.college_name;
+            }
+
+            await loadStudents();
+        });
+
+        async function loadStudents() {
+            try {
+                const res = await authFetch('/api/college/students');
+                if (res.ok) {
+                    allStudents = res.data.students || [];
+                    document.getElementById('students-count').textContent = allStudents.length;
+                    applyFilters();
+                } else {
+                    showToast('Failed to load students', 'error');
+                }
+            } catch (e) {
+                showToast('Server connection error', 'error');
+            }
+        }
+
+        function applyFilters() {
+            const q = document.getElementById('search-input').value.toLowerCase().trim();
+            const sem = document.getElementById('sem-filter').value;
+            const status = document.getElementById('status-filter').value;
+
+            const filtered = allStudents.filter(s => {
+                const matchQ = !q ||
+                    (s.name && s.name.toLowerCase().includes(q)) ||
+                    (s.roll_number && s.roll_number.toLowerCase().includes(q)) ||
+                    (s.registration_number && s.registration_number.toLowerCase().includes(q)) ||
+                    (s.email && s.email.toLowerCase().includes(q)) ||
+                    (s.department && s.department.toLowerCase().includes(q));
+
+                const matchSem = !sem || String(s.current_semester) === sem;
+                const matchStatus = !status || s.status === status;
+                return matchQ && matchSem && matchStatus;
+            });
+
+            renderStudents(filtered);
+        }
+
+        function renderStudents(students) {
+            const tbody = document.getElementById('students-tbody');
+            if (!students || students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 32px;">No matching students found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = students.map(s => {
+                const statusCls = s.status === 'ACTIVE' ? 'color: #15803d; background: #dcfce7;' : 'color: #b91c1c; background: #fee2e2;';
+                return `
+                    <tr>
+                        <td>
+                            <strong style="font-size: 14px; color: #1e293b;">${s.name}</strong>
+                            <div style="font-size: 11px; color: var(--muted);">${s.email || '-'} • ${s.mobile_number || '-'}</div>
+                        </td>
+                        <td>
+                            <div style="font-family: monospace; font-weight: 700; color: #1e293b;">${s.roll_number}</div>
+                            <div style="font-size: 11px; color: var(--muted);">Reg: ${s.registration_number}</div>
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; font-size: 13px;">${s.department}</div>
+                            <div style="font-size: 11px; color: var(--muted);">${s.course || 'B.Tech'} • Session ${s.academic_session || '2023-2024'}</div>
+                        </td>
+                        <td>
+                            <span style="display: inline-block; background: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 6px;">
+                                Sem ${s.current_semester}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; ${statusCls}">
+                                ● ${s.status}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 6px;">
+                                <a href="/college/student-details.html?id=${s.student_id}" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;">
+                                    Profile
+                                </a>
+                                <button onclick="openResetModal('${s.student_id}', '${s.name.replace(/'/g, "\\'")}')" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;">
+                                    🔑 Reset
+                                </button>
+                                <button onclick="toggleStudentStatus('${s.student_id}', '${s.status}')" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;">
+                                    ${s.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function toggleStudentStatus(studentId, currentStatus) {
+            const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+            if (!confirm(`Set student status to ${newStatus}?`)) return;
+
+            try {
+                const res = await authFetch(`/api/college/students/${studentId}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: newStatus }),
+                });
+                if (res.ok) {
+                    showToast(`Student status updated to ${newStatus}`, 'success');
+                    await loadStudents();
+                } else {
+                    showToast(res.data.message || 'Status update failed', 'error');
+                }
+            } catch (e) {
+                showToast('Error updating status', 'error');
+            }
+        }
+
+        function openResetModal(studentId, studentName) {
+            document.getElementById('reset-student-id').value = studentId;
+            document.getElementById('reset-modal-sub').textContent = `Reset login password for: ${studentName}`;
+            document.getElementById('reset-new-password').value = '';
+            document.getElementById('reset-result-box').style.display = 'none';
+            document.getElementById('reset-btn').textContent = 'Reset Password';
+            document.getElementById('reset-modal').style.display = 'flex';
+        }
+
+        function closeResetModal() {
+            document.getElementById('reset-modal').style.display = 'none';
+        }
+
+        async function submitResetPassword(e) {
+            e.preventDefault();
+            const sid = document.getElementById('reset-student-id').value;
+            const pass = document.getElementById('reset-new-password').value.trim();
+
+            const res = await authFetch(`/api/college/students/${sid}/reset-password`, {
+                method: 'POST',
+                body: JSON.stringify({ password: pass || undefined }),
+            });
+
+            if (res.ok) {
+                const creds = res.data.credentials;
+                document.getElementById('reset-result-text').innerHTML = `
+                    Username: <strong>${creds.username}</strong><br/>
+                    Temporary Password: <strong>${creds.temporary_password}</strong>
+                `;
+                document.getElementById('reset-result-box').style.display = 'block';
+                document.getElementById('reset-btn').textContent = 'Done';
+                showToast('Password reset successfully', 'success');
+            } else {
+                showToast(res.data.message || 'Reset failed', 'error');
+            }
+        }
+
+        function openBulkModal() {
+            document.getElementById('csv-file').value = '';
+            document.getElementById('bulk-results').style.display = 'none';
+            document.getElementById('bulk-submit-btn').disabled = false;
+            document.getElementById('bulk-submit-btn').textContent = 'Upload & Import';
+            document.getElementById('bulk-modal').style.display = 'flex';
+        }
+
+        function closeBulkModal() {
+            document.getElementById('bulk-modal').style.display = 'none';
+        }
+
+        function downloadTemplate() {
+            const header = "name,roll_number,registration_number,college_roll,department,course,admission_year,current_semester,academic_session,email,mobile_number\n" +
+                           "Tanmoy Ghosh,11100123002,REG2023002,CR-002,Computer Science & Engineering,B.Tech Computer Science & Engineering,2023,1,2023-2024,tanmoy@tint.edu.in,+91 9876543210\n" +
+                           "Sneha Roy,11100123003,REG2023003,CR-003,Information Technology,B.Tech Information Technology,2023,1,2023-2024,sneha@tint.edu.in,+91 9876543211";
+
+            const blob = new Blob([header], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'students_import_template.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        async function submitBulkImport(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('csv-file');
+            if (!fileInput.files || fileInput.files.length === 0) return;
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const btn = document.getElementById('bulk-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+
+            try {
+                const res = await authFetch('/api/college/students/bulk', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (res.ok) {
+                    const d = res.data;
+                    const resBox = document.getElementById('bulk-results');
+                    let html = `<strong>Import Summary:</strong> ${d.created_count} students registered, ${d.failed_count} errors.<br/><br/>`;
+
+                    if (d.created_students && d.created_students.length > 0) {
+                        html += `<strong>Created Credentials:</strong><br/>`;
+                        d.created_students.forEach(st => {
+                            html += `• ${st.name} (${st.roll_number}) -> User: <code>${st.username}</code> | Pass: <code>${st.temporary_password}</code><br/>`;
+                        });
+                    }
+
+                    if (d.errors && d.errors.length > 0) {
+                        html += `<br/><strong style="color: #b91c1c;">Errors:</strong><br/>`;
+                        d.errors.forEach(err => {
+                            html += `• Row ${err.row}: ${err.error}<br/>`;
+                        });
+                    }
+
+                    resBox.innerHTML = html;
+                    resBox.style.display = 'block';
+                    btn.textContent = 'Done';
+                    showToast(`Imported ${d.created_count} students!`, 'success');
+                    await loadStudents();
+                } else {
+                    showToast(res.data.message || 'Import failed', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Upload & Import';
+                }
+            } catch (err) {
+                showToast('Server connection error during import', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Upload & Import';
+            }
+        }
+
+        function exportCSV() {
+            if (allStudents.length === 0) {
+                showToast('No students to export', 'warning');
+                return;
+            }
+
+            let csv = "Student ID,Roll Number,Registration Number,Name,Department,Course,Semester,Admission Year,Email,Status\n";
+            allStudents.forEach(s => {
+                csv += `"${s.student_id}","${s.roll_number}","${s.registration_number}","${s.name}","${s.department}","${s.course}",${s.current_semester},"${s.admission_year}","${s.email}","${s.status}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `students_export_${new Date().toISOString().substring(0, 10)}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

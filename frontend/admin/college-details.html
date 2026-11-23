@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Details &amp; Analytics | AnswerChain Admin</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+        }
+        .info-label {
+            color: var(--muted);
+            font-weight: 500;
+        }
+        .info-value {
+            color: #1e293b;
+            font-weight: 600;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">A</div>
+                <div>
+                    <h1>AnswerChain</h1>
+                    <span>System Administration</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span>🛡️</span> Admin Console
+                </a>
+                <a href="/admin/colleges.html" class="nav-item active">
+                    <span>🏫</span> Colleges &amp; Institutions
+                </a>
+                <a href="/admin/teachers.html" class="nav-item">
+                    <span>👨‍🏫</span> Teacher Management
+                </a>
+                <a href="/admin/subjects.html" class="nav-item">
+                    <span>📚</span> Subject Management
+                </a>
+                <a href="/index.html" class="nav-item">
+                    <span>⬡</span> Blockchain Monitor
+                </a>
+                <a href="/digilocker/index.html" class="nav-item" target="_blank">
+                    <span>📜</span> DigiLocker Gateway
+                </a>
+                <a href="/verify/index.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Multi-Tenant Root</strong><small>Institutional Deep Dive</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2 id="college-header-title">College Profile &amp; Audit</h2>
+                    <p style="color: var(--muted); font-size: 13px;" id="college-header-sub">Detailed statistics, student population breakdown &amp; institutional records.</p>
+                </div>
+                <div class="header-actions">
+                    <a href="/admin/colleges.html" class="btn btn-outline">&larr; Back to Colleges</a>
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">A</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">Super Administrator</span>
+                            <span class="user-role-label">SUPER ADMIN</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid" style="margin-top: 16px;">
+                <div class="stat-card">
+                    <span class="stat-title">Total Students</span>
+                    <strong class="stat-value" id="stat-total-students" style="color: #2563eb;">0</strong>
+                    <span class="stat-subtitle">Enrolled in College</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Active Students</span>
+                    <strong class="stat-value" id="stat-active-students" style="color: #16a34a;">0</strong>
+                    <span class="stat-subtitle">Currently in good standing</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Academic Records</span>
+                    <strong class="stat-value" id="stat-total-results" style="color: #d97706;">0</strong>
+                    <span class="stat-subtitle">Semester results saved</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Marksheets Issued</span>
+                    <strong class="stat-value" id="stat-total-marksheets" style="color: #7c3aed;">0</strong>
+                    <span class="stat-subtitle">Tamper-evident credentials</span>
+                </div>
+            </div>
+
+            <!-- Profile and Administrator details -->
+            <div class="profile-grid" style="margin-top: 24px;">
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3>Institutional Metadata</h3>
+                        <span id="college-status-badge" style="display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #dcfce7; color: #15803d;">ACTIVE</span>
+                    </div>
+                    <div style="padding: 16px 20px;">
+                        <div class="info-row">
+                            <span class="info-label">College ID</span>
+                            <span class="info-value" id="col-id" style="font-family: monospace;">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">College Code</span>
+                            <span class="info-value" id="col-code">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Affiliated University</span>
+                            <span class="info-value" id="col-univ">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Campus Address</span>
+                            <span class="info-value" id="col-address">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Location</span>
+                            <span class="info-value" id="col-location">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Official Email</span>
+                            <span class="info-value" id="col-email">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Contact Phone</span>
+                            <span class="info-value" id="col-phone">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Registered On</span>
+                            <span class="info-value" id="col-created">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3>College Administrator</h3>
+                    </div>
+                    <div style="padding: 16px 20px;">
+                        <div class="info-row">
+                            <span class="info-label">Administrator Name</span>
+                            <span class="info-value" id="admin-name">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Admin Email</span>
+                            <span class="info-value" id="admin-email">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Admin Username</span>
+                            <span class="info-value" id="admin-username" style="font-family: monospace; color: #2563eb;">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Account Role</span>
+                            <span class="info-value">COLLEGE_ADMIN</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Access Scope</span>
+                            <span class="info-value" style="color: #059669;">Isolated College Tenant</span>
+                        </div>
+
+                        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);">
+                            <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="quickResetPassword()">
+                                🔑 Reset Administrator Password
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Department breakdown -->
+            <div class="table-card" style="margin-top: 24px;">
+                <div class="table-card-header">
+                    <div>
+                        <h3>Department-Wise Student Distribution</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Breakdown of enrolled students across academic departments.</p>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Department Name</th>
+                                <th>Student Count</th>
+                                <th>Share of College</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dept-tbody">
+                            <tr>
+                                <td colspan="3" style="text-align: center; padding: 20px; color: var(--muted);">Loading departments...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Students -->
+            <div class="table-card" style="margin-top: 24px; margin-bottom: 40px;">
+                <div class="table-card-header">
+                    <div>
+                        <h3>Recently Registered Students</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Latest student accounts created by college administrator.</p>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Department</th>
+                                <th>Semester</th>
+                                <th>Status</th>
+                                <th>Registration Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-students-tbody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 20px; color: var(--muted);">Loading students...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentCollegeId = '';
+        let currentCollege = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['ADMIN']);
+            if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'Super Administrator';
+            document.getElementById('user-avatar').textContent = (user.name || 'A')[0].toUpperCase();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            currentCollegeId = urlParams.get('id');
+
+            if (!currentCollegeId) {
+                alert('No college ID specified');
+                window.location.href = '/admin/colleges.html';
+                return;
+            }
+
+            await loadCollegeProfile();
+        });
+
+        async function loadCollegeProfile() {
+            try {
+                const res = await authFetch(`/api/admin/colleges/${currentCollegeId}`);
+                if (!res.ok) {
+                    showToast('Failed to load college details', 'error');
+                    return;
+                }
+
+                currentCollege = res.data.college;
+                const stats = res.data.stats || {};
+
+                document.getElementById('college-header-title').textContent = currentCollege.name;
+                document.getElementById('college-header-sub').textContent = `${currentCollege.university} • Code: ${currentCollege.code}`;
+
+                // Stats
+                document.getElementById('stat-total-students').textContent = stats.total_students || 0;
+                document.getElementById('stat-active-students').textContent = stats.active_students || 0;
+                document.getElementById('stat-total-results').textContent = stats.total_results || 0;
+                document.getElementById('stat-total-marksheets').textContent = stats.total_marksheets || 0;
+
+                // Info
+                document.getElementById('col-id').textContent = currentCollege.college_id;
+                document.getElementById('col-code').textContent = currentCollege.code;
+                document.getElementById('col-univ').textContent = currentCollege.university;
+                document.getElementById('col-address').textContent = currentCollege.address;
+                document.getElementById('col-location').textContent = `${currentCollege.district}, ${currentCollege.state}`;
+                document.getElementById('col-email').textContent = currentCollege.official_email;
+                document.getElementById('col-phone').textContent = currentCollege.contact_number;
+                document.getElementById('col-created').textContent = (currentCollege.created_at || '').substring(0, 10);
+
+                const badge = document.getElementById('college-status-badge');
+                badge.textContent = currentCollege.status || 'ACTIVE';
+                if (currentCollege.status === 'SUSPENDED') {
+                    badge.style.background = '#fee2e2';
+                    badge.style.color = '#b91c1c';
+                }
+
+                // Admin
+                document.getElementById('admin-name').textContent = currentCollege.admin_name || 'Administrator';
+                document.getElementById('admin-email').textContent = currentCollege.admin_email || '-';
+                document.getElementById('admin-username').textContent = currentCollege.admin_username || '-';
+
+                // Departments
+                const deptTbody = document.getElementById('dept-tbody');
+                const depts = stats.department_counts || [];
+                const totalStudents = stats.total_students || 1;
+
+                if (depts.length === 0) {
+                    deptTbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--muted); padding: 16px;">No department student data yet.</td></tr>`;
+                } else {
+                    deptTbody.innerHTML = depts.map(d => {
+                        const pct = Math.round((d.count / (totalStudents || 1)) * 100);
+                        return `
+                            <tr>
+                                <td><strong>${d.department}</strong></td>
+                                <td><span style="font-weight: 700; color: #2563eb;">${d.count}</span> students</td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="background: #e2e8f0; border-radius: 4px; height: 8px; width: 100px; overflow: hidden;">
+                                            <div style="background: #2563eb; height: 100%; width: ${pct}%;"></div>
+                                        </div>
+                                        <span style="font-size: 11px; color: var(--muted);">${pct}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                // Recent Students
+                const stuTbody = document.getElementById('recent-students-tbody');
+                const recent = stats.recent_students || [];
+                if (recent.length === 0) {
+                    stuTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 16px;">No students registered yet.</td></tr>`;
+                } else {
+                    stuTbody.innerHTML = recent.map(s => `
+                        <tr>
+                            <td><strong style="font-family: monospace;">${s.roll_number}</strong></td>
+                            <td>${s.name}</td>
+                            <td>${s.department}</td>
+                            <td>Semester ${s.current_semester}</td>
+                            <td><span style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #dcfce7; color: #15803d;">${s.status}</span></td>
+                            <td>${(s.created_at || '').substring(0, 10)}</td>
+                        </tr>
+                    `).join('');
+                }
+
+            } catch (e) {
+                console.error("Load error:", e);
+                showToast('Server connection error', 'error');
+            }
+        }
+
+        async function quickResetPassword() {
+            if (!confirm(`Reset administrator password for ${currentCollege.name}?`)) return;
+
+            try {
+                const res = await authFetch(`/api/admin/colleges/${currentCollegeId}/reset-credentials`, {
+                    method: 'POST',
+                    body: JSON.stringify({}),
+                });
+                if (res.ok) {
+                    const creds = res.data.credentials;
+                    alert(`Password reset successfully!\nUsername: ${creds.username}\nTemporary Password: ${creds.temporary_password}`);
+                } else {
+                    showToast(res.data.message || 'Reset failed', 'error');
+                }
+            } catch (e) {
+                showToast('Error resetting password', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

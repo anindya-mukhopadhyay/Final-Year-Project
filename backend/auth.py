@@ -15,6 +15,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+import backend.database as db
+
 # Secret key for HMAC token signing (dev fallback or environment variable)
 AUTH_SECRET_KEY = os.environ.get(
     "AUTH_SECRET_KEY",
@@ -46,6 +48,11 @@ class User:
     department: str
     email: str
     active: bool = True
+    assigned_subject: Optional[str] = None
+    assigned_subject_name: Optional[str] = None
+    college_id: Optional[str] = None
+    college_name: Optional[str] = None
+    must_change_password: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -54,6 +61,12 @@ class User:
             "role": self.role,
             "department": self.department,
             "email": self.email,
+            "active": self.active,
+            "assigned_subject": self.assigned_subject or "",
+            "assigned_subject_name": self.assigned_subject_name or "",
+            "college_id": self.college_id or "",
+            "college_name": self.college_name or "",
+            "must_change_password": bool(self.must_change_password),
         }
 
 def _hash_password(password: str, salt: str = "answerchain_salt_2026") -> str:
@@ -154,21 +167,60 @@ _ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 def authenticate(user_id: str, password: str) -> Optional[Dict[str, Any]]:
     """
-    Authenticate user credentials and issue a signed session token.
+    Authenticate user credentials against SQLite database (with in-memory fallback)
+    and issue a signed session token. Supports login via user_id or institutional email.
     """
-    clean_id = user_id.strip().upper()
-    if clean_id not in _USERS:
+    if not user_id or not password:
         return None
 
-    expected_hash = _CREDENTIALS.get(clean_id)
-    provided_hash = _hash_password(password)
+    clean_input = user_id.strip()
+    user_auth = db.get_user_auth(clean_input)
 
-    if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
-        return None
+    if user_auth:
+        expected_hash = user_auth.get("password_hash")
+        provided_hash = _hash_password(password)
+        if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
+            return None
+        if not user_auth.get("active", 1):
+            return None
 
-    user = _USERS[clean_id]
-    if not user.active:
-        return None
+        user = User(
+            user_id=user_auth["user_id"],
+            name=user_auth["name"],
+            role=user_auth["role"],
+            department=user_auth.get("department", ""),
+            email=user_auth.get("email", ""),
+            active=bool(user_auth.get("active", 1)),
+            assigned_subject=user_auth.get("assigned_subject"),
+            assigned_subject_name=user_auth.get("assigned_subject_name"),
+            college_id=user_auth.get("college_id"),
+            college_name=user_auth.get("college_name"),
+            must_change_password=bool(user_auth.get("must_change_password", 0)),
+        )
+    else:
+        # Fallback to in-memory store
+        upper_id = clean_input.upper()
+        if upper_id in _USERS:
+            expected_hash = _CREDENTIALS.get(upper_id)
+            provided_hash = _hash_password(password)
+            if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
+                return None
+            user = _USERS[upper_id]
+            if not user.active:
+                return None
+        else:
+            # Check in-memory store by email
+            matching = [u for u in _USERS.values() if u.email and u.email.lower() == clean_input.lower()]
+            if matching:
+                user = matching[0]
+                expected_hash = _CREDENTIALS.get(user.user_id)
+                provided_hash = _hash_password(password)
+                if not expected_hash or not hmac.compare_digest(expected_hash, provided_hash):
+                    return None
+                if not user.active:
+                    return None
+            else:
+                return None
 
     token = create_token(user)
     return {
@@ -177,6 +229,12 @@ def authenticate(user_id: str, password: str) -> Optional[Dict[str, Any]]:
         "role": user.role,
         "department": user.department,
         "email": user.email,
+        "active": user.active,
+        "assigned_subject": user.assigned_subject or "",
+        "assigned_subject_name": user.assigned_subject_name or "",
+        "college_id": user.college_id or "",
+        "college_name": user.college_name or "",
+        "must_change_password": user.must_change_password,
         "token": token,
     }
 
@@ -232,11 +290,38 @@ def verify_token(token: str) -> Optional[User]:
         return None
 
     user_id = session.get("user_id")
-    return _USERS.get(user_id)
+    user = get_user_by_id(user_id)
+    if not user or not user.active:
+        return None
+    return user
 
 def get_user_by_id(user_id: str) -> Optional[User]:
-    """Retrieve user object by user ID."""
-    return _USERS.get(user_id.strip().upper())
+    """Retrieve user object by user ID or email from SQLite database with in-memory fallback."""
+    if not user_id:
+        return None
+    clean_id = user_id.strip()
+    u_dict = db.get_user(clean_id)
+    if u_dict:
+        return User(
+            user_id=u_dict["user_id"],
+            name=u_dict["name"],
+            role=u_dict["role"],
+            department=u_dict.get("department", ""),
+            email=u_dict.get("email", ""),
+            active=bool(u_dict.get("active", 1)),
+            assigned_subject=u_dict.get("assigned_subject"),
+            assigned_subject_name=u_dict.get("assigned_subject_name"),
+            college_id=u_dict.get("college_id"),
+            college_name=u_dict.get("college_name"),
+            must_change_password=bool(u_dict.get("must_change_password", 0)),
+        )
+    upper_id = clean_id.upper()
+    if upper_id in _USERS:
+        return _USERS[upper_id]
+    for u in _USERS.values():
+        if u.email and u.email.lower() == clean_id.lower():
+            return u
+    return None
 
 def revoke_token(token: str) -> bool:
     """Log out a user by revoking session token."""
@@ -246,6 +331,17 @@ def revoke_token(token: str) -> bool:
     _REVOKED_TOKENS.add(clean_token)
     _ACTIVE_SESSIONS.pop(clean_token, None)
     return True
+
+def revoke_sessions_for_user(user_id: str) -> None:
+    """Revoke all active sessions for a given user ID (e.g. on deactivation or password reset)."""
+    clean_id = user_id.strip().upper()
+    tokens_to_remove = [
+        t for t, payload in _ACTIVE_SESSIONS.items()
+        if payload.get("user_id") == clean_id
+    ]
+    for t in tokens_to_remove:
+        _REVOKED_TOKENS.add(t)
+        _ACTIVE_SESSIONS.pop(t, None)
 
 def check_login_rate_limit(client_ip: str) -> Tuple[bool, Optional[str]]:
     """Check if client IP has exceeded login attempt threshold."""
@@ -276,10 +372,58 @@ def check_upload_rate_limit(client_ip: str) -> Tuple[bool, Optional[str]]:
     _UPLOAD_REQUESTS[client_ip] = reqs
     return True, None
 
-def list_teachers() -> List[Dict[str, Any]]:
-    """Return all teachers for assignment dropdowns."""
-    return [
-        user.to_dict()
-        for user in _USERS.values()
-        if user.role == "TEACHER" and user.active
-    ]
+def list_teachers(subject_code: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Return active teachers for assignment dropdowns with their assigned subject."""
+    return db.list_teachers(subject_code=subject_code, active_only=True)
+
+def list_all_teachers_admin() -> List[Dict[str, Any]]:
+    """Return all teachers (including inactive) for Admin management."""
+    return db.list_teachers(subject_code=None, active_only=False)
+
+def create_teacher_account(
+    user_id: str,
+    name: str,
+    assigned_subject: str,
+    password: str,
+    department: str = "Academic Faculty",
+    email: str = "",
+) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+    """Create a new teacher in SQLite DB with hashed credentials."""
+    return db.create_teacher(
+        user_id=user_id,
+        name=name,
+        assigned_subject=assigned_subject,
+        password=password,
+        department=department,
+        email=email,
+    )
+
+def update_teacher_account(
+    user_id: str,
+    name: Optional[str] = None,
+    assigned_subject: Optional[str] = None,
+    department: Optional[str] = None,
+    email: Optional[str] = None,
+) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+    """Update teacher details in SQLite DB."""
+    return db.update_teacher(
+        user_id=user_id,
+        name=name,
+        assigned_subject=assigned_subject,
+        department=department,
+        email=email,
+    )
+
+def reset_teacher_password(user_id: str, new_password: str) -> Tuple[bool, Optional[str]]:
+    """Reset teacher password and revoke active sessions."""
+    ok, err = db.reset_teacher_password(user_id=user_id, new_password=new_password)
+    if ok:
+        revoke_sessions_for_user(user_id)
+    return ok, err
+
+def toggle_teacher_account_status(user_id: str, active: bool) -> Tuple[bool, Optional[str]]:
+    """Toggle teacher active status. If deactivating, revoke active sessions."""
+    ok, err = db.toggle_teacher_status(user_id=user_id, active=active)
+    if ok and not active:
+        revoke_sessions_for_user(user_id)
+    return ok, err

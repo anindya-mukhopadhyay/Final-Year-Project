@@ -114,6 +114,12 @@ function redirectToRoleHome(role) {
         case "ADMIN":
             window.location.href = "/admin/dashboard.html";
             break;
+        case "COLLEGE_ADMIN":
+            window.location.href = "/college/dashboard.html";
+            break;
+        case "STUDENT":
+            window.location.href = "/student/dashboard.html";
+            break;
         case "VERIFIER":
             window.location.href = "/verify/index.html";
             break;

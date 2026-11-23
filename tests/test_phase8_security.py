@@ -320,6 +320,14 @@ class Phase8SecurityTests(unittest.TestCase):
     # ========================================================
     def test_10_teacher_cannot_modify_finalized_result(self):
         """Verify that once a result is FINALIZED, an evaluation cannot be submitted or changed."""
+        from nodes.node import blockchain
+        if not blockchain.transaction_exists("RESULT_FINALIZED", "answer_script_id", "AS-004"):
+            blockchain.add_and_commit_transaction({
+                "type": "RESULT_FINALIZED",
+                "answer_script_id": "AS-004",
+                "status": "FINALIZED",
+            })
+
         resp = self.node_client.post(
             "/evaluations/submit",
             json={

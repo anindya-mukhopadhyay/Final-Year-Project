@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Student Profile | AnswerChain</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/api.js"></script>
+    <style>
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+        }
+        .info-label {
+            color: var(--muted);
+            font-weight: 500;
+        }
+        .info-value {
+            color: #1e293b;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(3px);
+        }
+        .modal-card {
+            background: white;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            padding: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: linear-gradient(135deg, #2563eb, #60a5fa);">🎓</div>
+                <div>
+                    <h1>Student Portal</h1>
+                    <span id="sidebar-college-name">Academic System</span>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/student/dashboard.html" class="nav-item">
+                    <span>📊</span> My Dashboard
+                </a>
+                <a href="/student/profile.html" class="nav-item active">
+                    <span>👤</span> Student Profile
+                </a>
+                <a href="/student/results.html" class="nav-item">
+                    <span>📝</span> Semester Results
+                </a>
+                <a href="/student/marksheets.html" class="nav-item">
+                    <span>📜</span> DigiLocker Vault
+                </a>
+                <a href="/digilocker/index.html" class="nav-item" target="_blank">
+                    <span>🇮🇳</span> DigiLocker Gateway
+                </a>
+                <a href="/student/change-password.html" class="nav-item">
+                    <span>🔐</span> Security &amp; Password
+                </a>
+                <a href="/verify-marksheet.html" class="nav-item">
+                    <span>🔍</span> Public Verifier
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="network-status">
+                    <span class="status-dot"></span>
+                    <div><strong>Authenticated Student</strong><small id="footer-roll">-</small></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h2>Official Student Profile</h2>
+                    <p style="color: var(--muted); font-size: 13px;">Official academic identity certified by college administration.</p>
+                </div>
+                <div class="user-profile">
+                    <div class="user-avatar" id="user-avatar">S</div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name">Student</span>
+                        <span class="user-role">STUDENT</span>
+                    </div>
+                    <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                </div>
+            </header>
+
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; margin-top: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 13px; color: #1e40af;">
+                    🔒 <strong>Official Academic Record:</strong> Official academic information is locked by your college. Notice any error in your details?
+                </div>
+                <button class="btn btn-primary" onclick="openCorrectionModal()" style="font-size: 12px; padding: 6px 14px;">
+                    📝 Submit Correction Request
+                </button>
+            </div>
+
+            <div class="profile-grid" style="margin-top: 20px; margin-bottom: 40px;">
+                <!-- Academic Information -->
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3>Academic Enrollment</h3>
+                        <span id="badge-status" style="padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #dcfce7; color: #15803d;">ACTIVE</span>
+                    </div>
+                    <div style="padding: 16px 20px;">
+                        <div class="info-row">
+                            <span class="info-label">Student ID</span>
+                            <span class="info-value" id="stu-id" style="font-family: monospace;">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">University Roll Number</span>
+                            <span class="info-value" id="stu-roll" style="font-family: monospace; color: #2563eb;">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Registration Number</span>
+                            <span class="info-value" id="stu-reg" style="font-family: monospace;">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">College Roll Number</span>
+                            <span class="info-value" id="stu-college-roll">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Course / Degree</span>
+                            <span class="info-value" id="stu-course">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Department</span>
+                            <span class="info-value" id="stu-dept">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Admission Year</span>
+                            <span class="info-value" id="stu-adm-year">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Current Semester</span>
+                            <span class="info-value" id="stu-sem">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">College / Institute</span>
+                            <span class="info-value" id="stu-col-name">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Affiliated University</span>
+                            <span class="info-value" id="stu-col-univ">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Personal & Contact Information -->
+                <div class="table-card">
+                    <div class="table-card-header">
+                        <h3>Personal &amp; Contact Details</h3>
+                    </div>
+                    <div style="padding: 16px 20px;">
+                        <div class="info-row">
+                            <span class="info-label">Full Name</span>
+                            <span class="info-value" id="stu-name">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Father's Name</span>
+                            <span class="info-value" id="stu-father">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Mother's Name</span>
+                            <span class="info-value" id="stu-mother">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Date of Birth</span>
+                            <span class="info-value" id="stu-dob">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Gender</span>
+                            <span class="info-value" id="stu-gender">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Blood Group</span>
+                            <span class="info-value" id="stu-blood">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Category</span>
+                            <span class="info-value" id="stu-cat">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email Address</span>
+                            <span class="info-value" id="stu-email">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Mobile Number</span>
+                            <span class="info-value" id="stu-mobile">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Current Address</span>
+                            <span class="info-value" id="stu-address">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Correction Request Modal -->
+    <div id="correction-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Submit Profile Correction</h3>
+            <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">
+                Request changes to personal or contact details. Your request will be reviewed and applied by your College Administrator.
+            </p>
+
+            <form id="corr-form" onsubmit="submitCorrection(event)">
+                <div class="form-group">
+                    <label for="corr-field">Field to Correct *</label>
+                    <select id="corr-field" class="form-control" required>
+                        <option value="name">Full Name (Spelling error)</option>
+                        <option value="mobile_number">Mobile Number</option>
+                        <option value="email">Email Address</option>
+                        <option value="current_address">Residential Address</option>
+                        <option value="father_name">Father's Name</option>
+                        <option value="mother_name">Mother's Name</option>
+                        <option value="dob">Date of Birth</option>
+                        <option value="blood_group">Blood Group</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="corr-value">Corrected / Requested Value *</label>
+                    <input type="text" id="corr-value" class="form-control" placeholder="Enter corrected value" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="corr-reason">Reason for Correction</label>
+                    <textarea id="corr-reason" class="form-control" rows="3" placeholder="Explain the reason for requesting this change..."></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-outline" onclick="closeCorrectionModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="corr-submit-btn">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = requireAuth(['STUDENT']);
+            if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'Student';
+            document.getElementById('user-avatar').textContent = (user.name || 'S')[0].toUpperCase();
+
+            await loadProfile();
+        });
+
+        async function loadProfile() {
+            try {
+                const res = await authFetch('/api/student/profile');
+                if (res.ok) {
+                    const stu = res.data.student || {};
+                    const col = res.data.college || {};
+
+                    document.getElementById('sidebar-college-name').textContent = col.name || 'College Portal';
+                    document.getElementById('footer-roll').textContent = stu.roll_number || stu.student_id;
+
+                    // Academic
+                    document.getElementById('stu-id').textContent = stu.student_id;
+                    document.getElementById('stu-roll').textContent = stu.roll_number;
+                    document.getElementById('stu-reg').textContent = stu.registration_number;
+                    document.getElementById('stu-college-roll').textContent = stu.college_roll || '-';
+                    document.getElementById('stu-course').textContent = stu.course;
+                    document.getElementById('stu-dept').textContent = stu.department;
+                    document.getElementById('stu-adm-year').textContent = stu.admission_year;
+                    document.getElementById('stu-sem').textContent = `Semester ${stu.current_semester} (${stu.academic_session || '2023-2024'})`;
+                    document.getElementById('stu-col-name').textContent = col.name || '-';
+                    document.getElementById('stu-col-univ').textContent = col.university || '-';
+
+                    // Personal
+                    document.getElementById('stu-name').textContent = stu.name;
+                    document.getElementById('stu-father').textContent = stu.father_name || '-';
+                    document.getElementById('stu-mother').textContent = stu.mother_name || '-';
+                    document.getElementById('stu-dob').textContent = stu.dob || '-';
+                    document.getElementById('stu-gender').textContent = stu.gender || '-';
+                    document.getElementById('stu-blood').textContent = stu.blood_group || '-';
+                    document.getElementById('stu-cat').textContent = stu.category || 'General';
+                    document.getElementById('stu-email').textContent = stu.email;
+                    document.getElementById('stu-mobile').textContent = stu.mobile_number || '-';
+                    document.getElementById('stu-address').textContent = stu.current_address || stu.permanent_address || '-';
+                }
+            } catch (err) {
+                console.error("Profile load error:", err);
+                showToast('Server connection error', 'error');
+            }
+        }
+
+        function openCorrectionModal() {
+            document.getElementById('corr-value').value = '';
+            document.getElementById('corr-reason').value = '';
+            document.getElementById('correction-modal').style.display = 'flex';
+        }
+
+        function closeCorrectionModal() {
+            document.getElementById('correction-modal').style.display = 'none';
+        }
+
+        async function submitCorrection(e) {
+            e.preventDefault();
+            const field = document.getElementById('corr-field').value;
+            const val = document.getElementById('corr-value').value.trim();
+            const reason = document.getElementById('corr-reason').value.trim();
+
+            const btn = document.getElementById('corr-submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+
+            try {
+                const res = await authFetch('/api/student/profile-correction', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        field_name: field,
+                        requested_value: val,
+                        reason: reason,
+                    }),
+                });
+
+                if (res.ok) {
+                    showToast('Correction request submitted to College Admin!', 'success');
+                    closeCorrectionModal();
+                } else {
+                    showToast(res.data.message || 'Submission failed', 'error');
+                }
+            } catch (err) {
+                showToast('Server error', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Submit Request';
+            }
+        }
+    </script>
+</body>
+</html>
