@@ -7,22 +7,116 @@
     <link rel="stylesheet" href="/style.css">
     <script src="/api.js"></script>
     <style>
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
+        .form-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+            max-width: 980px;
         }
-        .form-section-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #1e293b;
-            margin-top: 24px;
-            margin-bottom: 14px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
+
+        .form-section-header {
             display: flex;
             align-items: center;
+            gap: 12px;
+            margin-top: 28px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+
+        .form-section-header:first-of-type {
+            margin-top: 0;
+        }
+
+        .section-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: #eff6ff;
+            color: #2563eb;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .form-grid-2col {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px 22px;
+        }
+
+        @media (max-width: 720px) {
+            .form-grid-2col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e293b;
+            background: #ffffff;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .address-sync-label {
+            display: inline-flex;
+            align-items: center;
             gap: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #2563eb;
+            cursor: pointer;
+            margin-top: -6px;
+            margin-bottom: 8px;
+        }
+
+        .info-callout {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 12px;
+            color: #1e40af;
+            line-height: 1.5;
+            margin-bottom: 24px;
         }
 
         .modal-overlay {
@@ -35,18 +129,20 @@
             z-index: 9999;
             backdrop-filter: blur(4px);
         }
+
         .modal-card {
             background: white;
             border-radius: 16px;
-            max-width: 520px;
+            max-width: 540px;
             width: 90%;
-            padding: 28px;
+            padding: 30px;
             box-shadow: 0 25px 35px -5px rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
 <body>
     <div class="app">
+        <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="brand">
                 <div class="brand-icon" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">🏫</div>
@@ -85,41 +181,65 @@
             </div>
         </aside>
 
+        <!-- MAIN CONTENT -->
         <main class="main-content">
             <header class="topbar">
                 <div>
                     <h2>Student Registration Module</h2>
                     <p style="color: var(--muted); font-size: 13px;">Authoritative provisioning of student profile &amp; secure one-time credentials generation.</p>
                 </div>
-                <div style="display: flex; gap: 10px;">
+                <div class="header-actions">
                     <a href="/college/students.html" class="btn btn-outline">&larr; Back to Student Directory</a>
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">C</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">College Administrator</span>
+                            <span class="user-role-label">COLLEGE ADMIN</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
                 </div>
             </header>
 
-            <div class="table-card" style="margin-top: 20px; max-width: 960px;">
+            <div class="form-card" style="margin-top: 16px;">
+                <!-- Official Governance Notice -->
+                <div class="info-callout">
+                    <span style="font-size: 18px;">🛡️</span>
+                    <div>
+                        <strong>Strict Institutional Policy:</strong> Students cannot self-register or create accounts independently.
+                        Only authorized college administrators can register student profiles and issue initial credentials.
+                    </div>
+                </div>
+
                 <form id="student-reg-form" onsubmit="submitStudentRegistration(event)">
 
                     <!-- 1. PERSONAL INFORMATION -->
-                    <div class="form-section-title" style="margin-top: 0;">
-                        <span>👤</span> 1. Personal Information
+                    <div class="form-section-header">
+                        <span class="section-badge">1</span>
+                        <span class="section-title">Personal Information</span>
                     </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="name">Full Name *</label>
-                            <input type="text" id="name" class="form-control" placeholder="e.g. Asmit Mondal" required>
+
+                    <div class="form-grid-2col">
+                        <div class="form-group full-width">
+                            <label for="name">Student Full Name *</label>
+                            <input type="text" id="name" class="form-control" placeholder="e.g. Asmit Mondal" required autofocus>
                         </div>
+
                         <div class="form-group">
                             <label for="father_name">Father's Name</label>
                             <input type="text" id="father_name" class="form-control" placeholder="e.g. Debabrata Mondal">
                         </div>
+
                         <div class="form-group">
                             <label for="mother_name">Mother's Name</label>
                             <input type="text" id="mother_name" class="form-control" placeholder="e.g. Shikha Mondal">
                         </div>
+
                         <div class="form-group">
                             <label for="dob">Date of Birth</label>
                             <input type="date" id="dob" class="form-control">
                         </div>
+
                         <div class="form-group">
                             <label for="gender">Gender</label>
                             <select id="gender" class="form-control">
@@ -128,10 +248,7 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="blood_group">Blood Group (Optional)</label>
-                            <input type="text" id="blood_group" class="form-control" placeholder="e.g. O+, A+, B+">
-                        </div>
+
                         <div class="form-group">
                             <label for="category">Category (Optional)</label>
                             <select id="category" class="form-control">
@@ -142,68 +259,92 @@
                                 <option value="EWS">EWS</option>
                             </select>
                         </div>
+
+                        <div class="form-group">
+                            <label for="blood_group">Blood Group (Optional)</label>
+                            <input type="text" id="blood_group" class="form-control" placeholder="e.g. O+, A+, B+, AB+">
+                        </div>
                     </div>
 
                     <!-- 2. CONTACT INFORMATION -->
-                    <div class="form-section-title">
-                        <span>📞</span> 2. Contact Information
+                    <div class="form-section-header">
+                        <span class="section-badge">2</span>
+                        <span class="section-title">Contact Information</span>
                     </div>
-                    <div class="form-grid">
+
+                    <div class="form-grid-2col">
                         <div class="form-group">
-                            <label for="email">Email Address *</label>
+                            <label for="email">Institutional / Personal Email *</label>
                             <input type="email" id="email" class="form-control" placeholder="e.g. asmit@tint.edu.in" required>
                         </div>
+
                         <div class="form-group">
-                            <label for="mobile_number">Mobile Number</label>
+                            <label for="mobile_number">Mobile Phone Number</label>
                             <input type="text" id="mobile_number" class="form-control" placeholder="e.g. +91 98301 23456">
                         </div>
-                        <div class="form-group" style="grid-column: 1 / -1;">
+
+                        <div class="form-group full-width">
                             <label for="current_address">Current Residential Address</label>
-                            <input type="text" id="current_address" class="form-control" placeholder="e.g. Action Area II, New Town, Kolkata">
+                            <input type="text" id="current_address" class="form-control" placeholder="e.g. Action Area II, New Town, Kolkata 700156" oninput="syncPermanentAddress()">
                         </div>
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label for="permanent_address">Permanent Address</label>
-                            <input type="text" id="permanent_address" class="form-control" placeholder="e.g. Same as above or permanent home address">
+
+                        <div class="form-group full-width" style="margin-top: -6px;">
+                            <label class="address-sync-label">
+                                <input type="checkbox" id="sync_address_check" onchange="toggleSameAddress(this)">
+                                Permanent address is same as current residential address
+                            </label>
+                            <label for="permanent_address" style="margin-top: 6px;">Permanent Address</label>
+                            <input type="text" id="permanent_address" class="form-control" placeholder="e.g. Permanent family home address">
                         </div>
                     </div>
 
-                    <!-- 3. ACADEMIC INFORMATION -->
-                    <div class="form-section-title">
-                        <span>🎓</span> 3. Official Academic Details
+                    <!-- 3. ACADEMIC DETAILS -->
+                    <div class="form-section-header">
+                        <span class="section-badge">3</span>
+                        <span class="section-title">Official Academic Enrollment</span>
                     </div>
-                    <div class="form-grid">
+
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="roll_number">University Roll Number *</label>
-                            <input type="text" id="roll_number" class="form-control" placeholder="e.g. 11100123001" required style="font-family: monospace;">
+                            <input type="text" id="roll_number" class="form-control" placeholder="e.g. 11100123001" required style="font-family: monospace; font-weight: 700;">
+                            <small style="color: var(--muted); font-size: 11px;">Must be unique across university ledger.</small>
                         </div>
+
                         <div class="form-group">
                             <label for="registration_number">Registration Number *</label>
-                            <input type="text" id="registration_number" class="form-control" placeholder="e.g. 2311101001" required style="font-family: monospace;">
+                            <input type="text" id="registration_number" class="form-control" placeholder="e.g. 2311101001" required style="font-family: monospace; font-weight: 700;">
+                            <small style="color: var(--muted); font-size: 11px;">Permanent university registration ID.</small>
                         </div>
+
                         <div class="form-group">
                             <label for="college_roll">College Roll Number (Optional)</label>
                             <input type="text" id="college_roll" class="form-control" placeholder="e.g. CSE-2023-001">
                         </div>
+
+                        <div class="form-group">
+                            <label for="admission_year">Admission Year *</label>
+                            <input type="text" id="admission_year" class="form-control" value="2023" required>
+                        </div>
+
                         <div class="form-group">
                             <label for="department">Department *</label>
-                            <select id="department" class="form-control" required>
+                            <select id="department" class="form-control" required onchange="onDepartmentChange()">
                                 <option value="Computer Science & Engineering">Computer Science &amp; Engineering</option>
                                 <option value="Information Technology">Information Technology</option>
-                                <option value="Electronics & Communication">Electronics &amp; Communication</option>
+                                <option value="Electronics & Communication Engineering">Electronics &amp; Communication Engineering</option>
                                 <option value="Electrical Engineering">Electrical Engineering</option>
                                 <option value="Mechanical Engineering">Mechanical Engineering</option>
                                 <option value="Civil Engineering">Civil Engineering</option>
                                 <option value="Applied Electronics & Instrumentation">Applied Electronics &amp; Instrumentation</option>
                             </select>
                         </div>
+
                         <div class="form-group">
                             <label for="course">Course / Degree *</label>
-                            <input type="text" id="course" class="form-control" value="B.Tech Computer Science & Engineering" required>
+                            <input type="text" id="course" class="form-control" value="Bachelor of Technology in Computer Science & Engineering" required>
                         </div>
-                        <div class="form-group">
-                            <label for="admission_year">Admission Year *</label>
-                            <input type="text" id="admission_year" class="form-control" value="2023" required>
-                        </div>
+
                         <div class="form-group">
                             <label for="current_semester">Current Semester *</label>
                             <select id="current_semester" class="form-control" required>
@@ -217,6 +358,7 @@
                                 <option value="8">Semester 8</option>
                             </select>
                         </div>
+
                         <div class="form-group">
                             <label for="academic_session">Academic Session *</label>
                             <input type="text" id="academic_session" class="form-control" value="2023-2024" required>
@@ -224,30 +366,43 @@
                     </div>
 
                     <!-- 4. ACCOUNT INFORMATION -->
-                    <div class="form-section-title">
-                        <span>🔐</span> 4. Student Authentication Credentials
+                    <div class="form-section-header">
+                        <span class="section-badge">4</span>
+                        <span class="section-title">Student Portal Authentication</span>
                     </div>
-                    <div class="form-grid">
+
+                    <div class="form-grid-2col">
                         <div class="form-group">
                             <label for="username">Assigned Username (Optional)</label>
-                            <input type="text" id="username" class="form-control" placeholder="Leave blank to use University Roll Number">
-                            <small style="color: var(--muted); font-size: 11px;">Default is University Roll Number (e.g. 11100123001)</small>
+                            <input type="text" id="username" class="form-control" placeholder="Default: Same as University Roll Number">
+                            <small style="color: var(--muted); font-size: 11px;">Leave blank to use University Roll Number.</small>
                         </div>
+
                         <div class="form-group">
-                            <label for="password">Temporary Password *</label>
+                            <label for="password">Initial Temporary Password *</label>
                             <div style="display: flex; gap: 8px;">
-                                <input type="text" id="password" class="form-control" placeholder="Min. 6 chars" required>
-                                <button type="button" class="btn btn-outline" onclick="generateTempPassword()" style="white-space: nowrap;">Auto Gen</button>
+                                <input type="text" id="password" class="form-control" placeholder="Min. 6 characters" required style="font-family: monospace; font-weight: 600;">
+                                <button type="button" class="btn btn-outline" onclick="generateTempPassword()" style="white-space: nowrap; padding: 0 14px;">
+                                    🎲 Auto Gen
+                                </button>
                             </div>
-                            <small style="color: var(--muted); font-size: 11px;">Student will be forced to change password on first login.</small>
+                            <small style="color: #b45309; font-size: 11px;">⚠️ Student will be prompted to change this password on first login.</small>
                         </div>
                     </div>
 
-                    <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px;">
-                        <a href="/college/students.html" class="btn btn-outline">Cancel</a>
-                        <button type="submit" class="btn btn-primary" id="submit-btn" style="padding: 10px 24px;">
-                            Register Student &amp; Create Account
-                        </button>
+                    <!-- FOOTER ACTIONS -->
+                    <div style="margin-top: 32px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 22px; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <button type="button" class="btn btn-outline" onclick="fillSampleStudent()" style="border-color: #93c5fd; color: #1d4ed8; background: #eff6ff;">
+                                ⚡ Fill Sample Student Data
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <a href="/college/students.html" class="btn btn-outline">Cancel</a>
+                            <button type="submit" class="btn btn-primary" id="submit-btn" style="padding: 11px 26px; font-weight: 700;">
+                                Register Student &amp; Create Account &rarr;
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -257,32 +412,32 @@
     <!-- Credentials Modal -->
     <div id="creds-modal" class="modal-overlay">
         <div class="modal-card">
-            <div style="width: 48px; height: 48px; border-radius: 50%; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 16px;">
                 ✓
             </div>
             <h3 style="font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 6px;">Student Registered Successfully!</h3>
-            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
-                The student account is now active. Please securely provide these initial login credentials to the student:
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5;">
+                The official student record and authentication profile have been committed to the institutional database. Share these credentials with the student:
             </p>
 
-            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                <div style="margin-bottom: 10px;">
-                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Student ID:</span>
-                    <div style="font-family: monospace; font-size: 14px; font-weight: 700; color: #1e293b;" id="modal-student-id"></div>
+            <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 22px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Official Student ID</span>
+                    <strong style="font-family: monospace; font-size: 14px; color: #1e293b;" id="modal-student-id">-</strong>
                 </div>
-                <div style="margin-bottom: 10px;">
-                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Login Username / Roll:</span>
-                    <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #2563eb;" id="modal-username"></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Login Username / Roll</span>
+                    <strong style="font-family: monospace; font-size: 15px; color: #2563eb;" id="modal-username">-</strong>
                 </div>
-                <div>
-                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Temporary Password:</span>
-                    <div style="font-family: monospace; font-size: 15px; font-weight: 700; color: #b91c1c;" id="modal-password"></div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Temporary Password</span>
+                    <strong style="font-family: monospace; font-size: 15px; color: #dc2626;" id="modal-password">-</strong>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
                 <button type="button" class="btn btn-outline" onclick="copyCreds()">📋 Copy Credentials</button>
-                <button type="button" class="btn btn-primary" onclick="goToStudents()">Done &rarr;</button>
+                <button type="button" class="btn btn-primary" onclick="goToStudents()">Go to Student Directory &rarr;</button>
             </div>
         </div>
     </div>
@@ -295,6 +450,12 @@
             if (user.college_name) {
                 document.getElementById('sidebar-college-name').textContent = user.college_name;
             }
+            if (user.college_id) {
+                document.getElementById('footer-college-code').textContent = user.college_id;
+            }
+            document.getElementById('user-name').textContent = user.name || 'College Administrator';
+            document.getElementById('user-avatar').textContent = (user.name || 'C')[0].toUpperCase();
+
             generateTempPassword();
         });
 
@@ -307,11 +468,67 @@
             document.getElementById('password').value = p;
         }
 
+        function toggleSameAddress(checkbox) {
+            const current = document.getElementById('current_address').value;
+            const perm = document.getElementById('permanent_address');
+            if (checkbox.checked) {
+                perm.value = current;
+                perm.readOnly = true;
+                perm.style.background = '#f8fafc';
+            } else {
+                perm.readOnly = false;
+                perm.style.background = '#ffffff';
+            }
+        }
+
+        function syncPermanentAddress() {
+            const check = document.getElementById('sync_address_check');
+            if (check && check.checked) {
+                document.getElementById('permanent_address').value = document.getElementById('current_address').value;
+            }
+        }
+
+        function onDepartmentChange() {
+            const dept = document.getElementById('department').value;
+            document.getElementById('course').value = `Bachelor of Technology in ${dept}`;
+        }
+
+        function fillSampleStudent() {
+            const rnd = Math.floor(1000 + Math.random() * 9000);
+            const hex = Math.random().toString(16).substring(2, 6).toUpperCase();
+
+            document.getElementById('name').value = `Rohit Sharma`;
+            document.getElementById('father_name').value = `Gopinath Sharma`;
+            document.getElementById('mother_name').value = `Sunita Sharma`;
+            document.getElementById('dob').value = `2004-03-25`;
+            document.getElementById('gender').value = `Male`;
+            document.getElementById('category').value = `General`;
+            document.getElementById('blood_group').value = `B+`;
+            document.getElementById('email').value = `rohit.${hex.toLowerCase()}@tint.edu.in`;
+            document.getElementById('mobile_number').value = `+91 98301 ${rnd}`;
+            document.getElementById('current_address').value = `Flat 4B, Greenfield Heights, New Town, Kolkata 700156`;
+            document.getElementById('sync_address_check').checked = true;
+            toggleSameAddress(document.getElementById('sync_address_check'));
+
+            document.getElementById('roll_number').value = `11100123${rnd}`;
+            document.getElementById('registration_number').value = `2311101${rnd}`;
+            document.getElementById('college_roll').value = `CSE-23-${hex}`;
+            document.getElementById('department').value = `Computer Science & Engineering`;
+            document.getElementById('course').value = `Bachelor of Technology in Computer Science & Engineering`;
+            document.getElementById('admission_year').value = `2023`;
+            document.getElementById('current_semester').value = `3`;
+            document.getElementById('academic_session').value = `2023-2024`;
+            document.getElementById('username').value = ``;
+            generateTempPassword();
+
+            showToast('Sample student profile filled!', 'info');
+        }
+
         async function submitStudentRegistration(e) {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
             btn.disabled = true;
-            btn.textContent = 'Registering...';
+            btn.textContent = 'Registering Student...';
 
             const payload = {
                 name: document.getElementById('name').value.trim(),
@@ -352,12 +569,12 @@
                 } else {
                     showToast(res.data.message || 'Registration failed', 'error');
                     btn.disabled = false;
-                    btn.textContent = 'Register Student & Create Account';
+                    btn.textContent = 'Register Student & Create Account \u2192';
                 }
             } catch (err) {
                 showToast('Server connection error', 'error');
                 btn.disabled = false;
-                btn.textContent = 'Register Student & Create Account';
+                btn.textContent = 'Register Student & Create Account \u2192';
             }
         }
 

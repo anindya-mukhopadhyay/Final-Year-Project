@@ -81,8 +81,16 @@
                     <h2 id="college-header-title">College Profile &amp; Audit</h2>
                     <p style="color: var(--muted); font-size: 13px;" id="college-header-sub">Detailed statistics, student population breakdown &amp; institutional records.</p>
                 </div>
-                <div style="display: flex; gap: 10px;">
+                <div class="header-actions">
                     <a href="/admin/colleges.html" class="btn btn-outline">&larr; Back to Colleges</a>
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="user-avatar">A</div>
+                        <div class="user-info-text">
+                            <span class="user-name-text" id="user-name">Super Administrator</span>
+                            <span class="user-role-label">SUPER ADMIN</span>
+                        </div>
+                        <button class="btn-logout" onclick="logoutUser()">Log Out</button>
+                    </div>
                 </div>
             </header>
 
@@ -252,6 +260,9 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const user = requireAuth(['ADMIN']);
             if (!user) return;
+
+            document.getElementById('user-name').textContent = user.name || 'Super Administrator';
+            document.getElementById('user-avatar').textContent = (user.name || 'A')[0].toUpperCase();
 
             const urlParams = new URLSearchParams(window.location.search);
             currentCollegeId = urlParams.get('id');
